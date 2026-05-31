@@ -42,6 +42,7 @@ export function SceneControls({ enableRotate = true }: SceneControlsProps) {
       maxDistance={SCENE_CONFIG.camera.maxDistance}
       target={orbitTarget}
       enableRotate={enableRotate}
+      zoomToCursor
     />
   )
 }
