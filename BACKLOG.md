@@ -386,6 +386,8 @@ R3F <Canvas> с camera={{ position: SCENE_CONFIG.camera.initialPosition, fov: SC
 
 ### TASK-009 — Хоткеи Ctrl+Z / Ctrl+Y и управление камерой
 
+> ⏸ **Отложена** — перенесена в `docs/TODO.md` для доработки промпта и уточнения скоупа.
+
 **Промпт для Claude Code:**
 ```
 Создай хук для подписки на клавиши и подключи Undo/Redo.
@@ -818,7 +820,7 @@ TransformControls в 2D: ограничь режим translate только по
 | TASK-006 | Сцена | Каталог мебельных элементов | S | ✅ |
 | TASK-007 | Сцена | Layout + ScreenGuard (1024px) | S | ✅ |
 | TASK-008 | Сцена | 3D-комната и камера | M | ✅ |
-| TASK-009 | Сцена | Хоткеи (Ctrl+Z/Y, useKeyboard) | M | ⬜ |
+| TASK-009 | Сцена | Хоткеи (Ctrl+Z/Y, useKeyboard) | M | ⏸ |
 | TASK-010 | Сцена | Переключатель 2D/3D | M | ⬜ |
 | TASK-011 | Каталог | Правая панель: каталог | M | ⬜ |
 | TASK-012 | Каталог | Рендер элементов на сцене | M | ⬜ |
