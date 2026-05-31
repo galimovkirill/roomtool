@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import { TransformControls } from '@react-three/drei'
 import type { SceneItem } from '@/types'
 import { useSceneStore } from '@/store'
+import { ElementPopover } from '@/components/ui/ElementPopover'
 
 const COLORS: Record<string, string> = {
   'wardrobe-body': '#d4a853',
@@ -81,6 +82,7 @@ export function SceneElement({ item }: Props) {
             <lineBasicMaterial color="#2563eb" />
           </lineSegments>
         )}
+        {isSelected && <ElementPopover item={item} />}
       </group>
       {isSelected && (
         <TransformControls
