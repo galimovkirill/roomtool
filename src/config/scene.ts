@@ -13,4 +13,7 @@ export const SCENE_CONFIG = {
     maxDistance: 8000,
     target: [0, 0, 0] as const,
   },
+  grid: {
+    fadeDistance: 10000, // мм, на каком расстоянии линии сетки исчезают
+  },
 } as const
