@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { v4 as uuid } from 'uuid'
 import type { CatalogItem, SceneItem } from '@/types'
 import { MATERIAL_COLORS, MATERIAL_OPTIONS, type MaterialType } from '@/catalog/materials'
+import { DEFAULT_SCENE_ITEMS } from './defaultScene'
 
 type ItemPatch = Partial<Pick<SceneItem, 'position' | 'rotationY' | 'dimensions' | 'properties'>>
 
@@ -29,7 +30,7 @@ function pushHistory(state: Pick<SceneState, 'items' | 'history' | 'future'>): {
 }
 
 export const useSceneStore = create<SceneState>((set, get) => ({
-  items: [],
+  items: DEFAULT_SCENE_ITEMS,
   selectedItemId: null,
   history: [],
   future: [],
