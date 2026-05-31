@@ -9,7 +9,7 @@ export function AppLayout({ children }: Props) {
 
   return (
     <div className="h-screen w-screen overflow-hidden flex">
-      <div className="flex-1 relative bg-gray-900">{scene}</div>
+      <div className="flex-1 relative bg-gray-400">{scene}</div>
       <div className="w-80 flex flex-col border-l border-gray-200 bg-white overflow-y-auto">
         {panel}
       </div>
