@@ -827,7 +827,7 @@ function KeyboardShortcuts() {
 | TASK-012 | Каталог | Рендер элементов на сцене | M | ✅ |
 | TASK-013 | Управление | TransformControls (перемещение) | L | ✅ |
 | TASK-014 | Управление | Popover действий (поворот, удаление) | M | ✅ |
-| TASK-016 | Свойства | PropertiesPanel + PropertyField | M | ⬜ |
+| TASK-016 | Свойства | PropertiesPanel + PropertyField | M | ✅ |
 | TASK-017 | Коллизии | AABB-проверка + откат + уведомление | L | ⬜ |
 | TASK-018 | 2D-режим | Ортографическая камера + размеры | L | ⬜ |
 | TASK-019 | Полировка | Финальная проверка + README | S | ⬜ |
