@@ -39,9 +39,9 @@ export const useSceneStore = create<SceneState>((set, get) => ({
       const properties: Record<string, number | string> = {}
       for (const def of catalogItem.properties) {
         if (def.type === 'number') {
-          properties[def.key] = def.min ?? 0
+          properties[def.key] = def.default ?? def.min ?? 0
         } else {
-          properties[def.key] = def.options?.[0] ?? ''
+          properties[def.key] = def.default ?? def.options?.[0] ?? ''
         }
       }
       const newItem: SceneItem = {

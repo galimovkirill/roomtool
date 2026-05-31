@@ -1,11 +1,12 @@
 import { type RefObject, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
-import { Html, TransformControls } from '@react-three/drei'
+import { Html, TransformControls, useGLTF } from '@react-three/drei'
 import type { SceneItem } from '@/types'
 import { useSceneStore, useUIStore } from '@/store'
 import { ElementPopover } from '@/components/ui/ElementPopover'
 import { totalOverlapVolume } from '@/utils/collision'
 import { SCENE_CONFIG } from '@/config/scene'
+import { getCatalogItemById } from '@/catalog/items'
 import { toast } from 'sonner'
 
 // floating-point tolerance for overlap volume comparison (mm³)
@@ -19,6 +20,31 @@ const COLORS: Record<string, string> = {
   rod: '#C0C0C0',
   'door-swing': '#87CEEB',
   'door-slide': '#4682B4',
+}
+
+function GltfMesh({ src, dimensions }: { src: string; dimensions: SceneItem['dimensions'] }) {
+  const { scene } = useGLTF(src)
+
+  const scaled = useMemo(() => {
+    const c = scene.clone()
+    const box = new THREE.Box3().setFromObject(c)
+    const size = new THREE.Vector3()
+    box.getSize(size)
+    if (size.x > 0 && size.y > 0 && size.z > 0) {
+      const scale = Math.min(
+        dimensions.width / size.x,
+        dimensions.height / size.y,
+        dimensions.depth / size.z
+      )
+      c.scale.setScalar(scale)
+      // group is at y=height/2 in world space; offset model so bottom is at world y=0
+      const scaledBox = new THREE.Box3().setFromObject(c)
+      c.position.y -= scaledBox.min.y + dimensions.height / 2
+    }
+    return c
+  }, [scene, dimensions.width, dimensions.height, dimensions.depth])
+
+  return <primitive object={scaled} />
 }
 
 function clampToRoom(
@@ -47,6 +73,7 @@ export function SceneElement({ item }: Props) {
   const sceneMode = useUIStore((s) => s.sceneMode)
 
   const color = COLORS[item.catalogId] ?? '#cccccc'
+  const catalogItem = getCatalogItemById(item.catalogId)
 
   const edgesGeometry = useMemo(() => {
     const box = new THREE.BoxGeometry(
@@ -76,27 +103,46 @@ export function SceneElement({ item }: Props) {
   return (
     <>
       <group ref={groupRef} position={item.position} rotation={[0, item.rotationY, 0]}>
-        <mesh
-          castShadow
-          receiveShadow
-          onPointerOver={() => {
-            setHovered(true)
-            document.body.style.cursor = 'pointer'
-          }}
-          onPointerOut={() => {
-            setHovered(false)
-            document.body.style.cursor = 'auto'
-          }}
-          onClick={(e) => {
-            e.stopPropagation()
-            selectItem(item.id)
-          }}
-        >
-          <boxGeometry
-            args={[item.dimensions.width, item.dimensions.height, item.dimensions.depth]}
-          />
-          <meshStandardMaterial color={color} opacity={hovered ? 0.85 : 1} transparent={hovered} />
-        </mesh>
+        {catalogItem?.render?.type === 'gltf' ? (
+          <group
+            onPointerOver={() => {
+              setHovered(true)
+              document.body.style.cursor = 'pointer'
+            }}
+            onPointerOut={() => {
+              setHovered(false)
+              document.body.style.cursor = 'auto'
+            }}
+            onClick={(e) => {
+              e.stopPropagation()
+              selectItem(item.id)
+            }}
+          >
+            <GltfMesh src={catalogItem.render.src} dimensions={item.dimensions} />
+          </group>
+        ) : (
+          <mesh
+            castShadow
+            receiveShadow
+            onPointerOver={() => {
+              setHovered(true)
+              document.body.style.cursor = 'pointer'
+            }}
+            onPointerOut={() => {
+              setHovered(false)
+              document.body.style.cursor = 'auto'
+            }}
+            onClick={(e) => {
+              e.stopPropagation()
+              selectItem(item.id)
+            }}
+          >
+            <boxGeometry
+              args={[item.dimensions.width, item.dimensions.height, item.dimensions.depth]}
+            />
+            <meshStandardMaterial color={color} opacity={hovered ? 0.85 : 1} transparent={hovered} />
+          </mesh>
+        )}
         {isSelected && (
           <lineSegments geometry={edgesGeometry}>
             <lineBasicMaterial color="#2563eb" />

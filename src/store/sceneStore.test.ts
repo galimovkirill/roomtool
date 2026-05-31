@@ -45,6 +45,28 @@ describe('addItem', () => {
     useSceneStore.getState().addItem(cat)
     expect(useSceneStore.getState().items[0].properties.color).toBe('Белый')
   })
+
+  it('initialises number property to default when set, ignoring min', () => {
+    const cat: CatalogItem = {
+      ...TEST_ITEM,
+      properties: [
+        { key: 'scale', label: 'Размер', type: 'number', unit: '%', min: 10, max: 200, default: 100 },
+      ],
+    }
+    useSceneStore.getState().addItem(cat)
+    expect(useSceneStore.getState().items[0].properties.scale).toBe(100)
+  })
+
+  it('initialises select property to default when set, ignoring first option', () => {
+    const cat: CatalogItem = {
+      ...TEST_ITEM,
+      properties: [
+        { key: 'color', label: 'Цвет', type: 'select', options: ['Белый', 'Венге'], default: 'Венге' },
+      ],
+    }
+    useSceneStore.getState().addItem(cat)
+    expect(useSceneStore.getState().items[0].properties.color).toBe('Венге')
+  })
 })
 
 describe('removeItem', () => {

@@ -42,7 +42,7 @@ src/
 ├── types/
 │   └── index.ts          # CatalogItem, SceneItem, PropertyDef
 ├── catalog/
-│   └── items.ts          # Хардкод каталога (7 элементов, 3 категории)
+│   └── items.ts          # Хардкод каталога (8 элементов, 4 категории)
 ├── store/
 │   ├── sceneStore.ts     # items, selectedItemId, history/future, все мутации
 │   ├── uiStore.ts        # sceneMode: '2d' | '3d'
@@ -51,7 +51,7 @@ src/
 │   ├── scene/
 │   │   ├── SceneCanvas.tsx       # R3F Canvas, переключение камер
 │   │   ├── Room.tsx              # Пол + стены (размеры из config)
-│   │   ├── SceneElement.tsx      # Один элемент: mesh + TransformControls + Popover
+│   │   ├── SceneElement.tsx      # Один элемент: mesh/GLTF + TransformControls + Popover
 │   │   ├── SceneControls.tsx     # OrbitControls (forwardRef)
 │   │   └── SceneOverlay.tsx      # Кнопки 2D/3D поверх canvas
 │   ├── panels/
@@ -144,7 +144,7 @@ toast.warning('Элементы не могут пересекаться')
 
 ## Каталог элементов
 
-Три категории, 7 элементов. Добавлять новые — в `src/catalog/items.ts`.
+Четыре категории, 8 элементов. Добавлять новые — в `src/catalog/items.ts`.
 
 | Категория | id | Размеры (мм) |
 |-----------|-----|-------------|
@@ -155,6 +155,18 @@ toast.warning('Элементы не могут пересекаться')
 | Наполнение | `rod` | 878 × 30 × 30 |
 | Двери | `door-swing` | 450 × 2200 × 22 |
 | Двери | `door-slide` | 900 × 2200 × 60 |
+| Декорации | `house-plant-1` | 600 × 1200 × 600 (bounding box по умолчанию, 100%) |
+
+### GLTF-элементы (категория «Декорации»)
+
+Элементы с `render: { type: 'gltf'; src: string }` рендерятся через `useGLTF` + `<primitive>` вместо `BoxGeometry`.
+GLB-файлы хранятся в `public/models/`.
+
+Масштабирование: модель равномерно масштабируется, чтобы вписаться в `defaultDimensions * (scale/100)`.
+В PropertiesPanel такие элементы показывают ползунок **Размер (%)** вместо отдельных W/H/D полей.
+При изменении scale пересчитываются `dimensions` в SceneItem — AABB-коллизия работает корректно.
+
+⚠️ Масштабирование равномерное (`Math.min` по трём осям) — модель сохраняет пропорции, но может не заполнять весь bounding box.
 
 ---
 

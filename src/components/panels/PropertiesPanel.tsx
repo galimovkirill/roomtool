@@ -16,19 +16,62 @@ export function PropertiesPanel({ itemId }: PropertiesPanelProps) {
 
   if (!item || !catalogItem) return null
 
+  const isGltf = catalogItem.render?.type === 'gltf'
+
+  const header = (
+    <div className="flex items-center justify-between px-4 py-3 border-b">
+      <span className="font-semibold">{item.name}</span>
+      <button
+        onClick={() => selectItem(null)}
+        title="Закрыть"
+        aria-label="Закрыть панель"
+        className="text-gray-400 hover:text-gray-600 transition-colors"
+      >
+        ✕
+      </button>
+    </div>
+  )
+
+  if (isGltf) {
+    const scale = typeof item.properties.scale === 'number' ? item.properties.scale : 100
+    return (
+      <div className="overflow-y-auto h-full">
+        {header}
+        <div className="px-4 py-3 flex flex-col gap-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Размер</p>
+          {catalogItem.properties.map((def) => (
+            <PropertyField
+              key={def.key}
+              def={def}
+              value={def.key === 'scale' ? scale : (item.properties[def.key] ?? (def.type === 'number' ? 0 : ''))}
+              onChange={(v) => {
+                if (def.key !== 'scale' || typeof v !== 'number') {
+                  updateItem(item.id, { properties: { ...item.properties, [def.key]: v } })
+                  return
+                }
+                const { width, height, depth } = catalogItem.defaultDimensions
+                const factor = v / 100
+                const newDims = {
+                  width: width * factor,
+                  height: height * factor,
+                  depth: depth * factor,
+                }
+                updateItem(item.id, {
+                  properties: { ...item.properties, scale: v },
+                  dimensions: newDims,
+                  position: [item.position[0], newDims.height / 2, item.position[2]],
+                })
+              }}
+            />
+          ))}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="overflow-y-auto h-full">
-      <div className="flex items-center justify-between px-4 py-3 border-b">
-        <span className="font-semibold">{item.name}</span>
-        <button
-          onClick={() => selectItem(null)}
-          title="Закрыть"
-          aria-label="Закрыть панель"
-          className="text-gray-400 hover:text-gray-600 transition-colors"
-        >
-          ✕
-        </button>
-      </div>
+      {header}
 
       <div className="px-4 py-3 border-b flex flex-col gap-3">
         <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Размеры</p>

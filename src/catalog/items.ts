@@ -69,6 +69,16 @@ export const CATALOG_ITEMS: CatalogItem[] = [
     defaultDimensions: { width: 900, height: 2200, depth: 60 },
     properties: [{ key: 'panels', label: 'Количество панелей', type: 'number', min: 2, max: 4 }],
   },
+  {
+    id: 'house-plant-1',
+    name: 'Комнатный цветок',
+    category: 'Декорации',
+    defaultDimensions: { width: 600, height: 1200, depth: 600 },
+    properties: [
+      { key: 'scale', label: 'Размер', type: 'number', unit: '%', min: 10, max: 200, default: 100 },
+    ],
+    render: { type: 'gltf', src: '/models/house_plant_1.glb' },
+  },
 ]
 
 export function getCatalogItemById(id: string): CatalogItem | undefined {

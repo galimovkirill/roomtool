@@ -2,16 +2,17 @@ import { describe, expect, it } from 'vitest'
 import { CATALOG_ITEMS, getCatalogByCategory, getCatalogItemById } from './items'
 
 describe('getCatalogByCategory', () => {
-  it('returns exactly 3 categories', () => {
+  it('returns exactly 4 categories', () => {
     const byCategory = getCatalogByCategory()
-    expect(Object.keys(byCategory)).toHaveLength(3)
+    expect(Object.keys(byCategory)).toHaveLength(4)
   })
 
-  it('contains Корпуса, Наполнение, Двери', () => {
+  it('contains Корпуса, Наполнение, Двери, Декорации', () => {
     const byCategory = getCatalogByCategory()
     expect(byCategory).toHaveProperty('Корпуса')
     expect(byCategory).toHaveProperty('Наполнение')
     expect(byCategory).toHaveProperty('Двери')
+    expect(byCategory).toHaveProperty('Декорации')
   })
 
   it('Корпуса has 2 items', () => {

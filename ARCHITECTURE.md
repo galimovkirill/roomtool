@@ -128,6 +128,7 @@ interface CatalogItem {
   category: string
   defaultDimensions: { width: number; height: number; depth: number }  // мм
   properties: PropertyDef[]
+  render?: { type: 'gltf'; src: string }  // если задан — рендерится GLTF-моделью (src относительно /public)
 }
 
 interface PropertyDef {
@@ -137,6 +138,7 @@ interface PropertyDef {
   unit?: string
   min?: number
   max?: number
+  default?: number | string  // начальное значение; если не задан — используется min (number) или options[0] (select)
   options?: string[]
 }
 
@@ -196,7 +198,7 @@ main.tsx
 
 ## 5. Каталог элементов
 
-Хардкод в `src/catalog/items.ts`. Три категории, 7 элементов — достаточно для сборки шкафов разной сложности.
+Хардкод в `src/catalog/items.ts`. Четыре категории, 8 элементов.
 
 ### Категория «Корпуса»
 
@@ -220,7 +222,16 @@ main.tsx
 | Дверь распашная | 450 × 2200 × 22 | открывание (Влево / Вправо) |
 | Дверь-купе | 900 × 2200 × 60 | количество панелей 2–4 |
 
-Цвета элементов по категориям в 3D: корпуса — `#d4a853`, наполнение — `#c49a3c`, двери — `#87CEEB`.
+### Категория «Декорации»
+
+| Элемент | Размеры bounding box по умолчанию (мм) | Параметры |
+|---------|----------------------------------------|-----------|
+| Комнатный цветок | 600 × 1200 × 600 | scale 10–200%, default 100% |
+
+Элементы этой категории рендерятся через GLTF-модели (поле `render.type === 'gltf'`).
+GLB-файлы хранятся в `public/models/`. В PropertiesPanel вместо W/H/D — единый ползунок **Размер (%)**.
+
+Цвета мебельных элементов в 3D (BoxGeometry): корпуса — `#d4a853`, наполнение — `#c49a3c`, двери — `#87CEEB`.
 
 ---
 
@@ -285,7 +296,9 @@ function hasCollision(movedItem: SceneItem, allItems: SceneItem[]): boolean {
 
 ### Геометрия элементов
 
-MVP: все элементы — `BoxGeometry(width, height, depth)`. `MeshStandardMaterial` с цветом по категории. Позиция `y = height / 2` — элемент стоит на полу.
+По умолчанию все элементы — `BoxGeometry(width, height, depth)` + `MeshStandardMaterial` с цветом по категории. Позиция `y = height / 2` — элемент стоит на полу.
+
+Если в `CatalogItem` задано поле `render: { type: 'gltf'; src }`, элемент рендерится через внутренний компонент `GltfMesh` (`useGLTF` + `<primitive>`). Модель равномерно масштабируется так, чтобы её bounding box вписался в `dimensions` (`Math.min` по трём осям — пропорции сохраняются). Y-позиция корректируется так, чтобы нижняя точка модели совпадала с полом (y = 0).
 
 ### Режим 2D
 
@@ -321,5 +334,5 @@ MVP: все элементы — `BoxGeometry(width, height, depth)`. `MeshStand
 - Смена текстур
 - Скрытие элементов (только удаление)
 - Сохранение сцены между сессиями (при перезагрузке сцена сбрасывается)
-- Импорт/экспорт 3D-моделей (OBJ/GLTF)
+- Импорт/экспорт 3D-моделей пользователем (OBJ/GLTF через UI)
 - Множественный выбор элементов

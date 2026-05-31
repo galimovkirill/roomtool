@@ -5,6 +5,7 @@ export interface PropertyDef {
   unit?: string
   min?: number
   max?: number
+  default?: number | string
   options?: string[]
 }
 
@@ -14,6 +15,7 @@ export interface CatalogItem {
   category: string
   defaultDimensions: { width: number; height: number; depth: number }
   properties: PropertyDef[]
+  render?: { type: 'gltf'; src: string }
 }
 
 export interface SceneItem {
