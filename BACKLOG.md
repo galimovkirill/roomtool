@@ -384,44 +384,6 @@ R3F <Canvas> с camera={{ position: SCENE_CONFIG.camera.initialPosition, fov: SC
 
 ---
 
-### TASK-009 — Хоткеи Ctrl+Z / Ctrl+Y и управление камерой
-
-> ⏸ **Отложена** — перенесена в `docs/TODO.md` для доработки промпта и уточнения скоупа.
-
-**Промпт для Claude Code:**
-```
-Создай хук для подписки на клавиши и подключи Undo/Redo.
-
-Создай src/hooks/useKeyboard.ts:
-Хук принимает handlers: Record<string, (e: KeyboardEvent) => void>.
-Подписывается на keydown через useEffect, корректно отписывается при unmount.
-Ключи в handlers — строки формата 'key' или 'ctrl+key' или 'ctrl+shift+key'.
-Хук сам собирает модификаторы из e.ctrlKey, e.metaKey, e.shiftKey.
-
-Пример использования:
-useKeyboard({
-  'ctrl+z': () => undo(),
-  'ctrl+y': () => redo(),
-})
-
-В src/main.tsx создай компонент KeyboardShortcuts и добавь его внутрь <React.StrictMode>:
-function KeyboardShortcuts() {
-  useKeyboard({
-    'ctrl+z': () => useSceneStore.getState().undo(),
-    'ctrl+y': () => useSceneStore.getState().redo(),
-  })
-  return null
-}
-Используй getState() чтобы не создавать лишних подписок на рендер.
-
-Напиши тест для useKeyboard:
-- коллбек вызывается при нажатии нужной клавиши
-- коллбек не вызывается при нажатии другой клавиши
-- коллбек для 'ctrl+z' не вызывается при нажатии 'z' без ctrl
-```
-
----
-
 ### TASK-010 — Переключатель режимов 2D/3D
 
 **Промпт для Claude Code:**
@@ -613,28 +575,6 @@ distanceFactor={200}.
 
 ---
 
-### TASK-015 — Undo/Redo через Ctrl+Z / Ctrl+Y
-
-**Промпт для Claude Code:**
-```
-Подключи Undo/Redo к горячим клавишам и убедись что история работает корректно.
-
-Компонент KeyboardShortcuts уже создан в TASK-009 и живёт в src/main.tsx.
-Убедись что он там есть и содержит:
-- 'ctrl+z' → useSceneStore.getState().undo()
-- 'ctrl+y' → useSceneStore.getState().redo()
-
-Добавь визуальную подсказку в UI: в правой панели под заголовком мелким текстом
-"Ctrl+Z — отмена  ·  Ctrl+Y — повтор" (text-xs text-gray-400 px-4 pb-2).
-
-Напиши интеграционный тест:
-- Добавь элемент → undo → items пустой
-- Добавь элемент → undo → redo → items содержит элемент
-- 5 действий → 5 undo → items пустой → 5 redo → items содержит все 5 элементов
-```
-
----
-
 ## ФАЗА 5 — Свойства элементов
 
 ### TASK-016 — Панель свойств выбранного элемента
@@ -808,6 +748,68 @@ TransformControls в 2D: ограничь режим translate только по
 
 ---
 
+## ФАЗА 9 — Хоткеи
+
+### TASK-009 — Хоткеи Ctrl+Z / Ctrl+Y (useKeyboard)
+
+**Промпт для Claude Code:**
+```
+Создай хук для подписки на клавиши и подключи Undo/Redo.
+
+Создай src/hooks/useKeyboard.ts:
+Хук принимает handlers: Record<string, (e: KeyboardEvent) => void>.
+Подписывается на keydown через useEffect, корректно отписывается при unmount.
+Ключи в handlers — строки формата 'key' или 'ctrl+key' или 'ctrl+shift+key'.
+Хук сам собирает модификаторы из e.ctrlKey, e.metaKey, e.shiftKey.
+Кросс-платформенное правило: префикс 'ctrl' считается совпадением при e.ctrlKey === true ИЛИ e.metaKey === true.
+Это позволяет одному хэндлеру 'ctrl+z' работать и на Windows/Linux (Ctrl+Z), и на macOS (Cmd+Z) без дублирования.
+
+Пример использования:
+useKeyboard({
+  'ctrl+z': () => undo(),
+  'ctrl+y': () => redo(),
+})
+
+В src/main.tsx создай компонент KeyboardShortcuts и добавь его внутрь <React.StrictMode>:
+function KeyboardShortcuts() {
+  useKeyboard({
+    'ctrl+z': () => useSceneStore.getState().undo(),
+    'ctrl+y': () => useSceneStore.getState().redo(),
+  })
+  return null
+}
+Используй getState() чтобы не создавать лишних подписок на рендер.
+
+Напиши тест для useKeyboard:
+- коллбек вызывается при нажатии нужной клавиши
+- коллбек не вызывается при нажатии другой клавиши
+- коллбек для 'ctrl+z' не вызывается при нажатии 'z' без ctrl
+```
+
+---
+
+### TASK-015 — Undo/Redo через Ctrl+Z / Ctrl+Y
+
+**Промпт для Claude Code:**
+```
+Подключи Undo/Redo к горячим клавишам и убедись что история работает корректно.
+
+Компонент KeyboardShortcuts уже создан в TASK-009 и живёт в src/main.tsx.
+Убедись что он там есть и содержит:
+- 'ctrl+z' → useSceneStore.getState().undo()
+- 'ctrl+y' → useSceneStore.getState().redo()
+
+Добавь визуальную подсказку в UI: в правой панели под заголовком мелким текстом
+"Ctrl+Z — отмена  ·  Ctrl+Y — повтор" (text-xs text-gray-400 px-4 pb-2).
+
+Напиши интеграционный тест:
+- Добавь элемент → undo → items пустой
+- Добавь элемент → undo → redo → items содержит элемент
+- 5 действий → 5 undo → items пустой → 5 redo → items содержит все 5 элементов
+```
+
+---
+
 ## Сводная таблица задач
 
 | ID | Фаза | Задача | Сложность | Статус |
@@ -820,17 +822,17 @@ TransformControls в 2D: ограничь режим translate только по
 | TASK-006 | Сцена | Каталог мебельных элементов | S | ✅ |
 | TASK-007 | Сцена | Layout + ScreenGuard (1024px) | S | ✅ |
 | TASK-008 | Сцена | 3D-комната и камера | M | ✅ |
-| TASK-009 | Сцена | Хоткеи (Ctrl+Z/Y, useKeyboard) | M | ⏸ |
 | TASK-010 | Сцена | Переключатель 2D/3D | M | ✅ |
 | TASK-011 | Каталог | Правая панель: каталог | M | ✅ |
 | TASK-012 | Каталог | Рендер элементов на сцене | M | ✅ |
 | TASK-013 | Управление | TransformControls (перемещение) | L | ✅ |
 | TASK-014 | Управление | Popover действий (поворот, удаление) | M | ✅ |
-| TASK-015 | Управление | Подключение Undo/Redo к хоткеям | S | ⬜ |
 | TASK-016 | Свойства | PropertiesPanel + PropertyField | M | ⬜ |
 | TASK-017 | Коллизии | AABB-проверка + откат + уведомление | L | ⬜ |
 | TASK-018 | 2D-режим | Ортографическая камера + размеры | L | ⬜ |
 | TASK-019 | Полировка | Финальная проверка + README | S | ⬜ |
+| TASK-009 | Хоткеи | Хоткеи (Ctrl+Z/Y, useKeyboard) | M | ⬜ |
+| TASK-015 | Хоткеи | Подключение Undo/Redo к хоткеям | S | ⬜ |
 
 **S** = ~30–60 мин · **M** = ~1–2 ч · **L** = ~2–4 ч  
 Общая оценка: **~2–2.5 недели** при разработке через Claude Code.
