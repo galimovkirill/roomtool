@@ -5,13 +5,14 @@ import './index.css'
 import { AppLayout } from '@/components/ui/AppLayout'
 import { ScreenGuard } from '@/components/ui/ScreenGuard'
 import { SceneCanvas } from '@/components/scene/SceneCanvas'
+import { RightPanel } from '@/components/panels/RightPanel'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ScreenGuard>
       <AppLayout>
         <SceneCanvas />
-        <div className="p-4">Панель (заглушка)</div>
+        <RightPanel />
       </AppLayout>
       <Toaster position="bottom-right" />
     </ScreenGuard>
