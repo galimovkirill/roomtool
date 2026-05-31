@@ -4,6 +4,11 @@ import { TransformControls } from '@react-three/drei'
 import type { SceneItem } from '@/types'
 import { useSceneStore } from '@/store'
 import { ElementPopover } from '@/components/ui/ElementPopover'
+import { totalOverlapVolume } from '@/utils/collision'
+import { SCENE_CONFIG } from '@/config/scene'
+
+// floating-point tolerance for overlap volume comparison (mm³)
+const OVERLAP_TOLERANCE = 1
 
 const COLORS: Record<string, string> = {
   'wardrobe-body': '#d4a853',
@@ -15,6 +20,18 @@ const COLORS: Record<string, string> = {
   'door-slide': '#4682B4',
 }
 
+function clampToRoom(
+  pos: THREE.Vector3,
+  dims: { width: number; height: number; depth: number }
+): [number, number, number] {
+  const { width: roomW, depth: roomD, height: roomH } = SCENE_CONFIG.room
+  return [
+    Math.min(roomW / 2 - dims.width / 2, Math.max(-roomW / 2 + dims.width / 2, pos.x)),
+    Math.min(roomH - dims.height / 2, Math.max(dims.height / 2, pos.y)),
+    Math.min(roomD / 2 - dims.depth / 2, Math.max(-roomD / 2 + dims.depth / 2, pos.z)),
+  ]
+}
+
 interface Props {
   item: SceneItem
 }
@@ -22,6 +39,7 @@ interface Props {
 export function SceneElement({ item }: Props) {
   const [hovered, setHovered] = useState(false)
   const groupRef = useRef<THREE.Group>(null)
+  const lastFramePos = useRef<[number, number, number]>(item.position)
   const isSelected = useSceneStore((s) => s.selectedItemId === item.id)
   const selectItem = useSceneStore((s) => s.selectItem)
   const updateItem = useSceneStore((s) => s.updateItem)
@@ -88,21 +106,35 @@ export function SceneElement({ item }: Props) {
         <TransformControls
           object={groupRef as RefObject<THREE.Object3D>}
           mode="translate"
-          onMouseDown={() => window.dispatchEvent(new CustomEvent('transform-start'))}
+          onMouseDown={() => {
+            if (groupRef.current)
+              lastFramePos.current = groupRef.current.position.toArray() as [number, number, number]
+            window.dispatchEvent(new CustomEvent('transform-start'))
+          }}
           onMouseUp={() => {
             window.dispatchEvent(new CustomEvent('transform-end'))
             if (!groupRef.current) return
-            const pos = groupRef.current.position
-            const clampedY = Math.max(item.dimensions.height / 2, pos.y)
-            if (clampedY !== pos.y) groupRef.current.position.setY(clampedY)
-            updateItem(item.id, { position: [pos.x, clampedY, pos.z] })
+            const clamped = clampToRoom(groupRef.current.position, item.dimensions)
+            groupRef.current.position.set(...clamped)
+            const [lx, ly, lz] = lastFramePos.current
+            if (clamped[0] !== lx || clamped[1] !== ly || clamped[2] !== lz)
+              updateItem(item.id, { position: clamped })
           }}
           onChange={() => {
-            // Clamp Y on Three.js object during drag without touching the store
             if (!groupRef.current) return
-            const pos = groupRef.current.position
-            const clampedY = Math.max(item.dimensions.height / 2, pos.y)
-            if (clampedY !== pos.y) groupRef.current.position.setY(clampedY)
+            const clamped = clampToRoom(groupRef.current.position, item.dimensions)
+            const allItems = useSceneStore.getState().items
+            const newOverlap = totalOverlapVolume({ ...item, position: clamped }, allItems)
+            const curOverlap = totalOverlapVolume(
+              { ...item, position: lastFramePos.current },
+              allItems
+            )
+            if (newOverlap > curOverlap + OVERLAP_TOLERANCE) {
+              groupRef.current.position.set(...lastFramePos.current)
+            } else {
+              lastFramePos.current = clamped
+              groupRef.current.position.set(...clamped)
+            }
           }}
         />
       )}
