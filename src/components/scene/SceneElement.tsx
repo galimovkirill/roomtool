@@ -40,6 +40,13 @@ export function SceneElement({ item }: Props) {
 
   useEffect(
     () => () => {
+      document.body.style.cursor = 'auto'
+    },
+    []
+  )
+
+  useEffect(
+    () => () => {
       edgesGeometry.dispose()
     },
     [edgesGeometry]
