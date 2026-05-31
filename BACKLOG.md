@@ -810,6 +810,301 @@ function KeyboardShortcuts() {
 
 ---
 
+---
+
+## ФАЗА 10 — Перепроектирование каталога
+
+### TASK-020 — Каталог деталей шкафа + система материалов и цветов
+
+**Промпт для Claude Code:**
+```
+Перепроектируй каталог: замени готовые шкафы на отдельные детали, из которых пользователь сам собирает шкаф.
+Все размеры деталей редактируемы — нет фиксированных значений, только умолчания.
+
+---
+
+### 1. Обнови src/types/index.ts
+
+Расширь PropertyDef двумя новыми типами и полем dependsOnMaterial:
+
+```typescript
+interface PropertyDef {
+  key: string
+  label: string
+  type: 'number' | 'select' | 'material' | 'color'
+  unit?: string
+  min?: number
+  max?: number
+  options?: { label: string; value: string }[]
+  dependsOnMaterial?: string  // только для type === 'color': ключ поля материала в properties
+}
+```
+
+---
+
+### 2. Создай src/catalog/materials.ts
+
+```typescript
+export const MATERIAL_OPTIONS = ['ЛДСП', 'МДФ', 'Массив', 'ДВП', 'Стекло', 'Металл'] as const
+export type MaterialType = (typeof MATERIAL_OPTIONS)[number]
+
+export const MATERIAL_COLORS: Record<MaterialType, { label: string; value: string }[]> = {
+  'ЛДСП': [
+    { label: 'Белый',      value: '#F5F5F0' },
+    { label: 'Серый',      value: '#9E9E9E' },
+    { label: 'Бетон',      value: '#8A8A8A' },
+    { label: 'Дуб сонома', value: '#C8A97E' },
+    { label: 'Венге',      value: '#3D2314' },
+  ],
+  'МДФ': [
+    { label: 'Белый',  value: '#F5F5F0' },
+    { label: 'Серый',  value: '#9E9E9E' },
+    { label: 'Чёрный', value: '#1A1A1A' },
+  ],
+  'Массив': [
+    { label: 'Сосна', value: '#D4A853' },
+    { label: 'Дуб',   value: '#A0784A' },
+    { label: 'Бук',   value: '#C4965A' },
+    { label: 'Орех',  value: '#5C3D2E' },
+  ],
+  'ДВП': [
+    { label: 'Белый', value: '#F5F5F0' },
+    { label: 'Серый', value: '#B0B0B0' },
+  ],
+  'Стекло': [
+    { label: 'Прозрачное',   value: '#ADD8E6' },
+    { label: 'Матовое',      value: '#E0F0F8' },
+    { label: 'Зеркало',      value: '#C8D8E0' },
+    { label: 'Тонированное', value: '#6B8FA0' },
+  ],
+  'Металл': [
+    { label: 'Хром',          value: '#C0C0C0' },
+    { label: 'Матовый никель',value: '#A8A8A0' },
+    { label: 'Чёрный',        value: '#1A1A1A' },
+    { label: 'Золото',        value: '#CFB53B' },
+  ],
+}
+```
+
+---
+
+### 3. Перепиши src/catalog/items.ts
+
+Удали старые элементы: wardrobe-body, wardrobe-narrow, shelf (старый), drawer, rod, door-swing, door-slide.
+Оставь house-plant-1 без изменений.
+
+Для краткости: `matProps` и `matColorProps` — вспомогательные массивы:
+```typescript
+const matProps: PropertyDef[] = [
+  { key: 'material', label: 'Материал', type: 'material' },
+  { key: 'color',    label: 'Цвет',     type: 'color', dependsOnMaterial: 'material' },
+]
+```
+
+**Категория "Корпус"** — 4 детали:
+
+{ id: 'side-panel',    name: 'Боковая панель',  defaultDimensions: { width: 16,  height: 2200, depth: 600 }, properties: matProps }
+{ id: 'top-panel',     name: 'Верхняя панель',  defaultDimensions: { width: 868, height: 16,   depth: 600 }, properties: matProps }
+{ id: 'bottom-panel',  name: 'Нижняя панель',   defaultDimensions: { width: 868, height: 16,   depth: 600 }, properties: matProps }
+{ id: 'back-panel',    name: 'Задняя стенка',   defaultDimensions: { width: 900, height: 2200, depth: 8   },
+  properties: [
+    { key: 'material', label: 'Материал', type: 'select',
+      options: [{ label: 'ДВП', value: 'ДВП' }, { label: 'ЛДСП', value: 'ЛДСП' }] },
+    { key: 'color', label: 'Цвет', type: 'color', dependsOnMaterial: 'material' },
+  ] }
+
+**Категория "Наполнение"** — 5 деталей:
+
+{ id: 'shelf',           name: 'Полка',                  defaultDimensions: { width: 860, height: 16,  depth: 560 }, properties: matProps }
+{ id: 'divider-vertical',name: 'Вертикальный разделитель',defaultDimensions: { width: 16,  height: 2168,depth: 560 }, properties: matProps }
+
+{ id: 'hanging-rod', name: 'Штанга', defaultDimensions: { width: 860, height: 25, depth: 25 },
+  properties: [
+    { key: 'material', label: 'Материал', type: 'select', options: [{ label: 'Металл', value: 'Металл' }] },
+    { key: 'color',    label: 'Финиш',    type: 'color', dependsOnMaterial: 'material' },
+  ] }
+
+{ id: 'drawer-box', name: 'Корпус ящика', defaultDimensions: { width: 860, height: 180, depth: 500 },
+  properties: [
+    ...matProps,
+    { key: 'slides', label: 'Направляющие', type: 'select',
+      options: [
+        { label: 'Роликовые',   value: 'roller' },
+        { label: 'Шариковые',   value: 'ball'   },
+        { label: 'Push-to-open',value: 'push'   },
+      ] },
+  ] }
+
+{ id: 'trouser-rack', name: 'Брючница', defaultDimensions: { width: 860, height: 50, depth: 300 },
+  properties: [
+    { key: 'material', label: 'Материал', type: 'select', options: [{ label: 'Металл', value: 'Металл' }] },
+    { key: 'color',    label: 'Финиш',    type: 'color', dependsOnMaterial: 'material' },
+  ] }
+
+**Категория "Двери и фасады"** — 3 детали:
+
+{ id: 'door-hinged', name: 'Дверь распашная', defaultDimensions: { width: 450, height: 2200, depth: 18 },
+  properties: [
+    { key: 'material', label: 'Материал', type: 'select',
+      options: [{ label: 'ЛДСП', value: 'ЛДСП' }, { label: 'МДФ', value: 'МДФ' }, { label: 'Стекло', value: 'Стекло' }] },
+    { key: 'color',    label: 'Цвет',     type: 'color', dependsOnMaterial: 'material' },
+    { key: 'opening',  label: 'Открывание', type: 'select',
+      options: [{ label: 'Влево', value: 'left' }, { label: 'Вправо', value: 'right' }] },
+  ] }
+
+{ id: 'door-sliding', name: 'Дверь раздвижная', defaultDimensions: { width: 900, height: 2200, depth: 22 },
+  properties: [
+    { key: 'material', label: 'Материал', type: 'select',
+      options: [{ label: 'ЛДСП', value: 'ЛДСП' }, { label: 'Стекло', value: 'Стекло' }] },
+    { key: 'color', label: 'Цвет', type: 'color', dependsOnMaterial: 'material' },
+  ] }
+
+{ id: 'drawer-front', name: 'Фасад ящика', defaultDimensions: { width: 860, height: 196, depth: 18 }, properties: matProps }
+
+**Категория "Основание"** — 3 детали:
+
+{ id: 'plinth',  name: 'Цоколь',  defaultDimensions: { width: 900, height: 100, depth: 16 }, properties: matProps }
+{ id: 'cornice', name: 'Карниз',  defaultDimensions: { width: 900, height: 60,  depth: 60 }, properties: matProps }
+
+{ id: 'leg', name: 'Ножка', defaultDimensions: { width: 30, height: 100, depth: 30 },
+  properties: [
+    { key: 'material', label: 'Материал', type: 'select',
+      options: [{ label: 'Пластик', value: 'plastic' }, { label: 'Металл', value: 'Металл' }] },
+    { key: 'color', label: 'Цвет', type: 'color', dependsOnMaterial: 'material' },
+  ] }
+
+**Категория "Фурнитура"** — 3 детали:
+
+{ id: 'handle-bar', name: 'Ручка-скоба', defaultDimensions: { width: 128, height: 12, depth: 30 },
+  properties: [
+    { key: 'spacing', label: 'Межосевое', type: 'select',
+      options: [
+        { label: '96 мм',  value: '96'  },
+        { label: '128 мм', value: '128' },
+        { label: '160 мм', value: '160' },
+        { label: '224 мм', value: '224' },
+      ] },
+    { key: 'material', label: 'Материал', type: 'select', options: [{ label: 'Металл', value: 'Металл' }] },
+    { key: 'color',    label: 'Финиш',    type: 'color', dependsOnMaterial: 'material' },
+  ] }
+
+{ id: 'handle-knob', name: 'Ручка-кнопка', defaultDimensions: { width: 30, height: 30, depth: 25 },
+  properties: [
+    { key: 'material', label: 'Материал', type: 'select', options: [{ label: 'Металл', value: 'Металл' }] },
+    { key: 'color',    label: 'Финиш',    type: 'color', dependsOnMaterial: 'material' },
+  ] }
+
+{ id: 'hinge', name: 'Петля', defaultDimensions: { width: 35, height: 13, depth: 50 },
+  properties: [
+    { key: 'angle', label: 'Угол', type: 'select',
+      options: [{ label: '90°', value: '90' }, { label: '110°', value: '110' }, { label: '170°', value: '170' }] },
+    { key: 'mount', label: 'Монтаж', type: 'select',
+      options: [
+        { label: 'Накладная',     value: 'overlay' },
+        { label: 'Полунакладная', value: 'half'    },
+        { label: 'Внутренняя',    value: 'inset'   },
+      ] },
+  ] }
+
+---
+
+### 4. Обнови src/components/panels/PropertyField.tsx
+
+Добавь два новых рендера. Компонент получает новый необязательный проп:
+`allProperties?: Record<string, string | number>` — для определения активного материала.
+
+**type === 'material'**:
+Рендери как стандартный `<select>`. Опции берутся из `def.options` (переданы в CatalogItem).
+Если `def.options` пуст — берётся весь MATERIAL_OPTIONS из materials.ts.
+
+**type === 'color'**:
+```typescript
+const materialKey = def.dependsOnMaterial ?? 'material'
+const currentMaterial = allProperties?.[materialKey] as string | undefined
+const colorOptions = currentMaterial ? (MATERIAL_COLORS[currentMaterial as MaterialType] ?? []) : []
+
+// Рендер: flex flex-wrap gap-1.5 mt-1
+// Каждый кружок: w-6 h-6 rounded-full border-2 cursor-pointer transition-all
+// Активный: border-blue-600 scale-110, неактивный: border-transparent hover:border-gray-400
+// title={opt.label}, style={{ backgroundColor: opt.value }}
+// Если colorOptions пустой — не рендерить ничего
+```
+
+---
+
+### 5. Обнови src/components/panels/PropertiesPanel.tsx
+
+Пробрасывай `allProperties={item.properties}` в каждый `<PropertyField />`.
+
+При изменении поля с `type === 'material'` — одновременно сбрасывай цвет на первый цвет нового материала:
+```typescript
+const handleChange = (def: PropertyDef, v: string | number) => {
+  if (def.type === 'material') {
+    const firstColor = MATERIAL_COLORS[v as MaterialType]?.[0]?.value ?? ''
+    updateItem(id, { properties: { ...item.properties, [def.key]: v, color: firstColor } })
+  } else {
+    updateItem(id, { properties: { ...item.properties, [def.key]: v } })
+  }
+}
+```
+
+---
+
+### 6. Обнови src/components/scene/SceneElement.tsx
+
+Для всех деталей, кроме GLTF, цвет берётся из item.properties.color:
+```typescript
+const propColor = item.properties?.color as string | undefined
+const color = propColor?.startsWith('#') ? propColor : (COLORS[item.catalogId] ?? '#cccccc')
+```
+
+Для стекла добавь прозрачность:
+```typescript
+const isGlass = item.properties?.material === 'Стекло'
+// <meshStandardMaterial color={color} opacity={isGlass ? 0.4 : 1} transparent={isGlass} />
+```
+
+Удали из COLORS старые ключи (wardrobe-body, wardrobe-narrow, drawer, rod, door-swing, door-slide).
+Оставь fallback цвет '#cccccc' для неизвестных деталей.
+
+---
+
+### 7. Обнови sceneStore.ts — инициализация properties
+
+В `addItem`: при инициализации properties для `type === 'material'` бери первый `def.options[0].value`.
+Для `type === 'color'` — найди соответствующий материал и бери `MATERIAL_COLORS[material][0].value`.
+
+---
+
+### 8. Обнови тесты
+
+**src/catalog/items.test.ts**:
+- getCatalogByCategory возвращает 6 категорий: 'Корпус', 'Наполнение', 'Двери и фасады', 'Основание', 'Фурнитура', 'Декорации'
+- house-plant-1 остался в категории 'Декорации'
+- Все items имеют непустые id, name, category и defaultDimensions
+- getCatalogItemById('side-panel') возвращает нужный элемент
+
+**src/store/sceneStore.test.ts**:
+Замени тестовый CatalogItem на side-panel:
+{ id: 'side-panel', name: 'Боковая панель', category: 'Корпус',
+  defaultDimensions: { width: 16, height: 2200, depth: 600 }, properties: [] }
+
+---
+
+### Проверь в браузере (Playwright):
+
+- Каталог показывает 6 категорий, ~19 деталей
+- Добавление "Боковой панели" → тонкая вертикальная панель появляется в центре сцены
+- PropertiesPanel: все три поля размеров (ширина/высота/глубина) редактируемы
+- Выбор материала → список цветов перестраивается, первый цвет выбирается автоматически
+- Клик по кружку цвета → деталь в 3D меняет цвет немедленно
+- Добавление "Стекло" как материал двери → деталь становится полупрозрачной
+- house-plant-1 работает как прежде (GLTF, ползунок %)
+- Undo/Redo работает для всех операций
+```
+
+---
+
 ## Сводная таблица задач
 
 | ID | Фаза | Задача | Сложность | Статус |
@@ -833,6 +1128,7 @@ function KeyboardShortcuts() {
 | TASK-019 | Полировка | Финальная проверка + README | S | ⬜ |
 | TASK-009 | Хоткеи | Хоткеи (Ctrl+Z/Y, useKeyboard) | M | ⬜ |
 | TASK-015 | Хоткеи | Подключение Undo/Redo к хоткеям | S | ⬜ |
+| TASK-020 | Каталог | Перепроектирование каталога: детали шкафа + материалы и цвета | XL | ✅ |
 
-**S** = ~30–60 мин · **M** = ~1–2 ч · **L** = ~2–4 ч  
-Общая оценка: **~2–2.5 недели** при разработке через Claude Code.
+**S** = ~30–60 мин · **M** = ~1–2 ч · **L** = ~2–4 ч · **XL** = ~4–8 ч  
+Общая оценка: **~2.5–3 недели** при разработке через Claude Code.

@@ -1,12 +1,13 @@
 export interface PropertyDef {
   key: string
   label: string
-  type: 'number' | 'select'
+  type: 'number' | 'select' | 'material' | 'color'
   unit?: string
   min?: number
   max?: number
   default?: number | string
-  options?: string[]
+  options?: { label: string; value: string }[]
+  dependsOnMaterial?: string
 }
 
 export interface CatalogItem {

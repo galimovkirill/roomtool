@@ -14,7 +14,11 @@ const selectDef = {
   key: 'color',
   label: 'Цвет',
   type: 'select' as const,
-  options: ['Белый', 'Венге', 'Дуб'],
+  options: [
+    { label: 'Белый', value: 'Белый' },
+    { label: 'Венге', value: 'Венге' },
+    { label: 'Дуб', value: 'Дуб' },
+  ],
 }
 
 describe('PropertyField — number', () => {

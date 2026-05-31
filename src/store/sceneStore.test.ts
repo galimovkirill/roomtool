@@ -3,10 +3,10 @@ import { useSceneStore } from './sceneStore'
 import type { CatalogItem } from '@/types'
 
 const TEST_ITEM: CatalogItem = {
-  id: 'test',
-  name: 'Тест',
-  category: 'X',
-  defaultDimensions: { width: 900, height: 2200, depth: 600 },
+  id: 'side-panel',
+  name: 'Боковая панель',
+  category: 'Корпус',
+  defaultDimensions: { width: 16, height: 2200, depth: 600 },
   properties: [],
 }
 
@@ -37,10 +37,20 @@ describe('addItem', () => {
     expect(useSceneStore.getState().items[0].properties.thickness).toBe(16)
   })
 
-  it('initialises select property to first option', () => {
+  it('initialises select property to first option value', () => {
     const cat: CatalogItem = {
       ...TEST_ITEM,
-      properties: [{ key: 'color', label: 'Цвет', type: 'select', options: ['Белый', 'Венге'] }],
+      properties: [
+        {
+          key: 'color',
+          label: 'Цвет',
+          type: 'select',
+          options: [
+            { label: 'Белый', value: 'Белый' },
+            { label: 'Венге', value: 'Венге' },
+          ],
+        },
+      ],
     }
     useSceneStore.getState().addItem(cat)
     expect(useSceneStore.getState().items[0].properties.color).toBe('Белый')
@@ -50,7 +60,15 @@ describe('addItem', () => {
     const cat: CatalogItem = {
       ...TEST_ITEM,
       properties: [
-        { key: 'scale', label: 'Размер', type: 'number', unit: '%', min: 10, max: 200, default: 100 },
+        {
+          key: 'scale',
+          label: 'Размер',
+          type: 'number',
+          unit: '%',
+          min: 10,
+          max: 200,
+          default: 100,
+        },
       ],
     }
     useSceneStore.getState().addItem(cat)
@@ -61,7 +79,16 @@ describe('addItem', () => {
     const cat: CatalogItem = {
       ...TEST_ITEM,
       properties: [
-        { key: 'color', label: 'Цвет', type: 'select', options: ['Белый', 'Венге'], default: 'Венге' },
+        {
+          key: 'color',
+          label: 'Цвет',
+          type: 'select',
+          options: [
+            { label: 'Белый', value: 'Белый' },
+            { label: 'Венге', value: 'Венге' },
+          ],
+          default: 'Венге',
+        },
       ],
     }
     useSceneStore.getState().addItem(cat)

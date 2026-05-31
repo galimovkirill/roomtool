@@ -1,6 +1,8 @@
 import { useSceneStore } from '@/store'
 import { getCatalogItemById } from '@/catalog/items'
+import { MATERIAL_COLORS, type MaterialType } from '@/catalog/materials'
 import { SCENE_CONFIG } from '@/config/scene'
+import type { PropertyDef } from '@/types'
 import { PropertyField } from './PropertyField'
 
 interface PropertiesPanelProps {
@@ -17,6 +19,15 @@ export function PropertiesPanel({ itemId }: PropertiesPanelProps) {
   if (!item || !catalogItem) return null
 
   const isGltf = catalogItem.render?.type === 'gltf'
+
+  const handleChange = (def: PropertyDef, v: string | number) => {
+    if (def.type === 'material') {
+      const firstColor = MATERIAL_COLORS[v as MaterialType]?.[0]?.value ?? ''
+      updateItem(item.id, { properties: { ...item.properties, [def.key]: v, color: firstColor } })
+    } else {
+      updateItem(item.id, { properties: { ...item.properties, [def.key]: v } })
+    }
+  }
 
   const header = (
     <div className="flex items-center justify-between px-4 py-3 border-b">
@@ -43,7 +54,11 @@ export function PropertiesPanel({ itemId }: PropertiesPanelProps) {
             <PropertyField
               key={def.key}
               def={def}
-              value={def.key === 'scale' ? scale : (item.properties[def.key] ?? (def.type === 'number' ? 0 : ''))}
+              value={
+                def.key === 'scale'
+                  ? scale
+                  : (item.properties[def.key] ?? (def.type === 'number' ? 0 : ''))
+              }
               onChange={(v) => {
                 if (def.key !== 'scale' || typeof v !== 'number') {
                   updateItem(item.id, { properties: { ...item.properties, [def.key]: v } })
@@ -133,9 +148,8 @@ export function PropertiesPanel({ itemId }: PropertiesPanelProps) {
               key={def.key}
               def={def}
               value={item.properties[def.key] ?? (def.type === 'number' ? 0 : '')}
-              onChange={(v) =>
-                updateItem(item.id, { properties: { ...item.properties, [def.key]: v } })
-              }
+              allProperties={item.properties}
+              onChange={(v) => handleChange(def, v)}
             />
           ))}
         </div>

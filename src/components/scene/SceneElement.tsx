@@ -12,15 +12,7 @@ import { toast } from 'sonner'
 // floating-point tolerance for overlap volume comparison (mm³)
 const OVERLAP_TOLERANCE = 1
 
-const COLORS: Record<string, string> = {
-  'wardrobe-body': '#d4a853',
-  'wardrobe-narrow': '#d4a853',
-  shelf: '#c49a3c',
-  drawer: '#b8860b',
-  rod: '#C0C0C0',
-  'door-swing': '#87CEEB',
-  'door-slide': '#4682B4',
-}
+const DEFAULT_COLOR = '#cccccc'
 
 function GltfMesh({ src, dimensions }: { src: string; dimensions: SceneItem['dimensions'] }) {
   const { scene } = useGLTF(src)
@@ -72,7 +64,9 @@ export function SceneElement({ item }: Props) {
   const updateItem = useSceneStore((s) => s.updateItem)
   const sceneMode = useUIStore((s) => s.sceneMode)
 
-  const color = COLORS[item.catalogId] ?? '#cccccc'
+  const propColor = item.properties?.color as string | undefined
+  const color = propColor?.startsWith('#') ? propColor : DEFAULT_COLOR
+  const isGlass = item.properties?.material === 'Стекло'
   const catalogItem = getCatalogItemById(item.catalogId)
 
   const edgesGeometry = useMemo(() => {
@@ -140,7 +134,11 @@ export function SceneElement({ item }: Props) {
             <boxGeometry
               args={[item.dimensions.width, item.dimensions.height, item.dimensions.depth]}
             />
-            <meshStandardMaterial color={color} opacity={hovered ? 0.85 : 1} transparent={hovered} />
+            <meshStandardMaterial
+              color={color}
+              opacity={isGlass ? (hovered ? 0.3 : 0.4) : hovered ? 0.85 : 1}
+              transparent={isGlass || hovered}
+            />
           </mesh>
         )}
         {isSelected && (

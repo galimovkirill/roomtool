@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { v4 as uuid } from 'uuid'
 import type { CatalogItem, SceneItem } from '@/types'
+import { MATERIAL_COLORS, MATERIAL_OPTIONS, type MaterialType } from '@/catalog/materials'
 
 type ItemPatch = Partial<Pick<SceneItem, 'position' | 'rotationY' | 'dimensions' | 'properties'>>
 
@@ -40,8 +41,14 @@ export const useSceneStore = create<SceneState>((set, get) => ({
       for (const def of catalogItem.properties) {
         if (def.type === 'number') {
           properties[def.key] = def.default ?? def.min ?? 0
+        } else if (def.type === 'material') {
+          properties[def.key] = def.options?.[0]?.value ?? MATERIAL_OPTIONS[0]
+        } else if (def.type === 'color') {
+          const materialKey = def.dependsOnMaterial ?? 'material'
+          const mat = (properties[materialKey] as string) || MATERIAL_OPTIONS[0]
+          properties[def.key] = MATERIAL_COLORS[mat as MaterialType]?.[0]?.value ?? '#F5F5F0'
         } else {
-          properties[def.key] = def.default ?? def.options?.[0] ?? ''
+          properties[def.key] = def.default ?? def.options?.[0]?.value ?? ''
         }
       }
       const newItem: SceneItem = {
