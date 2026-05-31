@@ -39,6 +39,12 @@ describe('totalOverlapVolume', () => {
     expect(totalOverlapVolume(a, [a, b])).toBe(500_000)
   })
 
+  it('returns 0 when items touch but do not overlap', () => {
+    const a = makeItem('a', [0, 50, 0], 100)
+    const b = makeItem('b', [100, 50, 0], 100) // касание: расстояние = 100 = (100+100)/2
+    expect(totalOverlapVolume(a, [a, b])).toBe(0)
+  })
+
   it('increases when item moves deeper into another', () => {
     const b = makeItem('b', [0, 50, 0], 100)
     const aFar = makeItem('a', [60, 50, 0], 100)

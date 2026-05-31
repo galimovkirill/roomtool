@@ -1,11 +1,12 @@
 import { type RefObject, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
-import { TransformControls } from '@react-three/drei'
+import { Html, TransformControls } from '@react-three/drei'
 import type { SceneItem } from '@/types'
-import { useSceneStore } from '@/store'
+import { useSceneStore, useUIStore } from '@/store'
 import { ElementPopover } from '@/components/ui/ElementPopover'
 import { totalOverlapVolume } from '@/utils/collision'
 import { SCENE_CONFIG } from '@/config/scene'
+import { toast } from 'sonner'
 
 // floating-point tolerance for overlap volume comparison (mm³)
 const OVERLAP_TOLERANCE = 1
@@ -43,6 +44,7 @@ export function SceneElement({ item }: Props) {
   const isSelected = useSceneStore((s) => s.selectedItemId === item.id)
   const selectItem = useSceneStore((s) => s.selectItem)
   const updateItem = useSceneStore((s) => s.updateItem)
+  const sceneMode = useUIStore((s) => s.sceneMode)
 
   const color = COLORS[item.catalogId] ?? '#cccccc'
 
@@ -101,11 +103,20 @@ export function SceneElement({ item }: Props) {
           </lineSegments>
         )}
         {isSelected && <ElementPopover item={item} />}
+        {sceneMode === '2d' && (
+          // TODO: при ротации width/depth не меняются местами — Known Limitation (AABB без учёта поворота)
+          <Html center position={[0, item.dimensions.height / 2 + 20, 0]}>
+            <div className="text-xs bg-white/80 px-1 py-0.5 rounded border border-gray-400 whitespace-nowrap pointer-events-none">
+              {item.dimensions.width} × {item.dimensions.depth} мм
+            </div>
+          </Html>
+        )}
       </group>
       {isSelected && (
         <TransformControls
           object={groupRef as RefObject<THREE.Object3D>}
           mode="translate"
+          showY={sceneMode === '3d'}
           onMouseDown={() => {
             if (groupRef.current)
               lastFramePos.current = groupRef.current.position.toArray() as [number, number, number]
@@ -116,6 +127,13 @@ export function SceneElement({ item }: Props) {
             if (!groupRef.current) return
             const clamped = clampToRoom(groupRef.current.position, item.dimensions)
             groupRef.current.position.set(...clamped)
+            const allItems = useSceneStore.getState().items
+            const overlap = totalOverlapVolume({ ...item, position: clamped }, allItems)
+            if (overlap > OVERLAP_TOLERANCE) {
+              groupRef.current.position.set(...lastFramePos.current)
+              toast.warning('Элементы не могут пересекаться')
+              return
+            }
             const [lx, ly, lz] = lastFramePos.current
             if (clamped[0] !== lx || clamped[1] !== ly || clamped[2] !== lz)
               updateItem(item.id, { position: clamped })
@@ -124,6 +142,7 @@ export function SceneElement({ item }: Props) {
             if (!groupRef.current) return
             const clamped = clampToRoom(groupRef.current.position, item.dimensions)
             const allItems = useSceneStore.getState().items
+            // prevent moving into overlap: only advance position if total overlap doesn't increase
             const newOverlap = totalOverlapVolume({ ...item, position: clamped }, allItems)
             const curOverlap = totalOverlapVolume(
               { ...item, position: lastFramePos.current },
