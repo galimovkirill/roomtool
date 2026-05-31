@@ -816,7 +816,7 @@ TransformControls в 2D: ограничь режим translate только по
 | TASK-004 | Сцена | Конфиг сцены + базовые типы | S | ✅ |
 | TASK-005 | Сцена | Zustand stores + Undo/Redo | M | ✅ |
 | TASK-006 | Сцена | Каталог мебельных элементов | S | ✅ |
-| TASK-007 | Сцена | Layout + ScreenGuard (1024px) | S | ⬜ |
+| TASK-007 | Сцена | Layout + ScreenGuard (1024px) | S | ✅ |
 | TASK-008 | Сцена | 3D-комната и камера | M | ⬜ |
 | TASK-009 | Сцена | Хоткеи (Ctrl+Z/Y, useKeyboard) | M | ⬜ |
 | TASK-010 | Сцена | Переключатель 2D/3D | M | ⬜ |
