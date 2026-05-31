@@ -1,6 +1,6 @@
 import { type RefObject, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
-import { Html, TransformControls, useGLTF } from '@react-three/drei'
+import { Edges, Html, TransformControls, useGLTF } from '@react-three/drei'
 import type { SceneItem } from '@/types'
 import { useSceneStore, useUIStore } from '@/store'
 import { ElementPopover } from '@/components/ui/ElementPopover'
@@ -69,29 +69,11 @@ export function SceneElement({ item }: Props) {
   const isGlass = item.properties?.material === 'Стекло'
   const catalogItem = getCatalogItemById(item.catalogId)
 
-  const edgesGeometry = useMemo(() => {
-    const box = new THREE.BoxGeometry(
-      item.dimensions.width,
-      item.dimensions.height,
-      item.dimensions.depth
-    )
-    const edges = new THREE.EdgesGeometry(box)
-    box.dispose()
-    return edges
-  }, [item.dimensions.width, item.dimensions.height, item.dimensions.depth])
-
   useEffect(
     () => () => {
       document.body.style.cursor = 'auto'
     },
     []
-  )
-
-  useEffect(
-    () => () => {
-      edgesGeometry.dispose()
-    },
-    [edgesGeometry]
   )
 
   return (
@@ -139,12 +121,8 @@ export function SceneElement({ item }: Props) {
               opacity={isGlass ? (hovered ? 0.3 : 0.4) : hovered ? 0.85 : 1}
               transparent={isGlass || hovered}
             />
+            <Edges lineWidth={2} color={isSelected ? '#2563eb' : '#000000'} />
           </mesh>
-        )}
-        {isSelected && (
-          <lineSegments geometry={edgesGeometry}>
-            <lineBasicMaterial color="#2563eb" />
-          </lineSegments>
         )}
         {isSelected && <ElementPopover item={item} />}
         {sceneMode === '2d' && (
