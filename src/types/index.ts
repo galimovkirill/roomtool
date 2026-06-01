@@ -27,4 +27,12 @@ export interface SceneItem {
   rotationY: number
   dimensions: { width: number; height: number; depth: number }
   properties: Record<string, number | string>
+  groupId: string | null
+}
+
+export interface SceneGroup {
+  id: string
+  name: string
+  itemIds: string[]
+  collapsed: boolean
 }

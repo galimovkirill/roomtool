@@ -1105,6 +1105,589 @@ const isGlass = item.properties?.material === 'Стекло'
 
 ---
 
+## ФАЗА 11 — Система слоёв и группировка
+
+### TASK-021 — Панель слоёв, мульти-выбор и группировка элементов
+
+**Промпт для Claude Code:**
+```
+Реализуй систему слоёв в стиле Adobe Photoshop: правая панель получает вкладки
+"Каталог" и "Слои", в панели слоёв отображаются все элементы сцены, пользователь
+может выделить несколько элементов, сгруппировать их через ПКМ-меню и перемещать
+группу целиком в 3D.
+
+---
+
+## 1. Обнови src/types/index.ts
+
+Добавь тип SceneGroup:
+
+```typescript
+export interface SceneGroup {
+  id: string           // uuid
+  name: string         // 'Группа 1', 'Шкаф' и т.д.
+  itemIds: string[]    // упорядоченный список id элементов в группе
+  collapsed: boolean   // свёрнута ли в панели слоёв
+}
+```
+
+В SceneItem добавь поле (не ломает существующий код — поле опциональное при чтении, обязательное при создании):
+```typescript
+groupId: string | null  // null = не в группе
+```
+
+---
+
+## 2. Обнови src/store/sceneStore.ts
+
+### 2a. Изменить тип HistorySnapshot
+
+Замени `SceneItem[][]` в `history` и `future` на `HistorySnapshot[]`, где:
+```typescript
+type HistorySnapshot = { items: SceneItem[]; groups: SceneGroup[] }
+```
+
+Обнови `pushHistory` — теперь он снимает и `items`, и `groups`:
+```typescript
+function pushHistory(state: Pick<SceneState, 'items' | 'groups' | 'history' | 'future'>) {
+  const snapshot: HistorySnapshot = {
+    items: [...state.items],
+    groups: [...state.groups],
+  }
+  const history = [...state.history, snapshot]
+  if (history.length > 50) history.shift()
+  return { history, future: [] as HistorySnapshot[] }
+}
+```
+
+Обнови `undo()` и `redo()` — восстанавливают и `items`, и `groups`:
+```typescript
+undo() {
+  const { history, items, groups, future } = get()
+  if (history.length === 0) return
+  const prev = history[history.length - 1]
+  set({
+    items: prev.items,
+    groups: prev.groups,
+    history: history.slice(0, -1),
+    future: [{ items, groups }, ...future],
+    selectedItemId: null,
+    selectedItemIds: [],
+  })
+},
+redo() {
+  const { future, items, groups, history } = get()
+  if (future.length === 0) return
+  const next = future[0]
+  set({
+    items: next.items,
+    groups: next.groups,
+    history: [...history, { items, groups }],
+    future: future.slice(1),
+    selectedItemId: null,
+    selectedItemIds: [],
+  })
+},
+```
+
+### 2b. Добавить в состояние
+
+```typescript
+groups: SceneGroup[]        // начальное значение []
+selectedItemIds: string[]   // начальное значение []
+groupCounter: number        // начальное значение 0, для автоимён "Группа N"
+```
+
+`selectedItemId` оставить — синхронизируется с `selectedItemIds[0] ?? null`.
+
+### 2c. Обновить существующие методы
+
+`addItem`: добавлять `groupId: null` в создаваемый `SceneItem`.
+
+`removeItem`: если `item.groupId !== null` — убирать `item.id` из `group.itemIds`;
+если после этого в группе остался 0 или 1 элемент → `ungroupItems` для этой группы
+(реализовать как инлайн-логику, не как рекурсию).
+
+`selectItem(id)`: теперь также обновляет `selectedItemIds = id ? [id] : []`.
+
+### 2d. Новые методы
+
+```typescript
+selectItems(ids: string[]): void
+  // НЕ в историю
+  // selectedItemIds = ids
+  // selectedItemId = ids[0] ?? null
+
+toggleItemSelection(id: string, addToSelection: boolean): void
+  // НЕ в историю
+  // если addToSelection:
+  //   если id уже в selectedItemIds → убрать его (toggle off)
+  //   иначе → добавить
+  // если !addToSelection → selectedItemIds = [id]
+  // selectedItemId = selectedItemIds[0] ?? null
+
+createGroup(name: string): void
+  // Требует selectedItemIds.length >= 2; если нет — return
+  // pushHistory
+  // groupCounter++
+  // создаёт SceneGroup { id: uuid(), name, itemIds: [...selectedItemIds], collapsed: false }
+  // у каждого item из selectedItemIds устанавливает groupId = group.id
+  // добавляет в groups
+  // selectedItemIds = [], selectedItemId = null
+
+ungroupItems(groupId: string): void
+  // pushHistory
+  // у всех items с groupId = groupId устанавливает groupId = null
+  // удаляет группу из groups
+
+moveGroup(groupId: string, delta: [number, number, number]): void
+  // pushHistory
+  // для каждого item в groups.find(g => g.id === groupId).itemIds:
+  //   item.position[0] += delta[0]
+  //   item.position[1] = Math.max(item.dimensions.height / 2, item.position[1] + delta[1])
+  //   item.position[2] += delta[2]
+
+removeGroup(groupId: string): void
+  // pushHistory
+  // удаляет из items все элементы с groupId === groupId
+  // удаляет группу из groups
+  // сбрасывает selectedItemId, selectedItemIds
+
+renameGroup(groupId: string, name: string): void
+  // НЕ в историю (UI-операция)
+  // обновляет name у группы в groups
+
+toggleGroupCollapse(groupId: string): void
+  // НЕ в историю
+  // переключает collapsed у группы в groups
+```
+
+---
+
+## 3. Обнови src/store/uiStore.ts
+
+Добавь:
+```typescript
+activeRightPanelTab: 'catalog' | 'layers'   // начальное: 'catalog'
+setActiveRightPanelTab: (tab: 'catalog' | 'layers') => void
+```
+
+---
+
+## 4. Установи зависимость
+
+```bash
+pnpm add @radix-ui/react-context-menu
+```
+
+---
+
+## 5. Обнови src/components/panels/RightPanel.tsx
+
+Заменить текущую логику на:
+
+```
+1. Сверху — TabBar с двумя вкладками "Каталог" и "Слои"
+   - flex border-b border-gray-200
+   - Каждый таб: кнопка px-4 py-2.5 text-sm font-medium
+   - Активный: border-b-2 border-blue-600 text-blue-700 bg-white
+   - Неактивный: text-gray-500 hover:text-gray-700
+
+2. Ниже — контент:
+   - если selectedItemId !== null → <PropertiesPanel itemId={selectedItemId} />
+     (перекрывает любой активный таб)
+   - иначе если activeRightPanelTab === 'catalog' → <CatalogPanel />
+   - иначе (activeRightPanelTab === 'layers') → <LayersPanel />
+```
+
+В PropertiesPanel обнови кнопку закрытия — при клике сбрасывать и `selectItem(null)`, и `selectItems([])`.
+
+---
+
+## 6. Создай src/components/panels/LayersPanel.tsx
+
+Компонент показывает все элементы сцены в порядке "новые сверху" (reverse порядка `items`).
+
+**Логика порядка отображения:**
+Элементы внутри группы показываются вложенно под заголовком группы.
+Одиночные элементы (groupId === null) показываются между группами по позиции в массиве items.
+
+Упрощённый подход к порядку (достаточно для MVP):
+1. Вычисли список "строк верхнего уровня" в обратном порядке items:
+   - Если item.groupId === null → одиночная строка
+   - Если item.groupId !== null → вставь строку группы (один раз, при первой встрече элемента этой группы)
+2. Рендери эти строки сверху вниз
+
+```typescript
+// Вспомогательная функция для вычисления порядка в LayersPanel
+function buildLayerRows(items: SceneItem[], groups: SceneGroup[]): Array<
+  | { type: 'item'; item: SceneItem }
+  | { type: 'group'; group: SceneGroup }
+> {
+  const seen = new Set<string>() // seen group ids
+  const rows = []
+  for (let i = items.length - 1; i >= 0; i--) {
+    const item = items[i]
+    if (item.groupId === null) {
+      rows.push({ type: 'item', item })
+    } else if (!seen.has(item.groupId)) {
+      seen.add(item.groupId)
+      const group = groups.find(g => g.id === item.groupId)
+      if (group) rows.push({ type: 'group', group })
+    }
+  }
+  return rows
+}
+```
+
+**Строка одиночного элемента:**
+```tsx
+<div
+  key={item.id}
+  className={`flex items-center gap-2 px-3 py-1.5 cursor-pointer select-none
+    hover:bg-gray-50 ${selectedItemIds.includes(item.id) ? 'bg-blue-50 text-blue-700' : ''}`}
+  onClick={(e) => {
+    if (e.shiftKey || e.ctrlKey || e.metaKey) {
+      toggleItemSelection(item.id, true)
+    } else {
+      selectItems([item.id])
+    }
+  }}
+  onContextMenu={(e) => { e.preventDefault(); setCtxTarget({ kind: 'item', id: item.id }) }}
+>
+  <span className="text-gray-400 flex-shrink-0">▪</span>
+  <span className="text-sm truncate flex-1">{item.name}</span>
+</div>
+```
+
+**Строка группы (коллапсируемая):**
+```tsx
+<div key={group.id}>
+  {/* Заголовок группы */}
+  <div
+    className={`flex items-center gap-2 px-3 py-1.5 cursor-pointer select-none
+      hover:bg-gray-50
+      ${group.itemIds.every(id => selectedItemIds.includes(id)) ? 'bg-blue-50 text-blue-700' : ''}`}
+    onClick={() => selectItems(group.itemIds)}
+    onContextMenu={(e) => { e.preventDefault(); setCtxTarget({ kind: 'group', id: group.id }) }}
+  >
+    <button
+      className="text-gray-400 w-3 text-xs"
+      onClick={(e) => { e.stopPropagation(); toggleGroupCollapse(group.id) }}
+    >
+      {group.collapsed ? '▶' : '▼'}
+    </button>
+    <span className="text-gray-500 flex-shrink-0">⊞</span>
+    <span className="text-sm font-medium truncate flex-1">{group.name}</span>
+    <span className="text-xs text-gray-400 ml-auto">{group.itemIds.length}</span>
+  </div>
+
+  {/* Элементы группы */}
+  {!group.collapsed && group.itemIds.map(itemId => {
+    const item = items.find(i => i.id === itemId)
+    if (!item) return null
+    return (
+      <div
+        key={itemId}
+        className={`flex items-center gap-2 pl-8 pr-3 py-1.5 cursor-pointer select-none
+          hover:bg-gray-50 ${selectedItemIds.includes(itemId) ? 'bg-blue-50 text-blue-700' : ''}`}
+        onClick={(e) => {
+          if (e.shiftKey || e.ctrlKey || e.metaKey) {
+            toggleItemSelection(itemId, true)
+          } else {
+            selectItems([itemId])
+          }
+        }}
+        onContextMenu={(e) => { e.preventDefault(); setCtxTarget({ kind: 'item', id: itemId }) }}
+      >
+        <span className="text-gray-300 flex-shrink-0">▪</span>
+        <span className="text-sm truncate">{item.name}</span>
+      </div>
+    )
+  })}
+</div>
+```
+
+**Пустое состояние (items.length === 0):**
+```tsx
+<div className="flex flex-col items-center justify-center py-16 text-gray-400 text-sm">
+  <span className="text-3xl mb-2">⧄</span>
+  <span>Сцена пуста</span>
+  <span className="text-xs mt-1 text-gray-300">Добавьте элементы из каталога</span>
+</div>
+```
+
+---
+
+## 7. Контекстное меню в LayersPanel
+
+Используй Radix UI ContextMenu (`@radix-ui/react-context-menu`).
+
+Состояние в LayersPanel:
+```typescript
+type CtxTarget =
+  | { kind: 'item'; id: string }
+  | { kind: 'group'; id: string }
+  | null
+const [ctxTarget, setCtxTarget] = useState<CtxTarget>(null)
+```
+
+Оберни весь список в `<ContextMenu.Root>`. Используй `<ContextMenu.Trigger asChild>` вокруг контейнера списка.
+
+Содержимое `<ContextMenu.Content>` — вычисляется по `ctxTarget`:
+
+**Если ctxTarget.kind === 'item':**
+```tsx
+{selectedItemIds.length >= 2 && (
+  <ContextMenu.Item onSelect={() => {
+    createGroup(`Группа ${groupCounter + 1}`)
+  }}>
+    Создать группу ({selectedItemIds.length} элемента)
+  </ContextMenu.Item>
+)}
+<ContextMenu.Item onSelect={() => removeItem(ctxTarget.id)}>
+  Удалить
+</ContextMenu.Item>
+{/* Если элемент в группе: */}
+{items.find(i => i.id === ctxTarget.id)?.groupId && (
+  <>
+    <ContextMenu.Separator />
+    <ContextMenu.Item onSelect={() => {
+      const groupId = items.find(i => i.id === ctxTarget.id)?.groupId
+      if (groupId) ungroupItems(groupId)
+    }}>
+      Разгруппировать
+    </ContextMenu.Item>
+  </>
+)}
+```
+
+**Если ctxTarget.kind === 'group':**
+```tsx
+<ContextMenu.Item onSelect={() => {
+  // Inline rename: показать input поверх названия группы
+  setRenamingGroupId(ctxTarget.id)
+}}>
+  Переименовать
+</ContextMenu.Item>
+<ContextMenu.Item onSelect={() => ungroupItems(ctxTarget.id)}>
+  Разгруппировать
+</ContextMenu.Item>
+<ContextMenu.Separator />
+<ContextMenu.Item
+  className="text-red-600"
+  onSelect={() => removeGroup(ctxTarget.id)}
+>
+  Удалить группу и элементы
+</ContextMenu.Item>
+```
+
+**Переименование inline:**
+Добавь состояние `renamingGroupId: string | null`.
+Когда `renamingGroupId` совпадает с `group.id` — рендери `<input>` вместо `<span>` с именем группы.
+При `onBlur` или `Enter`: `renameGroup(groupId, newName)`, `setRenamingGroupId(null)`.
+При `Escape`: сбросить без сохранения.
+
+Стиль ContextMenu.Content:
+```
+bg-white rounded-lg shadow-lg border border-gray-200 p-1 min-w-[180px] z-50
+```
+Стиль ContextMenu.Item:
+```
+px-3 py-1.5 text-sm cursor-pointer rounded hover:bg-gray-100 outline-none
+```
+Стиль ContextMenu.Separator:
+```
+my-1 border-t border-gray-100
+```
+
+---
+
+## 8. Выделение в 3D-сцене (SceneElement.tsx)
+
+Обнови логику выделения:
+
+```typescript
+const selectedItemIds = useSceneStore(s => s.selectedItemIds)
+const isSelected = selectedItemIds.includes(item.id)
+// TransformControls показывать только если выбран ровно один элемент
+// и у него нет сформированной группы которая вся выделена
+const groups = useSceneStore(s => s.groups)
+const myGroup = item.groupId ? groups.find(g => g.id === item.groupId) : null
+const groupIsFullySelected = myGroup
+  ? myGroup.itemIds.every(id => selectedItemIds.includes(id))
+  : false
+const showTransformControls = isSelected && selectedItemIds.length === 1 && !groupIsFullySelected
+```
+
+Синяя обводка (EdgesGeometry): показывать при `isSelected` (как раньше).
+TransformControls: показывать только при `showTransformControls === true`.
+
+---
+
+## 9. Создай src/components/scene/GroupTransformProxy.tsx
+
+```typescript
+interface Props {
+  groupId: string
+}
+```
+
+Компонент читает группу и её элементы из store. Вычисляет AABB-центр группы:
+
+```typescript
+const center = useMemo((): [number, number, number] => {
+  const groupItems = items.filter(i => group.itemIds.includes(i.id))
+  if (groupItems.length === 0) return [0, 0, 0]
+  const xs = groupItems.flatMap(i => [
+    i.position[0] - i.dimensions.width / 2,
+    i.position[0] + i.dimensions.width / 2,
+  ])
+  const ys = groupItems.flatMap(i => [
+    i.position[1] - i.dimensions.height / 2,
+    i.position[1] + i.dimensions.height / 2,
+  ])
+  const zs = groupItems.flatMap(i => [
+    i.position[2] - i.dimensions.depth / 2,
+    i.position[2] + i.dimensions.depth / 2,
+  ])
+  return [
+    (Math.min(...xs) + Math.max(...xs)) / 2,
+    (Math.min(...ys) + Math.max(...ys)) / 2,
+    (Math.min(...zs) + Math.max(...zs)) / 2,
+  ]
+}, [items, group])
+```
+
+Рендерит pivot-mesh и TransformControls:
+```tsx
+const pivotRef = useRef<THREE.Mesh>(null)
+const initialCenterRef = useRef<[number, number, number]>([0, 0, 0])
+
+<mesh ref={pivotRef} position={center} visible={false}>
+  <boxGeometry args={[1, 1, 1]} />
+  <meshBasicMaterial />
+</mesh>
+
+{pivotRef.current && (
+  <TransformControls
+    object={pivotRef.current}
+    mode="translate"
+    onMouseDown={() => {
+      initialCenterRef.current = center
+      window.dispatchEvent(new CustomEvent('transform-start'))
+    }}
+    onMouseUp={() => {
+      window.dispatchEvent(new CustomEvent('transform-end'))
+      if (!pivotRef.current) return
+      const pos = pivotRef.current.position
+      const delta: [number, number, number] = [
+        pos.x - initialCenterRef.current[0],
+        pos.y - initialCenterRef.current[1],
+        pos.z - initialCenterRef.current[2],
+      ]
+      // Проверяем коллизию
+      if (hasGroupCollision(group.itemIds, delta, items)) {
+        // Откат пивота
+        pivotRef.current.position.set(...initialCenterRef.current)
+        toast.warning('Группа не может пересекаться с другими элементами')
+        return
+      }
+      moveGroup(group.id, delta)
+    }}
+  />
+)}
+```
+
+**Когда рендерить GroupTransformProxy в SceneCanvas:**
+
+```typescript
+// В SceneCanvas:
+const selectedItemIds = useSceneStore(s => s.selectedItemIds)
+const groups = useSceneStore(s => s.groups)
+const activeGroupId = useMemo(() => {
+  if (selectedItemIds.length < 2) return null
+  const group = groups.find(g =>
+    g.itemIds.length === selectedItemIds.length &&
+    selectedItemIds.every(id => g.itemIds.includes(id))
+  )
+  return group?.id ?? null
+}, [selectedItemIds, groups])
+
+// В JSX:
+{activeGroupId && <GroupTransformProxy groupId={activeGroupId} />}
+```
+
+---
+
+## 10. Обнови src/utils/collision.ts
+
+Добавь:
+
+```typescript
+export function hasGroupCollision(
+  groupItemIds: string[],
+  delta: [number, number, number],
+  allItems: SceneItem[]
+): boolean {
+  const groupItems = allItems.filter(i => groupItemIds.includes(i.id))
+  const outsideItems = allItems.filter(i => !groupItemIds.includes(i.id))
+
+  return groupItems.some(item => {
+    const movedItem: SceneItem = {
+      ...item,
+      position: [
+        item.position[0] + delta[0],
+        item.position[1] + delta[1],
+        item.position[2] + delta[2],
+      ],
+    }
+    return hasCollision(movedItem, outsideItems)
+  })
+}
+```
+
+Добавь тесты в `src/utils/collision.test.ts`:
+- `hasGroupCollision` возвращает true когда хотя бы один элемент группы пересекается с внешним
+- `hasGroupCollision` возвращает false когда никто не пересекается
+
+---
+
+## 11. Обнови тесты sceneStore
+
+В `src/store/sceneStore.test.ts`:
+- `addItem` создаёт элемент с `groupId: null`
+- `createGroup` из двух элементов: создаёт группу, у обоих элементов `groupId === group.id`
+- `createGroup` при `selectedItemIds.length < 2`: ничего не делает
+- `ungroupItems` сбрасывает `groupId` у всех элементов группы
+- `moveGroup` сдвигает все элементы на delta
+- `removeGroup` удаляет группу и все её элементы из `items`
+- `undo` после `createGroup` восстанавливает состояние без группы
+- `undo` после `moveGroup` восстанавливает позиции
+
+---
+
+## 12. Проверь в браузере
+
+1. Табы "Каталог" | "Слои" отображаются, переключение работает
+2. В "Слоях" с пустой сценой — пустое состояние с иконкой
+3. Добавить 2 элемента из каталога → оба видны в "Слоях" (новый сверху)
+4. Клик по строке элемента → выделяется синим в слоях и обводкой в 3D
+5. Ctrl+клик по второму → оба выделены
+6. ПКМ с двумя выделенными → контекстное меню с "Создать группу (2 элемента)"
+7. Нажать "Создать группу" → в слоях появляется строка "Группа 1" с иконкой и числом (2)
+8. Стрелка ▼ → группа раскрывается и видны вложенные элементы
+9. Клик по заголовку группы → оба элемента выделены в 3D, в сцене появляется TransformControls на центре группы
+10. Перетащить TransformControls → оба элемента двигаются вместе
+11. Переместить группу поверх третьего элемента → toast.warning, группа откатывается
+12. Ctrl+Z → moveGroup откатывается; ещё раз Ctrl+Z → createGroup откатывается (элементы снова одиночные)
+13. ПКМ на группе → "Разгруппировать" → элементы снова в общем списке
+14. ПКМ на группе → "Удалить группу и элементы" → всё исчезает
+15. Одиночный элемент выбран → PropertiesPanel открывается как прежде (перекрывает панель слоёв)
+```
+
+---
+
 ## Сводная таблица задач
 
 | ID | Фаза | Задача | Сложность | Статус |
@@ -1129,6 +1712,7 @@ const isGlass = item.properties?.material === 'Стекло'
 | TASK-009 | Хоткеи | Хоткеи (Ctrl+Z/Y, useKeyboard) | M | ⬜ |
 | TASK-015 | Хоткеи | Подключение Undo/Redo к хоткеям | S | ⬜ |
 | TASK-020 | Каталог | Перепроектирование каталога: детали шкафа + материалы и цвета | XL | ✅ |
+| TASK-021 | Слои | Панель слоёв, мульти-выбор, группировка, перемещение группы в 3D | XL | ✅ |
 
 **S** = ~30–60 мин · **M** = ~1–2 ч · **L** = ~2–4 ч · **XL** = ~4–8 ч  
 Общая оценка: **~2.5–3 недели** при разработке через Claude Code.

@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { PerspectiveCamera, OrthographicCamera } from '@react-three/drei'
 import { SCENE_CONFIG } from '@/config/scene'
@@ -6,6 +7,7 @@ import { Room } from './Room'
 import { SceneControls } from './SceneControls'
 import { SceneOverlay } from './SceneOverlay'
 import { SceneElement } from './SceneElement'
+import { GroupTransformProxy } from './GroupTransformProxy'
 
 const { initialPosition, fov, near, far } = SCENE_CONFIG.camera
 const perspPosition: [number, number, number] = [
@@ -17,7 +19,19 @@ const perspPosition: [number, number, number] = [
 export function SceneCanvas() {
   const sceneMode = useUIStore((s) => s.sceneMode)
   const items = useSceneStore((s) => s.items)
+  const groups = useSceneStore((s) => s.groups)
+  const selectedItemIds = useSceneStore((s) => s.selectedItemIds)
   const selectItem = useSceneStore((s) => s.selectItem)
+
+  const activeGroupId = useMemo(() => {
+    if (selectedItemIds.length < 2) return null
+    const group = groups.find(
+      (g) =>
+        g.itemIds.length === selectedItemIds.length &&
+        selectedItemIds.every((id) => g.itemIds.includes(id))
+    )
+    return group?.id ?? null
+  }, [selectedItemIds, groups])
 
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
@@ -42,6 +56,7 @@ export function SceneCanvas() {
         {items.map((item) => (
           <SceneElement key={item.id} item={item} />
         ))}
+        {activeGroupId && <GroupTransformProxy groupId={activeGroupId} />}
       </Canvas>
       <SceneOverlay />
     </div>

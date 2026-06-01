@@ -3,6 +3,7 @@ import { PropertiesPanel } from './PropertiesPanel'
 
 const mockUpdateItem = vi.hoisted(() => vi.fn())
 const mockSelectItem = vi.hoisted(() => vi.fn())
+const mockSelectItems = vi.hoisted(() => vi.fn())
 
 const mockItem = {
   id: 'item-1',
@@ -12,6 +13,7 @@ const mockItem = {
   rotationY: 0,
   dimensions: { width: 900, height: 2200, depth: 600 },
   properties: { material: 'ДСП' },
+  groupId: null,
 }
 
 vi.mock('@/store', () => ({
@@ -20,6 +22,7 @@ vi.mock('@/store', () => ({
       items: [mockItem],
       updateItem: mockUpdateItem,
       selectItem: mockSelectItem,
+      selectItems: mockSelectItems,
     }),
 }))
 
@@ -37,6 +40,7 @@ describe('PropertiesPanel', () => {
   beforeEach(() => {
     mockUpdateItem.mockClear()
     mockSelectItem.mockClear()
+    mockSelectItems.mockClear()
   })
 
   it('shows item name', () => {

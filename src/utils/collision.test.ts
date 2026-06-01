@@ -1,4 +1,4 @@
-import { totalOverlapVolume } from './collision'
+import { totalOverlapVolume, hasGroupCollision, clampGroupDelta } from './collision'
 import type { SceneItem } from '@/types'
 
 function makeItem(id: string, position: [number, number, number], size = 100): SceneItem {
@@ -10,6 +10,7 @@ function makeItem(id: string, position: [number, number, number], size = 100): S
     rotationY: 0,
     dimensions: { width: size, height: size, depth: size },
     properties: {},
+    groupId: null,
   }
 }
 
@@ -52,5 +53,65 @@ describe('totalOverlapVolume', () => {
     expect(totalOverlapVolume(aClose, [aClose, b])).toBeGreaterThan(
       totalOverlapVolume(aFar, [aFar, b])
     )
+  })
+})
+
+describe('clampGroupDelta', () => {
+  // Room from SCENE_CONFIG: 4000×3000×4000 mm, X ∈ [-2000, 2000], Z ∈ [-2000, 2000], Y ∈ [0, 3000]
+
+  it('returns delta unchanged when group fits within room', () => {
+    const a = makeItem('a', [0, 50, 0], 100)
+    const result = clampGroupDelta(['a'], [10, 0, 5], [a])
+    expect(result).toEqual([10, 0, 5])
+  })
+
+  it('clamps delta so item does not pass the right wall', () => {
+    // item center at x=1980, half-width=50 → right edge at 2030, but room is 2000
+    // max allowed dx = 2000 - 50 - 1980 = -30 (already at edge; further right would be negative clamp)
+    const a = makeItem('a', [1980, 50, 0], 100)
+    const [dx] = clampGroupDelta(['a'], [200, 0, 0], [a])
+    expect(dx).toBeLessThanOrEqual(2000 - 50 - 1980)
+  })
+
+  it('clamps delta so item does not go below the floor', () => {
+    const a = makeItem('a', [0, 50, 0], 100)
+    // trying to move down by 200, but floor requires y >= 50
+    const [, dy] = clampGroupDelta(['a'], [0, -200, 0], [a])
+    expect(dy).toBeGreaterThanOrEqual(50 - 50) // = 0
+  })
+
+  it('clamps based on the most constrained item in the group', () => {
+    // item A can move right 500mm, item B (near right wall) can only move right 10mm
+    const a = makeItem('a', [0, 50, 0], 100)
+    // b at x=1940: right face = 1940+50=1990, max dx = 2000-50-1940 = 10
+    const b = makeItem('b', [1940, 50, 0], 100)
+    const [dx] = clampGroupDelta(['a', 'b'], [500, 0, 0], [a, b])
+    expect(dx).toBeLessThanOrEqual(10)
+  })
+})
+
+describe('hasGroupCollision', () => {
+  it('returns false when group does not collide with outside items', () => {
+    const a = makeItem('a', [0, 50, 0])
+    const b = makeItem('b', [150, 50, 0])
+    const outside = makeItem('c', [1000, 50, 0])
+    // delta moves group slightly to the right — still no collision
+    expect(hasGroupCollision(['a', 'b'], [10, 0, 0], [a, b, outside])).toBe(false)
+  })
+
+  it('returns true when group member collides with outside item after delta', () => {
+    const a = makeItem('a', [0, 50, 0])
+    const b = makeItem('b', [150, 50, 0])
+    const outside = makeItem('c', [800, 50, 0])
+    // move group 700 units right: 'a' lands at x=700, 'b' at x=850
+    // 'b' will overlap 'c' at x=800 (100 units cube each → overlap = 50mm per axis)
+    expect(hasGroupCollision(['a', 'b'], [700, 0, 0], [a, b, outside])).toBe(true)
+  })
+
+  it('returns false when only group members overlap each other (not outside)', () => {
+    const a = makeItem('a', [0, 50, 0])
+    const b = makeItem('b', [10, 50, 0]) // overlapping each other within group
+    // no outside items
+    expect(hasGroupCollision(['a', 'b'], [5, 0, 0], [a, b])).toBe(false)
   })
 })

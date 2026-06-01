@@ -59,10 +59,18 @@ export function SceneElement({ item }: Props) {
   const [hovered, setHovered] = useState(false)
   const groupRef = useRef<THREE.Group>(null)
   const lastFramePos = useRef<[number, number, number]>(item.position)
-  const isSelected = useSceneStore((s) => s.selectedItemId === item.id)
+  const selectedItemIds = useSceneStore((s) => s.selectedItemIds)
+  const groups = useSceneStore((s) => s.groups)
   const selectItem = useSceneStore((s) => s.selectItem)
   const updateItem = useSceneStore((s) => s.updateItem)
   const sceneMode = useUIStore((s) => s.sceneMode)
+
+  const isSelected = selectedItemIds.includes(item.id)
+  const myGroup = item.groupId ? groups.find((g) => g.id === item.groupId) : null
+  const groupIsFullySelected = myGroup
+    ? myGroup.itemIds.every((id) => selectedItemIds.includes(id))
+    : false
+  const showTransformControls = isSelected && selectedItemIds.length === 1 && !groupIsFullySelected
 
   const propColor = item.properties?.color as string | undefined
   const color = propColor?.startsWith('#') ? propColor : DEFAULT_COLOR
@@ -124,7 +132,7 @@ export function SceneElement({ item }: Props) {
             <Edges lineWidth={2} color={isSelected ? '#2563eb' : '#000000'} />
           </mesh>
         )}
-        {isSelected && <ElementPopover item={item} />}
+        {selectedItemIds.length === 1 && isSelected && <ElementPopover item={item} />}
         {sceneMode === '2d' && (
           // TODO: при ротации width/depth не меняются местами — Known Limitation (AABB без учёта поворота)
           <Html center position={[0, item.dimensions.height / 2 + 20, 0]}>
@@ -134,7 +142,7 @@ export function SceneElement({ item }: Props) {
           </Html>
         )}
       </group>
-      {isSelected && (
+      {showTransformControls && (
         <TransformControls
           object={groupRef as RefObject<THREE.Object3D>}
           mode="translate"

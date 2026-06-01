@@ -134,12 +134,13 @@ interface CatalogItem {
 interface PropertyDef {
   key: string
   label: string
-  type: 'number' | 'select'
+  type: 'number' | 'select' | 'material' | 'color'
   unit?: string
   min?: number
   max?: number
-  default?: number | string  // начальное значение; если не задан — используется min (number) или options[0] (select)
-  options?: string[]
+  default?: number | string
+  options?: { label: string; value: string }[]
+  dependsOnMaterial?: string  // для type === 'color': ключ поля материала
 }
 
 // Экземпляр элемента на сцене
@@ -151,19 +152,42 @@ interface SceneItem {
   rotationY: number                           // поворот по оси Y (рад)
   dimensions: { width: number; height: number; depth: number }  // мм
   properties: Record<string, number | string>
+  groupId: string | null                      // null = не в группе (TASK-021)
 }
+
+// Группа элементов (Photoshop-style layers) — TASK-021
+interface SceneGroup {
+  id: string           // uuid
+  name: string         // 'Группа 1', 'Шкаф' и т.д.
+  itemIds: string[]    // упорядоченный список id элементов в группе
+  collapsed: boolean   // свёрнута ли в панели слоёв
+}
+
+// Снимок для Undo/Redo (с поддержкой групп)
+type HistorySnapshot = { items: SceneItem[]; groups: SceneGroup[] }
 
 // Zustand store — сцена (с поддержкой Undo/Redo)
 interface SceneStore {
   items: SceneItem[]
-  selectedItemId: string | null
-  history: SceneItem[][]   // стек прошлых состояний (до 50 записей)
-  future: SceneItem[][]    // стек для Redo
+  groups: SceneGroup[]                        // список групп (TASK-021)
+  selectedItemId: string | null              // первый из selectedItemIds (для PropertiesPanel)
+  selectedItemIds: string[]                  // мультиселект (TASK-021)
+  groupCounter: number                       // автоинкремент для имён групп
+  history: HistorySnapshot[]                 // стек прошлых состояний (до 50)
+  future: HistorySnapshot[]                  // стек для Redo
   addItem: (catalogItem: CatalogItem) => void
   removeItem: (id: string) => void
-  updateItem: (id: string, patch: Partial<Pick<SceneItem, 'position' | 'rotationY' | 'dimensions' | 'properties'>>) => void
+  updateItem: (id: string, patch: ItemPatch) => void
   selectItem: (id: string | null) => void
+  selectItems: (ids: string[]) => void        // TASK-021
+  toggleItemSelection: (id: string, add: boolean) => void  // TASK-021
   rotateItem: (id: string, direction: 'left' | 'right') => void
+  createGroup: (name: string) => void         // TASK-021 — из selectedItemIds
+  ungroupItems: (groupId: string) => void     // TASK-021
+  moveGroup: (groupId: string, delta: [number, number, number]) => void  // TASK-021
+  removeGroup: (groupId: string) => void      // TASK-021 — удаляет группу и все её элементы
+  renameGroup: (groupId: string, name: string) => void  // TASK-021
+  toggleGroupCollapse: (groupId: string) => void  // TASK-021 (не в историю)
   undo: () => void
   redo: () => void
 }
@@ -172,6 +196,8 @@ interface SceneStore {
 interface UIStore {
   sceneMode: '2d' | '3d'
   setSceneMode: (mode: '2d' | '3d') => void
+  activeRightPanelTab: 'catalog' | 'layers'  // TASK-021
+  setActiveRightPanelTab: (tab: 'catalog' | 'layers') => void  // TASK-021
 }
 ```
 
@@ -184,15 +210,48 @@ main.tsx
         ├── SceneCanvas (R3F Canvas)
         │   ├── Room (пол + стены, из SCENE_CONFIG)
         │   ├── SceneControls (OrbitControls)
-        │   └── SceneItem[] (из sceneStore.items)
-        │       └── TransformControls (при selection + onDragEnd → collision check)
+        │   ├── SceneItem[] (из sceneStore.items)
+        │   │   └── TransformControls (при одиночном выборе + onDragEnd → collision check)
+        │   └── GroupTransformProxy (TASK-021, если выбрана группа → TransformControls на центре AABB)
         ├── SceneOverlay (кнопки 2D/3D, абс. позиция)
         └── RightPanel
-            ├── CatalogPanel (если !selectedItemId)
+            ├── TabBar: [Каталог] [Слои]
+            ├── CatalogPanel (если !selectedItemId && tab === 'catalog')
             │   └── CatalogCategory[] → клик → sceneStore.addItem()
-            └── PropertiesPanel (если selectedItemId)
+            ├── LayersPanel (TASK-021, если tab === 'layers')
+            │   ├── SceneGroup[] → коллапсируемые группы + ПКМ-меню
+            │   └── SceneItem[] → строки слоёв, click/Ctrl+click/Shift+click
+            └── PropertiesPanel (если selectedItemId — перекрывает всё)
                 └── PropertyField[] → onChange → sceneStore.updateItem()
 ```
+
+### Панель слоёв (Photoshop-style, TASK-021)
+
+Логика выделения в LayersPanel:
+- Клик → `selectItems([id])` (снимает предыдущий выбор)
+- Ctrl/Cmd+клик → `toggleItemSelection(id, true)` (добавить/убрать из выбора)
+- Shift+клик → range-select от `lastClickedId` до текущего в видимом порядке списка
+- Клик по заголовку группы → `selectItems(group.itemIds)` (выбрать все элементы группы)
+
+Правила контекстного меню (ПКМ):
+- "Создать группу" → доступно если `selectedItemIds.length >= 2` → `createGroup('Группа N')`
+- "Разгруппировать" → доступно если кликнули на группу или элемент с `groupId !== null`
+- "Переименовать" → только для заголовка группы, inline-редактирование
+- "Удалить" → `removeItem()` для элемента или `removeGroup()` для группы
+
+### Перемещение группы в 3D (GroupTransformProxy, TASK-021)
+
+`GroupTransformProxy` рендерится в SceneCanvas когда все `selectedItemIds` принадлежат одной группе.
+
+Алгоритм:
+1. Вычисляет AABB центр всех элементов группы
+2. Крепит невидимый pivot-mesh в центре AABB
+3. TransformControls на pivot
+4. `onMouseDown`: запоминает `initialCenter` в ref
+5. `onChange`: только запоминает текущую позицию пивота (live preview не делает — слишком дорого с историей)
+6. `onMouseUp`: `delta = finalPos - initialCenter` → `hasGroupCollision()` → если OK → `moveGroup(groupId, delta)`, если нет → `toast.warning()` + пивот возвращается на initialCenter
+
+⚠️ AABB для групп не учитывает поворот отдельных элементов (как и для одиночных элементов).
 
 ---
 

@@ -18,6 +18,7 @@ export const DEFAULT_SCENE_ITEMS: SceneItem[] = [
     rotationY: 0,
     dimensions: { width: 16, height: 2200, depth: 600 },
     properties: { ...LDSP_WHITE },
+    groupId: null,
   },
   {
     id: 'default-right-panel',
@@ -27,6 +28,7 @@ export const DEFAULT_SCENE_ITEMS: SceneItem[] = [
     rotationY: 0,
     dimensions: { width: 16, height: 2200, depth: 600 },
     properties: { ...LDSP_WHITE },
+    groupId: null,
   },
   {
     id: 'default-top-panel',
@@ -36,6 +38,7 @@ export const DEFAULT_SCENE_ITEMS: SceneItem[] = [
     rotationY: 0,
     dimensions: { width: 868, height: 16, depth: 600 },
     properties: { ...LDSP_WHITE },
+    groupId: null,
   },
   {
     id: 'default-bottom-panel',
@@ -45,6 +48,7 @@ export const DEFAULT_SCENE_ITEMS: SceneItem[] = [
     rotationY: 0,
     dimensions: { width: 868, height: 16, depth: 600 },
     properties: { ...LDSP_WHITE },
+    groupId: null,
   },
   // Back panel sits at rear: z = -300 + 4 = -296
   {
@@ -55,6 +59,7 @@ export const DEFAULT_SCENE_ITEMS: SceneItem[] = [
     rotationY: 0,
     dimensions: { width: 900, height: 2200, depth: 8 },
     properties: { ...DVP_WHITE },
+    groupId: null,
   },
 
   // ── Разделитель по центру ────────────────────────────────────────────────
@@ -67,6 +72,7 @@ export const DEFAULT_SCENE_ITEMS: SceneItem[] = [
     rotationY: 0,
     dimensions: { width: 16, height: 2168, depth: 560 },
     properties: { ...LDSP_WHITE },
+    groupId: null,
   },
 
   // ── Правая секция: 4 полки ───────────────────────────────────────────────
@@ -80,6 +86,7 @@ export const DEFAULT_SCENE_ITEMS: SceneItem[] = [
     rotationY: 0,
     dimensions: { width: 426, height: 16, depth: 560 },
     properties: { ...LDSP_WHITE },
+    groupId: null,
   },
   {
     id: 'default-shelf-r2',
@@ -89,6 +96,7 @@ export const DEFAULT_SCENE_ITEMS: SceneItem[] = [
     rotationY: 0,
     dimensions: { width: 426, height: 16, depth: 560 },
     properties: { ...LDSP_WHITE },
+    groupId: null,
   },
   {
     id: 'default-shelf-r3',
@@ -98,6 +106,7 @@ export const DEFAULT_SCENE_ITEMS: SceneItem[] = [
     rotationY: 0,
     dimensions: { width: 426, height: 16, depth: 560 },
     properties: { ...LDSP_WHITE },
+    groupId: null,
   },
   {
     id: 'default-shelf-r4',
@@ -107,6 +116,7 @@ export const DEFAULT_SCENE_ITEMS: SceneItem[] = [
     rotationY: 0,
     dimensions: { width: 426, height: 16, depth: 560 },
     properties: { ...LDSP_WHITE },
+    groupId: null,
   },
 
   // ── Левая секция: штанга + нижняя полка ─────────────────────────────────
@@ -119,6 +129,7 @@ export const DEFAULT_SCENE_ITEMS: SceneItem[] = [
     rotationY: 0,
     dimensions: { width: 426, height: 25, depth: 25 },
     properties: { material: 'Металл', color: '#C0C0C0' },
+    groupId: null,
   },
   {
     id: 'default-shelf-l1',
@@ -128,5 +139,6 @@ export const DEFAULT_SCENE_ITEMS: SceneItem[] = [
     rotationY: 0,
     dimensions: { width: 426, height: 16, depth: 560 },
     properties: { ...LDSP_WHITE },
+    groupId: null,
   },
 ]
