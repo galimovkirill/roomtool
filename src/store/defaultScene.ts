@@ -1,4 +1,4 @@
-import type { SceneItem } from '@/types'
+import type { SceneGroup, SceneItem } from '@/types'
 
 // Wardrobe: 900 × 2200 × 600 mm, centered at origin
 // Left section: hanging clothes (штанга + нижняя полка)
@@ -7,6 +7,32 @@ import type { SceneItem } from '@/types'
 
 const LDSP_WHITE = { material: 'ЛДСП', color: '#F5F5F0' }
 const DVP_WHITE = { material: 'ДВП', color: '#F5F5F0' }
+
+const DEFAULT_GROUP_ID = 'default-wardrobe-group'
+
+const DEFAULT_ITEM_IDS = [
+  'default-left-panel',
+  'default-right-panel',
+  'default-top-panel',
+  'default-bottom-panel',
+  'default-back-panel',
+  'default-divider',
+  'default-shelf-r1',
+  'default-shelf-r2',
+  'default-shelf-r3',
+  'default-shelf-r4',
+  'default-rod',
+  'default-shelf-l1',
+]
+
+export const DEFAULT_SCENE_GROUPS: SceneGroup[] = [
+  {
+    id: DEFAULT_GROUP_ID,
+    name: 'Шкаф',
+    itemIds: DEFAULT_ITEM_IDS,
+    collapsed: false,
+  },
+]
 
 export const DEFAULT_SCENE_ITEMS: SceneItem[] = [
   // ── Корпус ──────────────────────────────────────────────────────────────
@@ -18,7 +44,7 @@ export const DEFAULT_SCENE_ITEMS: SceneItem[] = [
     rotationY: 0,
     dimensions: { width: 16, height: 2200, depth: 600 },
     properties: { ...LDSP_WHITE },
-    groupId: null,
+    groupId: DEFAULT_GROUP_ID,
   },
   {
     id: 'default-right-panel',
@@ -28,7 +54,7 @@ export const DEFAULT_SCENE_ITEMS: SceneItem[] = [
     rotationY: 0,
     dimensions: { width: 16, height: 2200, depth: 600 },
     properties: { ...LDSP_WHITE },
-    groupId: null,
+    groupId: DEFAULT_GROUP_ID,
   },
   {
     id: 'default-top-panel',
@@ -38,7 +64,7 @@ export const DEFAULT_SCENE_ITEMS: SceneItem[] = [
     rotationY: 0,
     dimensions: { width: 868, height: 16, depth: 600 },
     properties: { ...LDSP_WHITE },
-    groupId: null,
+    groupId: DEFAULT_GROUP_ID,
   },
   {
     id: 'default-bottom-panel',
@@ -48,7 +74,7 @@ export const DEFAULT_SCENE_ITEMS: SceneItem[] = [
     rotationY: 0,
     dimensions: { width: 868, height: 16, depth: 600 },
     properties: { ...LDSP_WHITE },
-    groupId: null,
+    groupId: DEFAULT_GROUP_ID,
   },
   // Back panel sits at rear: z = -300 + 4 = -296
   {
@@ -59,7 +85,7 @@ export const DEFAULT_SCENE_ITEMS: SceneItem[] = [
     rotationY: 0,
     dimensions: { width: 900, height: 2200, depth: 8 },
     properties: { ...DVP_WHITE },
-    groupId: null,
+    groupId: DEFAULT_GROUP_ID,
   },
 
   // ── Разделитель по центру ────────────────────────────────────────────────
@@ -72,7 +98,7 @@ export const DEFAULT_SCENE_ITEMS: SceneItem[] = [
     rotationY: 0,
     dimensions: { width: 16, height: 2168, depth: 560 },
     properties: { ...LDSP_WHITE },
-    groupId: null,
+    groupId: DEFAULT_GROUP_ID,
   },
 
   // ── Правая секция: 4 полки ───────────────────────────────────────────────
@@ -86,7 +112,7 @@ export const DEFAULT_SCENE_ITEMS: SceneItem[] = [
     rotationY: 0,
     dimensions: { width: 426, height: 16, depth: 560 },
     properties: { ...LDSP_WHITE },
-    groupId: null,
+    groupId: DEFAULT_GROUP_ID,
   },
   {
     id: 'default-shelf-r2',
@@ -96,7 +122,7 @@ export const DEFAULT_SCENE_ITEMS: SceneItem[] = [
     rotationY: 0,
     dimensions: { width: 426, height: 16, depth: 560 },
     properties: { ...LDSP_WHITE },
-    groupId: null,
+    groupId: DEFAULT_GROUP_ID,
   },
   {
     id: 'default-shelf-r3',
@@ -106,7 +132,7 @@ export const DEFAULT_SCENE_ITEMS: SceneItem[] = [
     rotationY: 0,
     dimensions: { width: 426, height: 16, depth: 560 },
     properties: { ...LDSP_WHITE },
-    groupId: null,
+    groupId: DEFAULT_GROUP_ID,
   },
   {
     id: 'default-shelf-r4',
@@ -116,7 +142,7 @@ export const DEFAULT_SCENE_ITEMS: SceneItem[] = [
     rotationY: 0,
     dimensions: { width: 426, height: 16, depth: 560 },
     properties: { ...LDSP_WHITE },
-    groupId: null,
+    groupId: DEFAULT_GROUP_ID,
   },
 
   // ── Левая секция: штанга + нижняя полка ─────────────────────────────────
@@ -129,7 +155,7 @@ export const DEFAULT_SCENE_ITEMS: SceneItem[] = [
     rotationY: 0,
     dimensions: { width: 426, height: 25, depth: 25 },
     properties: { material: 'Металл', color: '#C0C0C0' },
-    groupId: null,
+    groupId: DEFAULT_GROUP_ID,
   },
   {
     id: 'default-shelf-l1',
@@ -139,6 +165,6 @@ export const DEFAULT_SCENE_ITEMS: SceneItem[] = [
     rotationY: 0,
     dimensions: { width: 426, height: 16, depth: 560 },
     properties: { ...LDSP_WHITE },
-    groupId: null,
+    groupId: DEFAULT_GROUP_ID,
   },
 ]

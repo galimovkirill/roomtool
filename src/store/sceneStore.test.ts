@@ -130,7 +130,7 @@ describe('removeItem', () => {
     useSceneStore.getState().addItem(TEST_ITEM)
     const [a, b] = useSceneStore.getState().items
     useSceneStore.getState().selectItems([a.id, b.id])
-    useSceneStore.getState().createGroup('G')
+    useSceneStore.getState().createGroup()
     useSceneStore.getState().removeItem(a.id)
     const { groups, items } = useSceneStore.getState()
     expect(groups).toHaveLength(0)
@@ -169,7 +169,7 @@ describe('groups', () => {
     useSceneStore.getState().addItem(TEST_ITEM)
     const [a, b] = useSceneStore.getState().items
     useSceneStore.getState().selectItems([a.id, b.id])
-    useSceneStore.getState().createGroup('Группа 1')
+    useSceneStore.getState().createGroup()
     const { groups, items } = useSceneStore.getState()
     expect(groups).toHaveLength(1)
     expect(groups[0].itemIds).toContain(a.id)
@@ -182,7 +182,7 @@ describe('groups', () => {
     useSceneStore.getState().addItem(TEST_ITEM)
     const [a] = useSceneStore.getState().items
     useSceneStore.getState().selectItems([a.id])
-    useSceneStore.getState().createGroup('Группа 1')
+    useSceneStore.getState().createGroup()
     expect(useSceneStore.getState().groups).toHaveLength(0)
   })
 
@@ -191,7 +191,7 @@ describe('groups', () => {
     useSceneStore.getState().addItem(TEST_ITEM)
     const [a, b] = useSceneStore.getState().items
     useSceneStore.getState().selectItems([a.id, b.id])
-    useSceneStore.getState().createGroup('Группа 1')
+    useSceneStore.getState().createGroup()
     const groupId = useSceneStore.getState().groups[0].id
     useSceneStore.getState().ungroupItems(groupId)
     const { items, groups } = useSceneStore.getState()
@@ -205,7 +205,7 @@ describe('groups', () => {
     useSceneStore.getState().addItem(TEST_ITEM)
     const [a, b] = useSceneStore.getState().items
     useSceneStore.getState().selectItems([a.id, b.id])
-    useSceneStore.getState().createGroup('Группа 1')
+    useSceneStore.getState().createGroup()
     const groupId = useSceneStore.getState().groups[0].id
     const posA = useSceneStore.getState().items.find((i) => i.id === a.id)!.position
     useSceneStore.getState().moveGroup(groupId, [100, 0, 50])
@@ -220,7 +220,7 @@ describe('groups', () => {
     useSceneStore.getState().addItem(TEST_ITEM) // third item, not in group
     const [a, b] = useSceneStore.getState().items
     useSceneStore.getState().selectItems([a.id, b.id])
-    useSceneStore.getState().createGroup('Группа 1')
+    useSceneStore.getState().createGroup()
     const groupId = useSceneStore.getState().groups[0].id
     useSceneStore.getState().removeGroup(groupId)
     const { items, groups } = useSceneStore.getState()
@@ -230,12 +230,51 @@ describe('groups', () => {
     expect(items).toHaveLength(1) // third item survives
   })
 
+  it('createGroup removes regrouped items from their previous group', () => {
+    useSceneStore.getState().addItem(TEST_ITEM)
+    useSceneStore.getState().addItem(TEST_ITEM)
+    useSceneStore.getState().addItem(TEST_ITEM)
+    const [a, b, c] = useSceneStore.getState().items
+    // Put a, b, c into first group
+    useSceneStore.getState().selectItems([a.id, b.id, c.id])
+    useSceneStore.getState().createGroup()
+    const g1Id = useSceneStore.getState().groups[0].id
+    // Now re-select a and b to create a second group
+    useSceneStore.getState().selectItems([a.id, b.id])
+    useSceneStore.getState().createGroup()
+    const { groups, items } = useSceneStore.getState()
+    const g1 = groups.find((g) => g.id === g1Id)
+    const g2 = groups.find((g) => g.id !== g1Id)
+    // g1 had 3 members; lost a and b → 1 remaining → auto-ungrouped
+    expect(g1).toBeUndefined()
+    expect(items.find((i) => i.id === c.id)?.groupId).toBeNull()
+    // a and b are in the new group
+    expect(g2?.itemIds).toContain(a.id)
+    expect(g2?.itemIds).toContain(b.id)
+    expect(items.find((i) => i.id === a.id)?.groupId).toBe(g2?.id)
+  })
+
+  it('createGroup names group using store counter, not stale React snapshot', () => {
+    useSceneStore.getState().addItem(TEST_ITEM)
+    useSceneStore.getState().addItem(TEST_ITEM)
+    useSceneStore.getState().addItem(TEST_ITEM)
+    useSceneStore.getState().addItem(TEST_ITEM)
+    const [a, b, c, d] = useSceneStore.getState().items
+    useSceneStore.getState().selectItems([a.id, b.id])
+    useSceneStore.getState().createGroup()
+    useSceneStore.getState().selectItems([c.id, d.id])
+    useSceneStore.getState().createGroup()
+    const { groups } = useSceneStore.getState()
+    expect(groups[0].name).toBe('Группа 1')
+    expect(groups[1].name).toBe('Группа 2')
+  })
+
   it('undo after createGroup restores ungrouped state', () => {
     useSceneStore.getState().addItem(TEST_ITEM)
     useSceneStore.getState().addItem(TEST_ITEM)
     const [a, b] = useSceneStore.getState().items
     useSceneStore.getState().selectItems([a.id, b.id])
-    useSceneStore.getState().createGroup('Группа 1')
+    useSceneStore.getState().createGroup()
     useSceneStore.getState().undo()
     const { groups, items } = useSceneStore.getState()
     expect(groups).toHaveLength(0)
@@ -248,7 +287,7 @@ describe('groups', () => {
     const [a] = useSceneStore.getState().items
     const origPos = [...useSceneStore.getState().items.find((i) => i.id === a.id)!.position]
     useSceneStore.getState().selectItems(useSceneStore.getState().items.map((i) => i.id))
-    useSceneStore.getState().createGroup('G')
+    useSceneStore.getState().createGroup()
     const groupId = useSceneStore.getState().groups[0].id
     useSceneStore.getState().moveGroup(groupId, [500, 0, 0])
     useSceneStore.getState().undo()

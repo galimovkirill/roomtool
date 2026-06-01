@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import * as ContextMenu from '@radix-ui/react-context-menu'
+import { toast } from 'sonner'
 import { useSceneStore } from '@/store'
 import type { SceneGroup, SceneItem } from '@/types'
 
@@ -23,13 +24,14 @@ function buildLayerRows(items: SceneItem[], groups: SceneGroup[]): LayerRow[] {
   return rows
 }
 
-// Returns all item IDs in visual order (groups expand their members inline)
+// Returns visible item IDs in order — collapsed groups contribute no items
+// so shift-click range cannot select hidden members
 function buildFlatOrder(rows: LayerRow[]): string[] {
   const result: string[] = []
   for (const row of rows) {
     if (row.type === 'item') {
       result.push(row.item.id)
-    } else {
+    } else if (!row.group.collapsed) {
       for (const id of row.group.itemIds) {
         result.push(id)
       }
@@ -42,7 +44,6 @@ export function LayersPanel() {
   const items = useSceneStore((s) => s.items)
   const groups = useSceneStore((s) => s.groups)
   const selectedItemIds = useSceneStore((s) => s.selectedItemIds)
-  const groupCounter = useSceneStore((s) => s.groupCounter)
   const selectItems = useSceneStore((s) => s.selectItems)
   const toggleItemSelection = useSceneStore((s) => s.toggleItemSelection)
   const createGroup = useSceneStore((s) => s.createGroup)
@@ -82,8 +83,14 @@ export function LayersPanel() {
   }
 
   const commitRename = () => {
-    if (renamingGroupId && renameValue.trim()) {
-      renameGroup(renamingGroupId, renameValue.trim())
+    if (renamingGroupId) {
+      const trimmed = renameValue.trim()
+      if (!trimmed) {
+        toast.warning('Имя группы не может быть пустым')
+        setRenamingGroupId(null)
+        return
+      }
+      renameGroup(renamingGroupId, trimmed)
     }
     setRenamingGroupId(null)
   }
@@ -222,7 +229,7 @@ export function LayersPanel() {
               {selectedItemIds.length >= 2 && (
                 <ContextMenu.Item
                   className="px-3 py-1.5 text-sm cursor-pointer rounded hover:bg-gray-100 outline-none"
-                  onSelect={() => createGroup(`Группа ${groupCounter + 1}`)}
+                  onSelect={() => createGroup()}
                 >
                   Создать группу ({selectedItemIds.length})
                 </ContextMenu.Item>

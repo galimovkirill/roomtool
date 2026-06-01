@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { v4 as uuid } from 'uuid'
 import type { CatalogItem, SceneGroup, SceneItem } from '@/types'
 import { MATERIAL_COLORS, MATERIAL_OPTIONS, type MaterialType } from '@/catalog/materials'
-import { DEFAULT_SCENE_ITEMS } from './defaultScene'
+import { DEFAULT_SCENE_GROUPS, DEFAULT_SCENE_ITEMS } from './defaultScene'
 
 type ItemPatch = Partial<Pick<SceneItem, 'position' | 'rotationY' | 'dimensions' | 'properties'>>
 
@@ -23,7 +23,7 @@ interface SceneState {
   selectItems: (ids: string[]) => void
   toggleItemSelection: (id: string, addToSelection: boolean) => void
   rotateItem: (id: string, direction: 'left' | 'right') => void
-  createGroup: (name: string) => void
+  createGroup: () => void
   ungroupItems: (groupId: string) => void
   moveGroup: (groupId: string, delta: [number, number, number]) => void
   removeGroup: (groupId: string) => void
@@ -48,7 +48,7 @@ function pushHistory(state: Pick<SceneState, 'items' | 'groups' | 'history' | 'f
 
 export const useSceneStore = create<SceneState>((set, get) => ({
   items: DEFAULT_SCENE_ITEMS,
-  groups: [],
+  groups: DEFAULT_SCENE_GROUPS,
   selectedItemId: null,
   selectedItemIds: [],
   groupCounter: 0,
@@ -182,24 +182,37 @@ export const useSceneStore = create<SceneState>((set, get) => ({
     }))
   },
 
-  createGroup(name) {
+  createGroup() {
     set((state) => {
       if (state.selectedItemIds.length < 2) return {}
       const newCounter = state.groupCounter + 1
       const group: SceneGroup = {
         id: uuid(),
-        name,
+        name: `Группа ${newCounter}`,
         itemIds: [...state.selectedItemIds],
         collapsed: false,
       }
       const selectedSet = new Set(state.selectedItemIds)
+
+      // Remove selected items from their existing groups; auto-ungroup if ≤ 1 member remains
+      const soloMembers = new Set<string>()
+      const updatedGroups = state.groups
+        .map((g) => ({ ...g, itemIds: g.itemIds.filter((id) => !selectedSet.has(id)) }))
+        .filter((g) => {
+          if (g.itemIds.length === 0) return false
+          if (g.itemIds.length === 1) { soloMembers.add(g.itemIds[0]); return false }
+          return true
+        })
+
       return {
         ...pushHistory(state),
-        groups: [...state.groups, group],
+        groups: [...updatedGroups, group],
         groupCounter: newCounter,
-        items: state.items.map((item) =>
-          selectedSet.has(item.id) ? { ...item, groupId: group.id } : item
-        ),
+        items: state.items.map((item) => {
+          if (selectedSet.has(item.id)) return { ...item, groupId: group.id }
+          if (soloMembers.has(item.id)) return { ...item, groupId: null }
+          return item
+        }),
         selectedItemIds: [],
         selectedItemId: null,
       }
@@ -224,7 +237,7 @@ export const useSceneStore = create<SceneState>((set, get) => ({
       return {
         ...pushHistory(state),
         items: state.items.map((item) => {
-          if (!memberSet.has(item.id)) return item
+          if (!memberSet.has(item.id) || item.groupId !== groupId) return item
           return {
             ...item,
             position: [
