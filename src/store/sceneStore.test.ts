@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useSceneStore } from './sceneStore'
+import { MATERIAL_COLORS, MATERIAL_OPTIONS, type MaterialType } from '@/catalog/materials'
 import type { CatalogItem } from '@/types'
 
 const TEST_ITEM: CatalogItem = {
@@ -107,6 +108,99 @@ describe('addItem', () => {
     useSceneStore.getState().addItem(cat)
     expect(useSceneStore.getState().items[0].properties.color).toBe('Венге')
   })
+
+  it('initialises material property to first MATERIAL_OPTIONS value when no options', () => {
+    const cat: CatalogItem = {
+      ...TEST_ITEM,
+      properties: [{ key: 'material', label: 'Материал', type: 'material' }],
+    }
+    useSceneStore.getState().addItem(cat)
+    expect(useSceneStore.getState().items[0].properties.material).toBe(MATERIAL_OPTIONS[0])
+  })
+
+  it('initialises material property to first explicit option when options provided', () => {
+    const cat: CatalogItem = {
+      ...TEST_ITEM,
+      properties: [
+        {
+          key: 'material',
+          label: 'Материал',
+          type: 'material',
+          options: [
+            { label: 'Стекло', value: 'Стекло' },
+            { label: 'Металл', value: 'Металл' },
+          ],
+        },
+      ],
+    }
+    useSceneStore.getState().addItem(cat)
+    expect(useSceneStore.getState().items[0].properties.material).toBe('Стекло')
+  })
+
+  it('initialises color to the first color of the chosen material', () => {
+    const cat: CatalogItem = {
+      ...TEST_ITEM,
+      properties: [
+        { key: 'material', label: 'Материал', type: 'material' },
+        { key: 'color', label: 'Цвет', type: 'color', dependsOnMaterial: 'material' },
+      ],
+    }
+    useSceneStore.getState().addItem(cat)
+    const props = useSceneStore.getState().items[0].properties
+    const firstColor = MATERIAL_COLORS[props.material as MaterialType][0].value
+    expect(props.color).toBe(firstColor)
+  })
+
+  it('resolves color against material when material is declared before color', () => {
+    const cat: CatalogItem = {
+      ...TEST_ITEM,
+      properties: [
+        {
+          key: 'material',
+          label: 'Материал',
+          type: 'material',
+          options: [{ label: 'Массив', value: 'Массив' }],
+        },
+        { key: 'color', label: 'Цвет', type: 'color', dependsOnMaterial: 'material' },
+      ],
+    }
+    useSceneStore.getState().addItem(cat)
+    expect(useSceneStore.getState().items[0].properties.color).toBe(
+      MATERIAL_COLORS['Массив'][0].value
+    )
+  })
+
+  it('falls back to default material colors when color is declared before its material', () => {
+    // Documents the init ordering dependency: at the color field's turn the material
+    // value is not yet in `properties`, so it falls back to MATERIAL_OPTIONS[0] colors.
+    const cat: CatalogItem = {
+      ...TEST_ITEM,
+      properties: [
+        { key: 'color', label: 'Цвет', type: 'color', dependsOnMaterial: 'material' },
+        {
+          key: 'material',
+          label: 'Материал',
+          type: 'material',
+          options: [{ label: 'Массив', value: 'Массив' }],
+        },
+      ],
+    }
+    useSceneStore.getState().addItem(cat)
+    const props = useSceneStore.getState().items[0].properties
+    expect(props.material).toBe('Массив')
+    expect(props.color).toBe(MATERIAL_COLORS[MATERIAL_OPTIONS[0]][0].value)
+  })
+
+  it('falls back to default color when dependsOnMaterial points to an unknown material', () => {
+    const cat: CatalogItem = {
+      ...TEST_ITEM,
+      properties: [{ key: 'color', label: 'Цвет', type: 'color', dependsOnMaterial: 'absent' }],
+    }
+    useSceneStore.getState().addItem(cat)
+    // no 'material' key resolved → falls back to first option of MATERIAL_OPTIONS[0]
+    expect(typeof useSceneStore.getState().items[0].properties.color).toBe('string')
+    expect(useSceneStore.getState().items[0].properties.color).toMatch(/^#/)
+  })
 })
 
 describe('removeItem', () => {
@@ -163,6 +257,31 @@ describe('rotateItem', () => {
   })
 })
 
+describe('updateItem', () => {
+  it('applies a position patch to the targeted item only', () => {
+    useSceneStore.getState().addItem(TEST_ITEM)
+    useSceneStore.getState().addItem(TEST_ITEM)
+    const [a, b] = useSceneStore.getState().items
+    useSceneStore.getState().updateItem(a.id, { position: [10, 20, 30] })
+    const items = useSceneStore.getState().items
+    expect(items.find((i) => i.id === a.id)?.position).toEqual([10, 20, 30])
+    expect(items.find((i) => i.id === b.id)?.position).toEqual(b.position)
+  })
+
+  it('merges dimensions patch and pushes history', () => {
+    useSceneStore.getState().addItem(TEST_ITEM)
+    const [a] = useSceneStore.getState().items
+    useSceneStore.getState().updateItem(a.id, { dimensions: { width: 50, height: 60, depth: 70 } })
+    expect(useSceneStore.getState().items[0].dimensions).toEqual({
+      width: 50,
+      height: 60,
+      depth: 70,
+    })
+    useSceneStore.getState().undo()
+    expect(useSceneStore.getState().items[0].dimensions).toEqual(TEST_ITEM.defaultDimensions)
+  })
+})
+
 describe('groups', () => {
   it('createGroup groups two selected items', () => {
     useSceneStore.getState().addItem(TEST_ITEM)
@@ -212,6 +331,53 @@ describe('groups', () => {
     const newA = useSceneStore.getState().items.find((i) => i.id === a.id)!
     expect(newA.position[0]).toBeCloseTo(posA[0] + 100)
     expect(newA.position[2]).toBeCloseTo(posA[2] + 50)
+  })
+
+  it('moveGroup clamps members to the floor (y never below height/2)', () => {
+    useSceneStore.getState().addItem(TEST_ITEM)
+    useSceneStore.getState().addItem(TEST_ITEM)
+    const [a, b] = useSceneStore.getState().items
+    useSceneStore.getState().selectItems([a.id, b.id])
+    useSceneStore.getState().createGroup()
+    const groupId = useSceneStore.getState().groups[0].id
+    // large downward delta — members must stop at floor, not sink below
+    useSceneStore.getState().moveGroup(groupId, [0, -999999, 0])
+    const floor = TEST_ITEM.defaultDimensions.height / 2
+    for (const i of useSceneStore.getState().items) {
+      expect(i.position[1]).toBe(floor)
+    }
+  })
+
+  it('moveGroup does nothing for an unknown groupId', () => {
+    useSceneStore.getState().addItem(TEST_ITEM)
+    const before = useSceneStore.getState().items[0].position
+    useSceneStore.getState().moveGroup('no-such-group', [100, 0, 0])
+    expect(useSceneStore.getState().items[0].position).toEqual(before)
+  })
+
+  it('renameGroup updates the group name', () => {
+    useSceneStore.getState().addItem(TEST_ITEM)
+    useSceneStore.getState().addItem(TEST_ITEM)
+    const [a, b] = useSceneStore.getState().items
+    useSceneStore.getState().selectItems([a.id, b.id])
+    useSceneStore.getState().createGroup()
+    const groupId = useSceneStore.getState().groups[0].id
+    useSceneStore.getState().renameGroup(groupId, 'Шкаф слева')
+    expect(useSceneStore.getState().groups[0].name).toBe('Шкаф слева')
+  })
+
+  it('toggleGroupCollapse flips collapsed flag', () => {
+    useSceneStore.getState().addItem(TEST_ITEM)
+    useSceneStore.getState().addItem(TEST_ITEM)
+    const [a, b] = useSceneStore.getState().items
+    useSceneStore.getState().selectItems([a.id, b.id])
+    useSceneStore.getState().createGroup()
+    const groupId = useSceneStore.getState().groups[0].id
+    expect(useSceneStore.getState().groups[0].collapsed).toBe(false)
+    useSceneStore.getState().toggleGroupCollapse(groupId)
+    expect(useSceneStore.getState().groups[0].collapsed).toBe(true)
+    useSceneStore.getState().toggleGroupCollapse(groupId)
+    expect(useSceneStore.getState().groups[0].collapsed).toBe(false)
   })
 
   it('removeGroup deletes group and all its items', () => {
