@@ -200,7 +200,10 @@ export const useSceneStore = create<SceneState>((set, get) => ({
         .map((g) => ({ ...g, itemIds: g.itemIds.filter((id) => !selectedSet.has(id)) }))
         .filter((g) => {
           if (g.itemIds.length === 0) return false
-          if (g.itemIds.length === 1) { soloMembers.add(g.itemIds[0]); return false }
+          if (g.itemIds.length === 1) {
+            soloMembers.add(g.itemIds[0])
+            return false
+          }
           return true
         })
 
@@ -301,4 +304,3 @@ export const useSceneStore = create<SceneState>((set, get) => ({
     })
   },
 }))
-
