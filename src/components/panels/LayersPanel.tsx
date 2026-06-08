@@ -2,43 +2,9 @@ import { useState } from 'react'
 import * as ContextMenu from '@radix-ui/react-context-menu'
 import { toast } from 'sonner'
 import { useSceneStore } from '@/store'
-import type { SceneGroup, SceneItem } from '@/types'
+import { buildFlatOrder, buildLayerRows, rangeSelection } from '@/utils/layerTree'
 
 type CtxTarget = { kind: 'item'; id: string } | { kind: 'group'; id: string } | null
-
-type LayerRow = { type: 'item'; item: SceneItem } | { type: 'group'; group: SceneGroup }
-
-function buildLayerRows(items: SceneItem[], groups: SceneGroup[]): LayerRow[] {
-  const seen = new Set<string>()
-  const rows: LayerRow[] = []
-  for (let i = items.length - 1; i >= 0; i--) {
-    const item = items[i]
-    if (item.groupId === null) {
-      rows.push({ type: 'item', item })
-    } else if (!seen.has(item.groupId)) {
-      seen.add(item.groupId)
-      const group = groups.find((g) => g.id === item.groupId)
-      if (group) rows.push({ type: 'group', group })
-    }
-  }
-  return rows
-}
-
-// Returns visible item IDs in order — collapsed groups contribute no items
-// so shift-click range cannot select hidden members
-function buildFlatOrder(rows: LayerRow[]): string[] {
-  const result: string[] = []
-  for (const row of rows) {
-    if (row.type === 'item') {
-      result.push(row.item.id)
-    } else if (!row.group.collapsed) {
-      for (const id of row.group.itemIds) {
-        result.push(id)
-      }
-    }
-  }
-  return result
-}
 
 export function LayersPanel() {
   const items = useSceneStore((s) => s.items)
@@ -63,12 +29,9 @@ export function LayersPanel() {
 
   const handleItemClick = (id: string, e: React.MouseEvent) => {
     if (e.shiftKey && anchorId) {
-      const anchorIdx = flatOrder.indexOf(anchorId)
-      const currentIdx = flatOrder.indexOf(id)
-      if (anchorIdx !== -1 && currentIdx !== -1) {
-        const start = Math.min(anchorIdx, currentIdx)
-        const end = Math.max(anchorIdx, currentIdx)
-        selectItems(flatOrder.slice(start, end + 1))
+      const range = rangeSelection(flatOrder, anchorId, id)
+      if (range) {
+        selectItems(range)
       } else {
         selectItems([id])
         setAnchorId(id)
