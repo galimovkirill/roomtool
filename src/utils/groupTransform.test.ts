@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { SceneItem } from '@/types'
 import { SCENE_CONFIG } from '@/config/scene'
-import { computeGroupCenter, groupDragDelta, pivotPositionOnChange } from './groupTransform'
+import { computeGroupCenter, groupDragDelta } from './groupTransform'
 
 function makeItem(
   id: string,
@@ -61,47 +61,5 @@ describe('groupDragDelta', () => {
     const delta = groupDragDelta([100000, 1100, 0], [0, 1100, 0], ['a'], items)
     const maxDx = half - item.dimensions.width / 2 - item.position[0]
     expect(delta[0]).toBeCloseTo(maxDx)
-  })
-})
-
-describe('pivotPositionOnChange', () => {
-  const item = makeItem('a', [0, 1100, 0], { width: 900, height: 2200, depth: 600 })
-  const items = [item]
-
-  it('is a no-op (null) when not dragging — guards spurious change events', () => {
-    // This is the regression guard: outside a drag, initialCenter is stale ([0,0,0]),
-    // so without the guard the pivot's absolute position would be clamped and the
-    // gizmo yanked to a wrong spot (the reported bug). Must return null instead.
-    const result = pivotPositionOnChange({
-      dragging: false,
-      pivotPosition: [0, 1100, 0],
-      initialCenter: [0, 0, 0],
-      groupItemIds: ['a'],
-      items,
-    })
-    expect(result).toBeNull()
-  })
-
-  it('returns the clamped pivot position while dragging', () => {
-    const result = pivotPositionOnChange({
-      dragging: true,
-      pivotPosition: [300, 1100, 0],
-      initialCenter: [0, 1100, 0],
-      groupItemIds: ['a'],
-      items,
-    })
-    expect(result).toEqual([300, 1100, 0])
-  })
-
-  it('clamps the dragged pivot at the wall', () => {
-    const half = SCENE_CONFIG.room.width / 2
-    const result = pivotPositionOnChange({
-      dragging: true,
-      pivotPosition: [100000, 1100, 0],
-      initialCenter: [0, 1100, 0],
-      groupItemIds: ['a'],
-      items,
-    })
-    expect(result![0]).toBeCloseTo(half - item.dimensions.width / 2)
   })
 })

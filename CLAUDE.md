@@ -59,8 +59,8 @@ src/
 │   ├── scene/
 │   │   ├── SceneCanvas.tsx          # R3F Canvas, переключение камер
 │   │   ├── Room.tsx                 # Пол + стены (размеры из config)
-│   │   ├── SceneElement.tsx         # Один элемент: mesh/GLTF + TransformControls + Popover
-│   │   ├── GroupTransformProxy.tsx  # Общий gizmo для перемещения выделенной группы
+│   │   ├── SceneElement.tsx         # Один элемент: mesh/GLTF + Popover (презентационный, без gizmo)
+│   │   ├── TransformProxy.tsx       # Единый gizmo перемещения для 1..N выделенных (pivot + drag-сессия)
 │   │   ├── SceneControls.tsx        # OrbitControls (forwardRef)
 │   │   └── SceneOverlay.tsx         # Кнопки 2D/3D поверх canvas
 │   ├── panels/
@@ -102,12 +102,34 @@ import { SCENE_CONFIG } from '@/config/scene'
 - Новый элемент: `position = [0, height/2, 0]` (центр комнаты, стоит на полу)
 - Ось Y — вертикаль. `y = height/2` означает что низ элемента на полу (y=0)
 
+### Перемещение элементов — единый источник истины
+⚠️ **Ключевая договорённость.** Позиция элемента живёт **только** в сторе (`item.position`).
+Three.js-объекты рендерятся из стора (`<group position={item.position}>`) и **никогда** не
+мутируются императивно. Это убирает класс багов «стор разошёлся с визуалом» (элемент
+снапится назад / теряет индивидуальное перемещение).
+
+- Один механизм для одиночного элемента и группы — `TransformProxy`. Gizmo прицеплен к
+  **невидимому pivot**, а не к мешам. Pivot отдаёт дельту → `dragSelectionBy()` пишет позиции
+  в стор → элементы перерисовываются. Одиночный элемент = «группа из одного».
+- Gizmo показывается, когда выделен ровно один элемент **или** выделение точно совпадает с
+  группой (см. `showTransformProxy` в `SceneCanvas`). Произвольный мультивыбор не двигается.
+- **Не добавляй второй TransformControls на сам элемент** и не возвращай теневые ref-копии
+  позиции (`lastFramePos` и т.п.) — это и есть источник прошлых регрессий.
+
+### Drag-сессия в сторе
+Интерактивное перемещение — это `beginDrag(ids)` → `dragSelectionBy(delta)` (каждый кадр,
+**без** истории) → `endDrag(commit)`. `beginDrag` снимает полный pre-drag снапшот; `dragSelectionBy`
+применяет дельту относительно стартовых позиций; `endDrag(true)` коммитит **один** undo-шаг на
+весь жест, `endDrag(false)` откатывает (коллизия / нулевое смещение). Дельта клампится по
+стенам (`clampGroupDelta`) на стороне `TransformProxy`, финальная коллизия — `hasGroupCollision`.
+`moveGroup()` остаётся отдельным one-shot delta+история примитивом (тесты, потенциальные хоткеи).
+
 ### Конфликт TransformControls и OrbitControls
 Решается через `window.dispatchEvent`:
 ```typescript
-// В SceneElement при начале drag:
+// В TransformProxy при начале drag:
 window.dispatchEvent(new CustomEvent('transform-start'))
-// В SceneElement при отпускании:
+// В TransformProxy при отпускании:
 window.dispatchEvent(new CustomEvent('transform-end'))
 // В SceneControls — подписка на эти события для enable/disable OrbitControls
 ```
@@ -124,7 +146,9 @@ window.dispatchEvent(new CustomEvent('transform-end'))
 Реализован в `sceneStore` через два стека (`history`, `future`, лимит 50).
 Снимок истории хранит и `items`, и `groups`. Каждая мутирующая операция
 (add/remove/update/rotate + групповые: createGroup/ungroup/moveGroup/removeGroup)
-вызывает `pushHistory` перед изменением.
+вызывает `pushHistory` перед изменением. Интерактивный drag — особый случай: `beginDrag`
+снимает снапшот, `endDrag(true)` кладёт его в историю **одним** шагом (см. «Drag-сессия»),
+а `dragSelectionBy` в историю не пишет.
 `selectItem`/`selectItems`/`renameGroup`/`toggleGroupCollapse` — **не** попадают в историю.
 
 ### Группы, выделение и слои
@@ -137,11 +161,13 @@ window.dispatchEvent(new CustomEvent('transform-end'))
 
 ### Проверка коллизий
 `totalOverlapVolume()` из `utils/collision.ts` (AABB) считает суммарный объём пересечения.
-В `SceneElement`:
-- `onChange` (во время drag) — не даёт увеличивать пересечение: позиция продвигается, только если overlap не растёт.
-- `onMouseUp` — финальная проверка; при пересечении откат на `lastFramePos.current` + `toast.warning(...)`.
+Перемещение идёт через `TransformProxy`:
+- **во время drag** — дельта клампится по стенам через `clampGroupDelta()` (элемент/группа не
+  проходит сквозь стену), позиции пишутся в стор живьём;
+- **на отпускании** — финальная проверка `hasGroupCollision()`; при пересечении `endDrag(false)`
+  откатывает на pre-drag снапшот + `toast.warning(...)`.
 
-Перед обеими проверками позиция прогоняется через `clampToRoom()` (границы комнаты).
+`clampToRoom()` — отдельная чистая функция (границы комнаты), покрыта тестами.
 
 ⚠️ **Известное ограничение:** AABB-проверка не учитывает поворот элементов.
 Повёрнутый на 90° корпус 900×600 мм будет проверяться как 900×600, а не 600×900.
@@ -238,9 +264,9 @@ GLB-файлы хранятся в `public/models/`.
 ## Тесты
 
 Юнит-тесты (Vitest + @testing-library/react). Файлы рядом с источником: `*.test.ts(x)`.
-Покрыто: `sceneStore` (мутации, группы, undo/redo, инициализация material/color), `uiStore`,
-`catalog/items`, `collision`, `clampToRoom`, `groupTransform`, `PropertiesPanel` (форма, сброс
-цвета, GLTF-scale), `PropertyField`, `ScreenGuard`.
+Покрыто: `sceneStore` (мутации, группы, undo/redo, drag-сессия, инициализация material/color),
+`uiStore`, `catalog/items`, `collision`, `clampToRoom`, `groupTransform`, `PropertiesPanel`
+(форма, сброс цвета, GLTF-scale), `PropertyField`, `ScreenGuard`.
 
 **Компоненты 3D-сцены (R3F) не тестируются** — Three.js не работает в jsdom (нет WebGL).
 Поэтому чистую логику выноси из R3F-компонентов в `utils/` и покрывай там — как сделано с

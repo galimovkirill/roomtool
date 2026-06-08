@@ -6,7 +6,16 @@ import { DEFAULT_SCENE_GROUPS, DEFAULT_SCENE_ITEMS } from './defaultScene'
 
 type ItemPatch = Partial<Pick<SceneItem, 'position' | 'rotationY' | 'dimensions' | 'properties'>>
 
+type Vec3 = [number, number, number]
+
 type HistorySnapshot = { items: SceneItem[]; groups: SceneGroup[] }
+
+// Transient state of an in-progress gizmo drag. Excluded from history:
+// the whole gesture commits as a single history entry on endDrag(true).
+// `snapshot` is the full pre-drag state (for undo + rollback on collision);
+// `base` holds the start position of each dragged item so live deltas are
+// always applied relative to where the drag began, never accumulated.
+type DragSession = { snapshot: HistorySnapshot; base: Record<string, Vec3> }
 
 interface SceneState {
   items: SceneItem[]
@@ -16,6 +25,7 @@ interface SceneState {
   groupCounter: number
   history: HistorySnapshot[]
   future: HistorySnapshot[]
+  dragSession: DragSession | null
   addItem: (catalogItem: CatalogItem) => void
   removeItem: (id: string) => void
   updateItem: (id: string, patch: ItemPatch) => void
@@ -26,6 +36,9 @@ interface SceneState {
   createGroup: () => void
   ungroupItems: (groupId: string) => void
   moveGroup: (groupId: string, delta: [number, number, number]) => void
+  beginDrag: (ids: string[]) => void
+  dragSelectionBy: (delta: [number, number, number]) => void
+  endDrag: (commit: boolean) => void
   removeGroup: (groupId: string) => void
   renameGroup: (groupId: string, name: string) => void
   toggleGroupCollapse: (groupId: string) => void
@@ -54,6 +67,7 @@ export const useSceneStore = create<SceneState>((set, get) => ({
   groupCounter: 0,
   history: [],
   future: [],
+  dragSession: null,
 
   addItem(catalogItem) {
     set((state) => {
@@ -252,6 +266,64 @@ export const useSceneStore = create<SceneState>((set, get) => ({
         }),
       }
     })
+  },
+
+  // ── Interactive drag (gizmo) ──────────────────────────────────────────────
+  // Single source of truth: positions live only in the store. The gizmo reports
+  // a delta which is written here; elements re-render from the store. There is no
+  // separate "visual" position to drift out of sync, and no per-frame history.
+
+  beginDrag(ids) {
+    set((state) => {
+      const idSet = new Set(ids)
+      const base: Record<string, Vec3> = {}
+      for (const item of state.items) {
+        if (idSet.has(item.id)) base[item.id] = [...item.position] as Vec3
+      }
+      return {
+        dragSession: {
+          snapshot: {
+            items: [...state.items],
+            groups: state.groups.map((g) => ({ ...g, itemIds: [...g.itemIds] })),
+          },
+          base,
+        },
+      }
+    })
+  },
+
+  dragSelectionBy(delta) {
+    const { dragSession } = get()
+    if (!dragSession) return
+    const { base } = dragSession
+    set((state) => ({
+      items: state.items.map((item) => {
+        const start = base[item.id]
+        if (!start) return item
+        return {
+          ...item,
+          position: [start[0] + delta[0], start[1] + delta[1], start[2] + delta[2]] as Vec3,
+        }
+      }),
+    }))
+  },
+
+  endDrag(commit) {
+    const { dragSession, history } = get()
+    if (!dragSession) return
+    if (commit) {
+      // Whole gesture becomes one undo step: push the pre-drag snapshot.
+      const nextHistory = [...history, dragSession.snapshot]
+      if (nextHistory.length > 50) nextHistory.shift()
+      set({ history: nextHistory, future: [], dragSession: null })
+    } else {
+      // Rollback (collision / no-op): restore the pre-drag state untouched.
+      set({
+        items: dragSession.snapshot.items,
+        groups: dragSession.snapshot.groups,
+        dragSession: null,
+      })
+    }
   },
 
   removeGroup(groupId) {

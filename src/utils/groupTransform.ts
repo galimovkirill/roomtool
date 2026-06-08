@@ -42,23 +42,3 @@ export function groupDragDelta(
   ]
   return clampGroupDelta(groupItemIds, raw, items)
 }
-
-// Resolves where the pivot should sit after a TransformControls "change" event.
-//
-// TransformControls fires "change" not only while dragging but also on attach /
-// re-render. Outside an active drag `initialCenter` is stale ([0,0,0]), so the
-// pivot's absolute position would be mistaken for a movement delta, clamped, and
-// written back — corrupting the gizmo position. Returning null when not dragging
-// keeps such spurious events as no-ops.
-export function pivotPositionOnChange(params: {
-  dragging: boolean
-  pivotPosition: Vec3
-  initialCenter: Vec3
-  groupItemIds: string[]
-  items: SceneItem[]
-}): Vec3 | null {
-  const { dragging, pivotPosition, initialCenter, groupItemIds, items } = params
-  if (!dragging) return null
-  const delta = groupDragDelta(pivotPosition, initialCenter, groupItemIds, items)
-  return [initialCenter[0] + delta[0], initialCenter[1] + delta[1], initialCenter[2] + delta[2]]
-}

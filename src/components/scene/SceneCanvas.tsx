@@ -7,7 +7,7 @@ import { Room } from './Room'
 import { SceneControls } from './SceneControls'
 import { SceneOverlay } from './SceneOverlay'
 import { SceneElement } from './SceneElement'
-import { GroupTransformProxy } from './GroupTransformProxy'
+import { TransformProxy } from './TransformProxy'
 
 const { initialPosition, fov, near, far } = SCENE_CONFIG.camera
 const perspPosition: [number, number, number] = [
@@ -33,6 +33,10 @@ export function SceneCanvas() {
     return group?.id ?? null
   }, [selectedItemIds, groups])
 
+  // Show the gizmo for a single element or a fully-selected group. An arbitrary
+  // multi-selection that is not a saved group cannot be moved (no gizmo).
+  const showTransformProxy = selectedItemIds.length === 1 || activeGroupId !== null
+
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
       <Canvas style={{ width: '100%', height: '100%' }} onPointerMissed={() => selectItem(null)}>
@@ -56,7 +60,7 @@ export function SceneCanvas() {
         {items.map((item) => (
           <SceneElement key={item.id} item={item} />
         ))}
-        {activeGroupId && <GroupTransformProxy groupId={activeGroupId} />}
+        {showTransformProxy && <TransformProxy targetIds={selectedItemIds} />}
       </Canvas>
       <SceneOverlay />
     </div>

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useSceneStore } from './sceneStore'
 import { MATERIAL_COLORS, MATERIAL_OPTIONS, type MaterialType } from '@/catalog/materials'
-import type { CatalogItem } from '@/types'
+import type { CatalogItem, SceneGroup, SceneItem } from '@/types'
 
 const TEST_ITEM: CatalogItem = {
   id: 'side-panel',
@@ -20,6 +20,7 @@ beforeEach(() => {
     groupCounter: 0,
     history: [],
     future: [],
+    dragSession: null,
   })
 })
 
@@ -531,6 +532,104 @@ describe('toggleItemSelection', () => {
     const [a] = useSceneStore.getState().items
     useSceneStore.getState().toggleItemSelection(a.id, false)
     expect(useSceneStore.getState().selectedItemId).toBeNull()
+  })
+})
+
+describe('drag session', () => {
+  function makeItem(id: string, x: number, groupId: string | null = null): SceneItem {
+    return {
+      id,
+      catalogId: 'side-panel',
+      name: id,
+      position: [x, 1100, 0],
+      rotationY: 0,
+      dimensions: { width: 16, height: 2200, depth: 600 },
+      properties: {},
+      groupId,
+    }
+  }
+
+  function seed(items: SceneItem[], groups: SceneGroup[] = []) {
+    useSceneStore.setState({
+      items,
+      groups,
+      selectedItemId: null,
+      selectedItemIds: [],
+      groupCounter: 0,
+      history: [],
+      future: [],
+      dragSession: null,
+    })
+  }
+
+  it('dragSelectionBy moves only session items, relative to their start', () => {
+    seed([makeItem('a', 0), makeItem('b', 100)])
+    useSceneStore.getState().beginDrag(['a'])
+    useSceneStore.getState().dragSelectionBy([50, 0, 0])
+    useSceneStore.getState().dragSelectionBy([80, 0, 0]) // relative to start, not cumulative
+    const { items } = useSceneStore.getState()
+    expect(items.find((i) => i.id === 'a')!.position[0]).toBe(80)
+    expect(items.find((i) => i.id === 'b')!.position[0]).toBe(100)
+  })
+
+  it('dragSelectionBy adds no history (the gesture is one undo step)', () => {
+    seed([makeItem('a', 0)])
+    useSceneStore.getState().beginDrag(['a'])
+    useSceneStore.getState().dragSelectionBy([10, 0, 0])
+    useSceneStore.getState().dragSelectionBy([20, 0, 0])
+    expect(useSceneStore.getState().history).toHaveLength(0)
+  })
+
+  it('endDrag(true) commits one history entry and keeps the moved position', () => {
+    seed([makeItem('a', 0)])
+    useSceneStore.getState().beginDrag(['a'])
+    useSceneStore.getState().dragSelectionBy([120, 0, 0])
+    useSceneStore.getState().endDrag(true)
+    expect(useSceneStore.getState().history).toHaveLength(1)
+    expect(useSceneStore.getState().dragSession).toBeNull()
+    expect(useSceneStore.getState().items[0].position[0]).toBe(120)
+    // undo restores the pre-drag position
+    useSceneStore.getState().undo()
+    expect(useSceneStore.getState().items[0].position[0]).toBe(0)
+  })
+
+  it('endDrag(false) rolls back to the pre-drag position with no history', () => {
+    seed([makeItem('a', 0)])
+    useSceneStore.getState().beginDrag(['a'])
+    useSceneStore.getState().dragSelectionBy([120, 0, 0])
+    useSceneStore.getState().endDrag(false)
+    expect(useSceneStore.getState().history).toHaveLength(0)
+    expect(useSceneStore.getState().dragSession).toBeNull()
+    expect(useSceneStore.getState().items[0].position[0]).toBe(0)
+  })
+
+  it('dragSelectionBy / endDrag without an active session are no-ops', () => {
+    seed([makeItem('a', 0)])
+    useSceneStore.getState().dragSelectionBy([50, 0, 0])
+    useSceneStore.getState().endDrag(true)
+    expect(useSceneStore.getState().items[0].position[0]).toBe(0)
+    expect(useSceneStore.getState().history).toHaveLength(0)
+  })
+
+  it('individual move of a grouped item persists and survives a later group move (regression)', () => {
+    // Reproduces the reported bug at the store level: move group, move one member
+    // individually, move group again — the individual offset must be preserved.
+    const group: SceneGroup = { id: 'g', name: 'g', itemIds: ['a', 'b'], collapsed: false }
+    seed([makeItem('a', 0, 'g'), makeItem('b', 100, 'g')], [group])
+
+    useSceneStore.getState().moveGroup('g', [200, 0, 0]) // a=200, b=300
+
+    // individual drag of "a" via the drag session (what TransformProxy does)
+    useSceneStore.getState().beginDrag(['a'])
+    useSceneStore.getState().dragSelectionBy([50, 0, 0])
+    useSceneStore.getState().endDrag(true) // a=250, b=300
+    expect(useSceneStore.getState().items.find((i) => i.id === 'a')!.position[0]).toBe(250)
+
+    useSceneStore.getState().moveGroup('g', [100, 0, 0]) // a=350, b=400
+    const a = useSceneStore.getState().items.find((i) => i.id === 'a')!
+    const b = useSceneStore.getState().items.find((i) => i.id === 'b')!
+    expect(a.position[0]).toBe(350) // individual +50 survived
+    expect(b.position[0] - a.position[0]).toBe(50) // relative offset preserved
   })
 })
 

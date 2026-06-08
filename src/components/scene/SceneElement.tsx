@@ -1,16 +1,10 @@
-import { type RefObject, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import * as THREE from 'three'
-import { Edges, Html, TransformControls, useGLTF } from '@react-three/drei'
+import { Edges, Html, useGLTF } from '@react-three/drei'
 import type { SceneItem } from '@/types'
 import { useSceneStore, useUIStore } from '@/store'
 import { ElementPopover } from '@/components/ui/ElementPopover'
-import { totalOverlapVolume } from '@/utils/collision'
-import { clampToRoom } from '@/utils/clampToRoom'
 import { getCatalogItemById } from '@/catalog/items'
-import { toast } from 'sonner'
-
-// floating-point tolerance for overlap volume comparison (mm³)
-const OVERLAP_TOLERANCE = 1
 
 const DEFAULT_COLOR = '#cccccc'
 
@@ -43,23 +37,17 @@ interface Props {
   item: SceneItem
 }
 
+// Presentational only: renders the element from the store and reports clicks for
+// selection. Movement is handled entirely by TransformProxy via the store, so the
+// element position is never mutated imperatively here — there is no second source
+// of truth to drift out of sync.
 export function SceneElement({ item }: Props) {
   const [hovered, setHovered] = useState(false)
-  const groupRef = useRef<THREE.Group>(null)
-  const lastFramePos = useRef<[number, number, number]>(item.position)
-  const draggingRef = useRef(false)
   const selectedItemIds = useSceneStore((s) => s.selectedItemIds)
-  const groups = useSceneStore((s) => s.groups)
   const selectItem = useSceneStore((s) => s.selectItem)
-  const updateItem = useSceneStore((s) => s.updateItem)
   const sceneMode = useUIStore((s) => s.sceneMode)
 
   const isSelected = selectedItemIds.includes(item.id)
-  const myGroup = item.groupId ? groups.find((g) => g.id === item.groupId) : null
-  const groupIsFullySelected = myGroup
-    ? myGroup.itemIds.every((id) => selectedItemIds.includes(id))
-    : false
-  const showTransformControls = isSelected && selectedItemIds.length === 1 && !groupIsFullySelected
 
   const propColor = item.properties?.color as string | undefined
   const color = propColor?.startsWith('#') ? propColor : DEFAULT_COLOR
@@ -73,121 +61,62 @@ export function SceneElement({ item }: Props) {
     []
   )
 
-  // Keep lastFramePos in sync when position changes externally (e.g. moveGroup),
-  // so a spurious onChange on TransformControls mount can't snap the element back
-  // to its position at mount time.
-  useEffect(() => {
-    if (!draggingRef.current) {
-      lastFramePos.current = item.position
-    }
-  }, [item.position])
-
   return (
-    <>
-      <group ref={groupRef} position={item.position} rotation={[0, item.rotationY, 0]}>
-        {catalogItem?.render?.type === 'gltf' ? (
-          <group
-            onPointerOver={() => {
-              setHovered(true)
-              document.body.style.cursor = 'pointer'
-            }}
-            onPointerOut={() => {
-              setHovered(false)
-              document.body.style.cursor = 'auto'
-            }}
-            onClick={(e) => {
-              e.stopPropagation()
-              selectItem(item.id)
-            }}
-          >
-            <GltfMesh src={catalogItem.render.src} dimensions={item.dimensions} />
-          </group>
-        ) : (
-          <mesh
-            castShadow
-            receiveShadow
-            onPointerOver={() => {
-              setHovered(true)
-              document.body.style.cursor = 'pointer'
-            }}
-            onPointerOut={() => {
-              setHovered(false)
-              document.body.style.cursor = 'auto'
-            }}
-            onClick={(e) => {
-              e.stopPropagation()
-              selectItem(item.id)
-            }}
-          >
-            <boxGeometry
-              args={[item.dimensions.width, item.dimensions.height, item.dimensions.depth]}
-            />
-            <meshStandardMaterial
-              color={color}
-              opacity={isGlass ? (hovered ? 0.3 : 0.4) : hovered ? 0.85 : 1}
-              transparent={isGlass || hovered}
-            />
-            <Edges lineWidth={2} color={isSelected ? '#2563eb' : '#000000'} />
-          </mesh>
-        )}
-        {selectedItemIds.length === 1 && isSelected && <ElementPopover item={item} />}
-        {sceneMode === '2d' && (
-          // TODO: при ротации width/depth не меняются местами — Known Limitation (AABB без учёта поворота)
-          <Html center position={[0, item.dimensions.height / 2 + 20, 0]}>
-            <div className="text-xs bg-white/80 px-1 py-0.5 rounded border border-gray-400 whitespace-nowrap pointer-events-none">
-              {item.dimensions.width} × {item.dimensions.depth} мм
-            </div>
-          </Html>
-        )}
-      </group>
-      {showTransformControls && (
-        <TransformControls
-          object={groupRef as RefObject<THREE.Object3D>}
-          mode="translate"
-          showY={sceneMode === '3d'}
-          onMouseDown={() => {
-            draggingRef.current = true
-            if (groupRef.current)
-              lastFramePos.current = groupRef.current.position.toArray() as [number, number, number]
-            window.dispatchEvent(new CustomEvent('transform-start'))
+    <group position={item.position} rotation={[0, item.rotationY, 0]}>
+      {catalogItem?.render?.type === 'gltf' ? (
+        <group
+          onPointerOver={() => {
+            setHovered(true)
+            document.body.style.cursor = 'pointer'
           }}
-          onMouseUp={() => {
-            draggingRef.current = false
-            window.dispatchEvent(new CustomEvent('transform-end'))
-            if (!groupRef.current) return
-            const clamped = clampToRoom(groupRef.current.position, item.dimensions)
-            groupRef.current.position.set(...clamped)
-            const allItems = useSceneStore.getState().items
-            const overlap = totalOverlapVolume({ ...item, position: clamped }, allItems)
-            if (overlap > OVERLAP_TOLERANCE) {
-              groupRef.current.position.set(...lastFramePos.current)
-              toast.warning('Элементы не могут пересекаться')
-              return
-            }
-            const [lx, ly, lz] = lastFramePos.current
-            if (clamped[0] !== lx || clamped[1] !== ly || clamped[2] !== lz)
-              updateItem(item.id, { position: clamped })
+          onPointerOut={() => {
+            setHovered(false)
+            document.body.style.cursor = 'auto'
           }}
-          onChange={() => {
-            if (!draggingRef.current) return // ignore change events fired outside an active drag (e.g. on mount)
-            if (!groupRef.current) return
-            const clamped = clampToRoom(groupRef.current.position, item.dimensions)
-            const allItems = useSceneStore.getState().items
-            // prevent moving into overlap: only advance position if total overlap doesn't increase
-            const newOverlap = totalOverlapVolume({ ...item, position: clamped }, allItems)
-            const curOverlap = totalOverlapVolume(
-              { ...item, position: lastFramePos.current },
-              allItems
-            )
-            if (newOverlap > curOverlap + OVERLAP_TOLERANCE) {
-              groupRef.current.position.set(...lastFramePos.current)
-            } else {
-              lastFramePos.current = clamped
-              groupRef.current.position.set(...clamped)
-            }
+          onClick={(e) => {
+            e.stopPropagation()
+            selectItem(item.id)
           }}
-        />
+        >
+          <GltfMesh src={catalogItem.render.src} dimensions={item.dimensions} />
+        </group>
+      ) : (
+        <mesh
+          castShadow
+          receiveShadow
+          onPointerOver={() => {
+            setHovered(true)
+            document.body.style.cursor = 'pointer'
+          }}
+          onPointerOut={() => {
+            setHovered(false)
+            document.body.style.cursor = 'auto'
+          }}
+          onClick={(e) => {
+            e.stopPropagation()
+            selectItem(item.id)
+          }}
+        >
+          <boxGeometry
+            args={[item.dimensions.width, item.dimensions.height, item.dimensions.depth]}
+          />
+          <meshStandardMaterial
+            color={color}
+            opacity={isGlass ? (hovered ? 0.3 : 0.4) : hovered ? 0.85 : 1}
+            transparent={isGlass || hovered}
+          />
+          <Edges lineWidth={2} color={isSelected ? '#2563eb' : '#000000'} />
+        </mesh>
       )}
-    </>
+      {selectedItemIds.length === 1 && isSelected && <ElementPopover item={item} />}
+      {sceneMode === '2d' && (
+        // TODO: при ротации width/depth не меняются местами — Known Limitation (AABB без учёта поворота)
+        <Html center position={[0, item.dimensions.height / 2 + 20, 0]}>
+          <div className="text-xs bg-white/80 px-1 py-0.5 rounded border border-gray-400 whitespace-nowrap pointer-events-none">
+            {item.dimensions.width} × {item.dimensions.depth} мм
+          </div>
+        </Html>
+      )}
+    </group>
   )
 }
