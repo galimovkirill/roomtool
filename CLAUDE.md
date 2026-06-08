@@ -149,11 +149,20 @@ window.dispatchEvent(new CustomEvent('transform-end'))
 вызывает `pushHistory` перед изменением. Интерактивный drag — особый случай: `beginDrag`
 снимает снапшот, `endDrag(true)` кладёт его в историю **одним** шагом (см. «Drag-сессия»),
 а `dragSelectionBy` в историю не пишет.
-`selectItem`/`selectItems`/`renameGroup`/`toggleGroupCollapse` — **не** попадают в историю.
+`selectItem`/`selectItems`/`editItem`/`closeEditing`/`renameGroup`/`toggleGroupCollapse` — **не** попадают в историю.
 
 ### Группы, выделение и слои
-- Два независимых поля выделения: `selectedItemId` (одиночный — **открывает PropertiesPanel**)
-  и `selectedItemIds` (мультивыбор — PropertiesPanel **не** открывает).
+- Три независимых поля состояния: `selectedItemId` (одиночное выделение → gizmo),
+  `selectedItemIds` (мультивыбор) и `editingItemId` (**кого редактируем → открывает
+  PropertiesPanel**). Редактирование развязано с выделением: обычный клик НЕ открывает свойства.
+- **Открытие PropertiesPanel — только явный жест:** двойной клик по элементу в сцене
+  (`SceneElement.onDoubleClick`) или ПКМ в LayersPanel → «Редактировать». Оба зовут
+  `editItem(id)` (ставит `editingItemId` + выделяет одиночно). Закрытие — крестик в шапке
+  панели → `closeEditing()` (сбрасывает только `editingItemId`, выделение/gizmo остаются).
+- `editItem`/`closeEditing` — **не** попадают в историю (UI-состояние, как `selectItem`).
+  `editingItemId` сбрасывается, если редактируемый элемент исчезает (`removeItem`/`removeGroup`/
+  `undo`/`redo`) либо выделение уходит на другой элемент (`selectItem` другого id /
+  `selectItems` / `toggleItemSelection`) — панель и gizmo всегда согласованы.
 - 3D-клик по элементу → `selectItem()`. Клик в LayersPanel → `selectItems()`/`toggleItemSelection()`.
 - `createGroup()` требует ≥2 выделенных; элемент состоит максимум в одной группе.
   При перегруппировке элемент уходит из старой группы; если в ней остаётся ≤1 участник — она авто-распускается.

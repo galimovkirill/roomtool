@@ -2,8 +2,7 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { PropertiesPanel } from './PropertiesPanel'
 
 const mockUpdateItem = vi.hoisted(() => vi.fn())
-const mockSelectItem = vi.hoisted(() => vi.fn())
-const mockSelectItems = vi.hoisted(() => vi.fn())
+const mockCloseEditing = vi.hoisted(() => vi.fn())
 
 const mockItem = {
   id: 'item-1',
@@ -21,8 +20,7 @@ vi.mock('@/store', () => ({
     selector({
       items: [mockItem],
       updateItem: mockUpdateItem,
-      selectItem: mockSelectItem,
-      selectItems: mockSelectItems,
+      closeEditing: mockCloseEditing,
     }),
 }))
 
@@ -39,8 +37,7 @@ vi.mock('@/catalog/items', () => ({
 describe('PropertiesPanel', () => {
   beforeEach(() => {
     mockUpdateItem.mockClear()
-    mockSelectItem.mockClear()
-    mockSelectItems.mockClear()
+    mockCloseEditing.mockClear()
   })
 
   it('shows item name', () => {
@@ -70,10 +67,10 @@ describe('PropertiesPanel', () => {
     })
   })
 
-  it('calls selectItem(null) on close', () => {
+  it('calls closeEditing on close', () => {
     render(<PropertiesPanel itemId="item-1" />)
     fireEvent.click(screen.getByRole('button', { name: 'Закрыть панель' }))
-    expect(mockSelectItem).toHaveBeenCalledWith(null)
+    expect(mockCloseEditing).toHaveBeenCalled()
   })
 
   it('returns null for unknown itemId', () => {

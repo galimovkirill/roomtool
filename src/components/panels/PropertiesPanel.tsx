@@ -12,8 +12,7 @@ interface PropertiesPanelProps {
 export function PropertiesPanel({ itemId }: PropertiesPanelProps) {
   const item = useSceneStore((s) => s.items.find((i) => i.id === itemId))
   const updateItem = useSceneStore((s) => s.updateItem)
-  const selectItem = useSceneStore((s) => s.selectItem)
-  const selectItems = useSceneStore((s) => s.selectItems)
+  const closeEditing = useSceneStore((s) => s.closeEditing)
 
   const catalogItem = getCatalogItemById(item?.catalogId ?? '')
 
@@ -34,10 +33,7 @@ export function PropertiesPanel({ itemId }: PropertiesPanelProps) {
     <div className="flex items-center justify-between px-4 py-3 border-b">
       <span className="font-semibold">{item.name}</span>
       <button
-        onClick={() => {
-          selectItem(null)
-          selectItems([])
-        }}
+        onClick={closeEditing}
         title="Закрыть панель"
         aria-label="Закрыть панель"
         className="text-gray-400 hover:text-gray-600 transition-colors"

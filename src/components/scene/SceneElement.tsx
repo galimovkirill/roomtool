@@ -45,6 +45,7 @@ export function SceneElement({ item }: Props) {
   const [hovered, setHovered] = useState(false)
   const selectedItemIds = useSceneStore((s) => s.selectedItemIds)
   const selectItem = useSceneStore((s) => s.selectItem)
+  const editItem = useSceneStore((s) => s.editItem)
   const sceneMode = useUIStore((s) => s.sceneMode)
 
   const isSelected = selectedItemIds.includes(item.id)
@@ -77,6 +78,10 @@ export function SceneElement({ item }: Props) {
             e.stopPropagation()
             selectItem(item.id)
           }}
+          onDoubleClick={(e) => {
+            e.stopPropagation()
+            editItem(item.id)
+          }}
         >
           <GltfMesh src={catalogItem.render.src} dimensions={item.dimensions} />
         </group>
@@ -95,6 +100,10 @@ export function SceneElement({ item }: Props) {
           onClick={(e) => {
             e.stopPropagation()
             selectItem(item.id)
+          }}
+          onDoubleClick={(e) => {
+            e.stopPropagation()
+            editItem(item.id)
           }}
         >
           <boxGeometry

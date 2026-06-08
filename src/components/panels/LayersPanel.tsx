@@ -12,6 +12,7 @@ export function LayersPanel() {
   const selectedItemIds = useSceneStore((s) => s.selectedItemIds)
   const selectItems = useSceneStore((s) => s.selectItems)
   const toggleItemSelection = useSceneStore((s) => s.toggleItemSelection)
+  const editItem = useSceneStore((s) => s.editItem)
   const createGroup = useSceneStore((s) => s.createGroup)
   const ungroupItems = useSceneStore((s) => s.ungroupItems)
   const removeItem = useSceneStore((s) => s.removeItem)
@@ -189,6 +190,12 @@ export function LayersPanel() {
         <ContextMenu.Content className="bg-white rounded-lg shadow-lg border border-gray-200 p-1 min-w-[180px] z-50">
           {ctxTarget?.kind === 'item' && (
             <>
+              <ContextMenu.Item
+                className="px-3 py-1.5 text-sm cursor-pointer rounded hover:bg-gray-100 outline-none"
+                onSelect={() => ctxTarget && editItem(ctxTarget.id)}
+              >
+                Редактировать
+              </ContextMenu.Item>
               {selectedItemIds.length >= 2 && (
                 <ContextMenu.Item
                   className="px-3 py-1.5 text-sm cursor-pointer rounded hover:bg-gray-100 outline-none"

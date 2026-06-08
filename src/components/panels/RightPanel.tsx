@@ -5,13 +5,14 @@ import { PropertiesPanel } from './PropertiesPanel'
 import { LayersPanel } from './LayersPanel'
 
 export function RightPanel() {
-  const selectedItemId = useSceneStore((s) => s.selectedItemId)
+  const editingItemId = useSceneStore((s) => s.editingItemId)
   const activeTab = useUIStore((s) => s.activeRightPanelTab)
   const setActiveTab = useUIStore((s) => s.setActiveRightPanelTab)
 
-  // PropertiesPanel opens only via selectItem() — 3D click or ElementPopover.
-  // Layers-panel clicks use selectItems() which does not set selectedItemId.
-  const showProperties = selectedItemId !== null
+  // PropertiesPanel opens only via editItem() — scene double-click or the
+  // Layers context-menu "Редактировать". Plain selection (selectItem/selectItems)
+  // shows the gizmo but does NOT replace the panel.
+  const showProperties = editingItemId !== null
 
   return (
     <div className="flex flex-col h-full">
@@ -40,7 +41,7 @@ export function RightPanel() {
 
       <div className="flex-1 overflow-hidden">
         {showProperties ? (
-          <PropertiesPanel itemId={selectedItemId} />
+          <PropertiesPanel itemId={editingItemId} />
         ) : activeTab === 'catalog' ? (
           <CatalogPanel />
         ) : (

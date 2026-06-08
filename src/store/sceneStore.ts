@@ -22,6 +22,7 @@ interface SceneState {
   groups: SceneGroup[]
   selectedItemId: string | null
   selectedItemIds: string[]
+  editingItemId: string | null
   groupCounter: number
   history: HistorySnapshot[]
   future: HistorySnapshot[]
@@ -32,6 +33,8 @@ interface SceneState {
   selectItem: (id: string | null) => void
   selectItems: (ids: string[]) => void
   toggleItemSelection: (id: string, addToSelection: boolean) => void
+  editItem: (id: string) => void
+  closeEditing: () => void
   rotateItem: (id: string, direction: 'left' | 'right') => void
   createGroup: () => void
   ungroupItems: (groupId: string) => void
@@ -64,6 +67,7 @@ export const useSceneStore = create<SceneState>((set, get) => ({
   groups: DEFAULT_SCENE_GROUPS,
   selectedItemId: null,
   selectedItemIds: [],
+  editingItemId: null,
   groupCounter: 0,
   history: [],
   future: [],
@@ -125,6 +129,7 @@ export const useSceneStore = create<SceneState>((set, get) => ({
               groups,
               selectedItemId: state.selectedItemId === id ? null : state.selectedItemId,
               selectedItemIds: state.selectedItemIds.filter((sid) => sid !== id),
+              editingItemId: state.editingItemId === id ? null : state.editingItemId,
             }
           } else {
             groups = groups.map((g) => (g.id === groupId ? { ...g, itemIds: remaining } : g))
@@ -138,6 +143,7 @@ export const useSceneStore = create<SceneState>((set, get) => ({
         groups,
         selectedItemId: state.selectedItemId === id ? null : state.selectedItemId,
         selectedItemIds: state.selectedItemIds.filter((sid) => sid !== id),
+        editingItemId: state.editingItemId === id ? null : state.editingItemId,
       }
     })
   },
@@ -150,18 +156,22 @@ export const useSceneStore = create<SceneState>((set, get) => ({
   },
 
   selectItem(id) {
-    set({
+    // Plain selection never opens PropertiesPanel; if it's open for another item,
+    // moving the selection away dismisses it so panel and gizmo stay in sync.
+    set((state) => ({
       selectedItemId: id,
       selectedItemIds: id ? [id] : [],
-    })
+      editingItemId: state.editingItemId === id ? state.editingItemId : null,
+    }))
   },
 
   selectItems(ids) {
-    // Only updates multi-selection — does NOT open PropertiesPanel.
-    // PropertiesPanel opens only via selectItem() (3D click).
+    // Only updates multi-selection — does NOT open PropertiesPanel, and closes
+    // it if it was open (multi-selection has no single subject to edit).
     set({
       selectedItemIds: ids,
       selectedItemId: null,
+      editingItemId: null,
     })
   },
 
@@ -179,7 +189,23 @@ export const useSceneStore = create<SceneState>((set, get) => ({
     set({
       selectedItemIds: next,
       selectedItemId: null,
+      editingItemId: null,
     })
+  },
+
+  editItem(id) {
+    // Opens PropertiesPanel for a single item. Selecting it too keeps the gizmo
+    // and highlight in sync. Triggered only by an explicit gesture (scene
+    // double-click or Layers context-menu) — never by plain selection.
+    set({
+      editingItemId: id,
+      selectedItemId: id,
+      selectedItemIds: [id],
+    })
+  },
+
+  closeEditing() {
+    set({ editingItemId: null })
   },
 
   rotateItem(id, direction) {
@@ -327,13 +353,20 @@ export const useSceneStore = create<SceneState>((set, get) => ({
   },
 
   removeGroup(groupId) {
-    set((state) => ({
-      ...pushHistory(state),
-      items: state.items.filter((item) => item.groupId !== groupId),
-      groups: state.groups.filter((g) => g.id !== groupId),
-      selectedItemId: null,
-      selectedItemIds: [],
-    }))
+    set((state) => {
+      const removedIds = new Set(
+        state.items.filter((item) => item.groupId === groupId).map((item) => item.id)
+      )
+      return {
+        ...pushHistory(state),
+        items: state.items.filter((item) => item.groupId !== groupId),
+        groups: state.groups.filter((g) => g.id !== groupId),
+        selectedItemId: null,
+        selectedItemIds: [],
+        editingItemId:
+          state.editingItemId && removedIds.has(state.editingItemId) ? null : state.editingItemId,
+      }
+    })
   },
 
   renameGroup(groupId, name) {
@@ -359,6 +392,7 @@ export const useSceneStore = create<SceneState>((set, get) => ({
       future: [{ items, groups }, ...future],
       selectedItemId: null,
       selectedItemIds: [],
+      editingItemId: null,
     })
   },
 
@@ -373,6 +407,7 @@ export const useSceneStore = create<SceneState>((set, get) => ({
       future: future.slice(1),
       selectedItemId: null,
       selectedItemIds: [],
+      editingItemId: null,
     })
   },
 }))

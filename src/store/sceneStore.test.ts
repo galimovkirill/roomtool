@@ -17,6 +17,7 @@ beforeEach(() => {
     groups: [],
     selectedItemId: null,
     selectedItemIds: [],
+    editingItemId: null,
     groupCounter: 0,
     history: [],
     future: [],
@@ -637,5 +638,97 @@ describe('history limit', () => {
   it('does not exceed 50 history records', () => {
     for (let i = 0; i < 55; i++) useSceneStore.getState().addItem(TEST_ITEM)
     expect(useSceneStore.getState().history.length).toBeLessThanOrEqual(50)
+  })
+})
+
+describe('editItem / closeEditing', () => {
+  it('editItem sets editingItemId and selects the item single', () => {
+    useSceneStore.getState().addItem(TEST_ITEM)
+    const id = useSceneStore.getState().items[0].id
+    useSceneStore.getState().editItem(id)
+    const s = useSceneStore.getState()
+    expect(s.editingItemId).toBe(id)
+    expect(s.selectedItemId).toBe(id)
+    expect(s.selectedItemIds).toEqual([id])
+  })
+
+  it('closeEditing clears editingItemId but keeps selection', () => {
+    useSceneStore.getState().addItem(TEST_ITEM)
+    const id = useSceneStore.getState().items[0].id
+    useSceneStore.getState().editItem(id)
+    useSceneStore.getState().closeEditing()
+    const s = useSceneStore.getState()
+    expect(s.editingItemId).toBeNull()
+    expect(s.selectedItemId).toBe(id)
+  })
+
+  it('selectItem does NOT open editing', () => {
+    useSceneStore.getState().addItem(TEST_ITEM)
+    const id = useSceneStore.getState().items[0].id
+    useSceneStore.getState().selectItem(id)
+    expect(useSceneStore.getState().editingItemId).toBeNull()
+  })
+
+  it('selectItems does NOT open editing', () => {
+    useSceneStore.getState().addItem(TEST_ITEM)
+    useSceneStore.getState().addItem(TEST_ITEM)
+    const [a, b] = useSceneStore.getState().items
+    useSceneStore.getState().selectItems([a.id, b.id])
+    expect(useSceneStore.getState().editingItemId).toBeNull()
+  })
+
+  it('selectItem on a different item closes editing', () => {
+    useSceneStore.getState().addItem(TEST_ITEM)
+    useSceneStore.getState().addItem(TEST_ITEM)
+    const [a, b] = useSceneStore.getState().items
+    useSceneStore.getState().editItem(a.id)
+    useSceneStore.getState().selectItem(b.id)
+    expect(useSceneStore.getState().editingItemId).toBeNull()
+  })
+
+  it('selectItem on the same edited item keeps editing open', () => {
+    useSceneStore.getState().addItem(TEST_ITEM)
+    const id = useSceneStore.getState().items[0].id
+    useSceneStore.getState().editItem(id)
+    useSceneStore.getState().selectItem(id)
+    expect(useSceneStore.getState().editingItemId).toBe(id)
+  })
+
+  it('selectItems closes an open editing panel', () => {
+    useSceneStore.getState().addItem(TEST_ITEM)
+    useSceneStore.getState().addItem(TEST_ITEM)
+    const [a, b] = useSceneStore.getState().items
+    useSceneStore.getState().editItem(a.id)
+    useSceneStore.getState().selectItems([a.id, b.id])
+    expect(useSceneStore.getState().editingItemId).toBeNull()
+  })
+
+  it('removeItem clears editingItemId when the edited item is removed', () => {
+    useSceneStore.getState().addItem(TEST_ITEM)
+    const id = useSceneStore.getState().items[0].id
+    useSceneStore.getState().editItem(id)
+    useSceneStore.getState().removeItem(id)
+    expect(useSceneStore.getState().editingItemId).toBeNull()
+  })
+
+  it('removeItem keeps editingItemId when a different item is removed', () => {
+    useSceneStore.getState().addItem(TEST_ITEM)
+    useSceneStore.getState().addItem(TEST_ITEM)
+    const [a, b] = useSceneStore.getState().items
+    useSceneStore.getState().editItem(a.id)
+    useSceneStore.getState().removeItem(b.id)
+    expect(useSceneStore.getState().editingItemId).toBe(a.id)
+  })
+
+  it('removeGroup clears editingItemId when the edited item is in the group', () => {
+    useSceneStore.getState().addItem(TEST_ITEM)
+    useSceneStore.getState().addItem(TEST_ITEM)
+    const [a, b] = useSceneStore.getState().items
+    useSceneStore.getState().selectItems([a.id, b.id])
+    useSceneStore.getState().createGroup()
+    const groupId = useSceneStore.getState().groups[0].id
+    useSceneStore.getState().editItem(a.id)
+    useSceneStore.getState().removeGroup(groupId)
+    expect(useSceneStore.getState().editingItemId).toBeNull()
   })
 })
