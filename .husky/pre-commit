@@ -1,0 +1,12 @@
+set -e
+
+# 1. Линт + формат только по staged-файлам (быстро, автофикс)
+pnpm exec lint-staged
+
+# 2. Проверка типов всего проекта (tsc -b, noEmit)
+echo "▶ typecheck…"
+pnpm run typecheck
+
+# 3. Полный прогон тестов
+echo "▶ tests…"
+pnpm run test:run
