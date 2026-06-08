@@ -1688,6 +1688,190 @@ export function hasGroupCollision(
 
 ---
 
+## ФАЗА 12 — UX-улучшения
+
+### TASK-022 — Координаты выбранного элемента на оверлее сцены
+
+**Промпт для Claude Code:**
+```
+Добавь отображение X/Y/Z-координат выбранного элемента прямо в SceneOverlay.tsx.
+
+## Что нужно сделать
+
+В src/components/scene/SceneOverlay.tsx:
+
+1. Подпишись на стор:
+   ```typescript
+   const selectedItemId = useSceneStore(s => s.selectedItemId)
+   const selectedItem = useSceneStore(s =>
+     s.selectedItemId ? s.items.find(i => i.id === s.selectedItemId) : null
+   )
+   ```
+
+2. Когда selectedItem не null — рендери блок с координатами рядом с переключателем 2D/3D.
+   Позиция в сторе — это центр элемента (Y = height/2 когда элемент стоит на полу).
+   Для отображения приводи к позиции нижней грани (Y_отображаемый = position[1] − height/2),
+   тогда Y = 0 означает «стоит на полу» — это удобнее для пользователя.
+
+3. Формат координат: три метки в ряд, значения в миллиметрах, округлённые до целых:
+   ```
+   X  450   Y  0   Z  300
+   ```
+   Каждая метка — пара `<span className="text-xs text-gray-400">X</span>` +
+   `<span className="text-xs font-mono text-white">{Math.round(x)}</span>`.
+
+4. Стилизация блока координат:
+   - Размещается рядом с кнопками 2D/3D (в той же строке, через gap или ml-3)
+   - bg-black/40 backdrop-blur-sm rounded-lg px-3 py-1.5
+   - flex items-center gap-3
+   - Анимация появления/исчезания: используй условный рендер (если selectedItem === null — не рендерить)
+
+5. Обновление в реальном времени: поскольку SceneElement вызывает updateItem() при каждом
+   onChange TransformControls, Zustand реактивно пересчитает selectedItem — никаких
+   дополнительных подписок не нужно.
+
+## Проверь
+
+- Добавь элемент → выдели → координаты появляются рядом с 2D/3D
+- Потащи элемент через TransformControls → координаты обновляются в реальном времени
+- Щёлкни мимо (снять выделение) → блок исчезает
+- Элемент стоит на полу → Y отображается как 0
+- Оба режима (2D и 3D) — координаты видны в обоих
+
+## Не нужно
+
+- Никаких новых файлов — только правка SceneOverlay.tsx
+- Не добавлять поле ввода — только read-only отображение
+- Не тестировать 3D-компоненты (R3F не работает в jsdom)
+```
+
+---
+
+### TASK-023 — Блокировка элементов и групп
+
+**Промпт для Claude Code:**
+```
+Реализуй блокировку элементов и групп — как «lock layer» в Photoshop/Figma.
+Заблокированный элемент нельзя переместить, повернуть или изменить свойства.
+
+## 1. Обнови src/types/index.ts
+
+Добавь поле в SceneItem:
+```typescript
+locked: boolean  // false по умолчанию
+```
+
+Добавь поле в SceneGroup:
+```typescript
+locked: boolean  // false по умолчанию
+```
+
+## 2. Обнови src/store/sceneStore.ts
+
+В `addItem` инициализируй `locked: false` в создаваемом SceneItem.
+
+Добавь два новых метода (НЕ попадают в историю — аналог renameGroup):
+
+```typescript
+toggleItemLock(id: string): void
+  // item.locked = !item.locked
+
+toggleGroupLock(groupId: string): void
+  // group.locked = !group.locked
+  // устанавливает locked у всех элементов группы = group.locked (синхронизировать)
+```
+
+## 3. Обнови src/components/panels/LayersPanel.tsx
+
+В строке одиночного элемента — добавь иконку замка после имени:
+
+```tsx
+<button
+  className="ml-auto flex-shrink-0 p-0.5 rounded text-gray-300 hover:text-gray-600"
+  title={item.locked ? 'Разблокировать' : 'Заблокировать'}
+  onClick={(e) => { e.stopPropagation(); toggleItemLock(item.id) }}
+>
+  {item.locked ? '🔒' : '🔓'}
+</button>
+```
+
+Аналогично в заголовке группы — иконка замка рядом с числом участников:
+```tsx
+<button
+  className="flex-shrink-0 p-0.5 rounded text-gray-300 hover:text-gray-600"
+  title={group.locked ? 'Разблокировать группу' : 'Заблокировать группу'}
+  onClick={(e) => { e.stopPropagation(); toggleGroupLock(group.id) }}
+>
+  {group.locked ? '🔒' : '🔓'}
+</button>
+```
+
+Заблокированный элемент/группа — подсвечивай имя серым: добавь `text-gray-400` к имени когда `locked === true`.
+
+## 4. Обнови src/components/scene/SceneElement.tsx
+
+```typescript
+const isLocked = item.locked === true
+
+// TransformControls — не монтировать:
+const showTransformControls = isSelected && selectedItemIds.length === 1 && !groupIsFullySelected && !isLocked
+
+// onClick — клик по заблокированному элементу всё равно выделяет его (для просмотра свойств):
+onClick={(e) => { e.stopPropagation(); selectItem(item.id) }}  // без изменений
+
+// Визуальная подсказка: заблокированный элемент — рендери обводку пунктиром вместо сплошной
+// (достаточно изменить цвет EdgesGeometry: '#9ca3af' вместо '#2563eb' при isLocked)
+```
+
+## 5. Обнови src/components/scene/GroupTransformProxy.tsx
+
+Добавь проверку — не монтируй TransformControls если группа заблокирована:
+
+```typescript
+const group = useSceneStore(s => s.groups.find(g => g.id === groupId))
+if (!group || group.locked) return null
+```
+
+## 6. Обнови src/components/panels/PropertiesPanel.tsx
+
+Когда `item.locked === true` — показывай все `<input>` и `<select>` с `disabled`:
+
+```tsx
+// Пробрасывай проп disabled в PropertyField:
+<PropertyField ... disabled={item.locked} />
+```
+
+В PropertyField добавь проп `disabled?: boolean` и прокидывай его на input/select.
+Добавь визуальный индикатор в шапку PropertiesPanel когда элемент заблокирован:
+```tsx
+{item.locked && (
+  <span className="text-xs text-amber-600 font-medium">🔒 Заблокирован</span>
+)}
+```
+
+## 7. Обнови тесты в src/store/sceneStore.test.ts
+
+- `addItem` создаёт элемент с `locked: false`
+- `toggleItemLock` меняет `locked` с false на true и обратно
+- `toggleGroupLock` устанавливает `locked` у всех элементов группы
+
+## 8. Обнови тесты в src/components/panels/PropertiesPanel.test.tsx
+
+- при `locked === true` все input/select имеют атрибут disabled
+
+## Проверь в браузере
+
+1. В панели слоёв у каждого элемента иконка замка
+2. Клик по иконке — элемент блокируется, имя становится серым, иконка меняется на 🔒
+3. Выделить заблокированный элемент → TransformControls не появляется
+4. PropertiesPanel открывается, но все поля disabled и есть надпись «Заблокирован»
+5. Заблокировать группу → все элементы группы тоже блокируются
+6. Разблокировать группу → все элементы разблокируются
+7. Ctrl+Z не отменяет блокировку (не в истории)
+```
+
+---
+
 ## Сводная таблица задач
 
 | ID | Фаза | Задача | Сложность | Статус |
@@ -1713,6 +1897,8 @@ export function hasGroupCollision(
 | TASK-015 | Хоткеи | Подключение Undo/Redo к хоткеям | S | ⬜ |
 | TASK-020 | Каталог | Перепроектирование каталога: детали шкафа + материалы и цвета | XL | ✅ |
 | TASK-021 | Слои | Панель слоёв, мульти-выбор, группировка, перемещение группы в 3D | XL | ✅ |
+| TASK-022 | UX | Координаты выбранного элемента на оверлее сцены | S | ⬜ |
+| TASK-023 | UX | Блокировка элементов и групп (lock layer) | M | ⬜ |
 
 **S** = ~30–60 мин · **M** = ~1–2 ч · **L** = ~2–4 ч · **XL** = ~4–8 ч  
 Общая оценка: **~2.5–3 недели** при разработке через Claude Code.
