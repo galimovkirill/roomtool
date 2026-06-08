@@ -1,11 +1,31 @@
-import { useUIStore } from '@/store'
+import { useShallow } from 'zustand/shallow'
+import { useSceneStore, useUIStore } from '@/store'
 
 export function SceneOverlay() {
   const sceneMode = useUIStore((s) => s.sceneMode)
   const setSceneMode = useUIStore((s) => s.setSceneMode)
+  const coords = useSceneStore(
+    useShallow((s) => {
+      const ids = s.selectedItemIds
+      if (ids.length === 0) return null
+      const selected = ids.flatMap((id) => {
+        const item = s.items.find((i) => i.id === id)
+        return item ? [item] : []
+      })
+      if (selected.length === 0) return null
+      const n = selected.length
+      return {
+        x: Math.round(selected.reduce((sum, i) => sum + i.position[0], 0) / n),
+        y: Math.round(
+          selected.reduce((sum, i) => sum + (i.position[1] - i.dimensions.height / 2), 0) / n
+        ),
+        z: Math.round(selected.reduce((sum, i) => sum + i.position[2], 0) / n),
+      }
+    })
+  )
 
   return (
-    <div className="absolute top-4 left-4 z-10">
+    <div className="absolute top-4 left-4 z-10 flex items-center gap-3">
       <div
         role="group"
         aria-label="Режим просмотра"
@@ -27,6 +47,19 @@ export function SceneOverlay() {
           </button>
         ))}
       </div>
+      {coords && (
+        <div
+          aria-label="Координаты выбранного элемента (мм)"
+          className="flex items-center gap-3 bg-black/40 backdrop-blur-sm rounded-lg px-3 py-1.5"
+        >
+          <span className="text-xs text-gray-400">X</span>
+          <span className="text-xs font-mono text-white">{coords.x}</span>
+          <span className="text-xs text-gray-400">Y</span>
+          <span className="text-xs font-mono text-white">{coords.y}</span>
+          <span className="text-xs text-gray-400">Z</span>
+          <span className="text-xs font-mono text-white">{coords.z}</span>
+        </div>
+      )}
     </div>
   )
 }

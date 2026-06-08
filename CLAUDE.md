@@ -252,8 +252,8 @@ GLB-файлы хранятся в `public/models/`.
 
 ## Playwright / браузерная проверка
 
-Скриншоты Playwright сохранять **только в `/tmp/`** — никогда в корень проекта и не в `src/`.
-Пример: `browser_take_screenshot({ filename: '/tmp/task010-check.png' })`.
+Скриншоты Playwright сохранять **только в `tmp/`** (папка в корне проекта, добавлена в `.gitignore`) — никогда напрямую в корень проекта и не в `src/`.
+Пример: `browser_take_screenshot({ filename: 'tmp/task022-check.png' })`.
 
 ---
 

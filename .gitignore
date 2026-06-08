@@ -16,6 +16,9 @@ coverage
 # Playwright MCP artifacts
 .playwright-mcp/
 
+# Local screenshots and temporary files
+tmp/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
