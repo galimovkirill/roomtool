@@ -1872,6 +1872,136 @@ if (!group || group.locked) return null
 
 ---
 
+### TASK-024 — Баг: элемент группы возвращается на старую позицию после перемещения группы
+
+**Промпт для Claude Code:**
+```
+## Описание бага
+
+После перемещения группы элементов через GroupTransformProxy, клик на отдельный элемент
+этой группы в панели слоёв (LayersPanel) приводит к тому, что этот элемент визуально
+возвращается на позицию, которую он занимал ДО перемещения группы.
+
+Шаги воспроизведения:
+1. Выделить несколько элементов в LayersPanel, создать группу через ПКМ
+2. Выделить группу кликом по заголовку группы
+3. Переместить группу гизмо (GroupTransformProxy)
+4. Кликнуть на конкретный элемент группы в LayersPanel
+5. Элемент визуально снапится обратно на старую позицию
+
+## Корень проблемы
+
+В `src/components/scene/SceneElement.tsx`:
+
+```typescript
+const lastFramePos = useRef<[number, number, number]>(item.position)
+```
+
+`lastFramePos` инициализируется один раз при монтировании и **никогда не обновляется**,
+когда `item.position` изменяется извне (через `moveGroup`).
+
+При клике на отдельный элемент из ранее перемещённой группы:
+1. `showTransformControls` переходит из `false` → `true` (группа больше не fully selected)
+2. `TransformControls` монтируется для этого элемента
+3. Three.js `TransformControls` стреляет spurious «change» событие при монтировании
+   (это известная проблема — `GroupTransformProxy` уже решает её через `draggingRef`)
+4. В `onChange` выполняется сравнение:
+   - `newOverlap` = перекрытие элемента на **новой** позиции со всеми остальными элементами на **новых** позициях
+   - `curOverlap` = перекрытие элемента на **старой** позиции (`lastFramePos.current`) со всеми остальными элементами на **новых** позициях
+
+   Для компонентов шкафа по умолчанию это AABB-перекрытие намеренное (задняя стенка
+   заходит за боковые панели — overlap ≈ 281 600 mm³). После перемещения группы:
+   - `newOverlap` = то же самое перекрытие (относительные позиции сохранились)
+   - `curOverlap` = 0 (старая позиция боковой панели уже далеко от новой позиции задней стенки)
+   - `newOverlap (281 600) > curOverlap (0) + 1` → **TRUE**
+
+5. Результат: `groupRef.current.position.set(...lastFramePos.current)` — Three.js-объект
+   визуально сбрасывается на старую позицию. Стор при этом содержит новую позицию, поэтому
+   R3F не выполняет reconciliation (нет нового React commit).
+
+## Правки
+
+### Правка 1 — добавить `draggingRef` и заглушить spurious onChange (главная правка)
+
+Файл: `src/components/scene/SceneElement.tsx`
+
+Добавь `draggingRef` по аналогии с `GroupTransformProxy.tsx` (там уже есть такая защита):
+
+```typescript
+const draggingRef = useRef(false)
+```
+
+В `onMouseDown`:
+```typescript
+onMouseDown={() => {
+  draggingRef.current = true
+  if (groupRef.current)
+    lastFramePos.current = groupRef.current.position.toArray() as [number, number, number]
+  window.dispatchEvent(new CustomEvent('transform-start'))
+}}
+```
+
+В `onMouseUp`:
+```typescript
+onMouseUp={() => {
+  draggingRef.current = false
+  window.dispatchEvent(new CustomEvent('transform-end'))
+  // ...остальной существующий код без изменений
+}}
+```
+
+В `onChange`:
+```typescript
+onChange={() => {
+  if (!draggingRef.current) return  // игнорировать spurious events при mount
+  // ...остальной существующий код без изменений
+}}
+```
+
+### Правка 2 — синхронизировать `lastFramePos` с `item.position`
+
+Добавь `useEffect` для поддержания `lastFramePos.current` в актуальном состоянии
+при изменении позиции элемента извне (например, через moveGroup):
+
+```typescript
+useEffect(() => {
+  if (!draggingRef.current) {
+    lastFramePos.current = item.position
+  }
+}, [item.position])
+```
+
+Этот эффект гарантирует, что даже если spurious onChange каким-то образом пройдёт
+(например, `draggingRef.current` не успело сброситься), `lastFramePos.current`
+будет указывать на актуальную позицию, а не на позицию момента монтирования компонента.
+
+## Что НЕ надо менять
+
+- Логику `GroupTransformProxy.tsx` — там уже правильно (есть `draggingRef`)
+- Логику `onMouseUp` в `SceneElement` — сравнение и откат при реальной коллизии правильные
+- Ничего в сторе и других компонентах
+
+## Проверь в браузере (Playwright)
+
+1. Добавить 2 элемента из каталога
+2. Выделить оба в LayersPanel (Ctrl+клик), создать группу через ПКМ
+3. Кликнуть на заголовок группы → выделиться, должен появиться GroupTransformProxy гизмо
+4. Переместить группу гизмо (например, вправо на ~500мм)
+5. Кликнуть на отдельный элемент группы в LayersPanel
+6. Элемент НЕ должен двигаться — он остаётся на новой позиции ✓
+7. Гизмо переключается с группового на индивидуальный ✓
+8. Индивидуальный гизмо позволяет дальше перемещать элемент (коллизии работают) ✓
+9. Undo возвращает элемент на позицию до перемещения группы ✓
+
+## Тест
+
+3D-компоненты не тестируются в jsdom (нет WebGL). Ручная проверка через Playwright
+достаточна. Если захочешь добавить unit-тест — можно покрыть только чистую логику
+`clampToRoom`/`totalOverlapVolume`, которая уже покрыта.
+```
+
+---
+
 ## Сводная таблица задач
 
 | ID | Фаза | Задача | Сложность | Статус |
@@ -1899,6 +2029,7 @@ if (!group || group.locked) return null
 | TASK-021 | Слои | Панель слоёв, мульти-выбор, группировка, перемещение группы в 3D | XL | ✅ |
 | TASK-022 | UX | Координаты выбранного элемента на оверлее сцены | S | ✅ |
 | TASK-023 | UX | Блокировка элементов и групп (lock layer) | M | ⬜ |
+| TASK-024 | Баг | Элемент группы снапится на старую позицию после moveGroup | S | ✅ |
 
 **S** = ~30–60 мин · **M** = ~1–2 ч · **L** = ~2–4 ч · **XL** = ~4–8 ч  
 Общая оценка: **~2.5–3 недели** при разработке через Claude Code.

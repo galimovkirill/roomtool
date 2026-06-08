@@ -47,6 +47,7 @@ export function SceneElement({ item }: Props) {
   const [hovered, setHovered] = useState(false)
   const groupRef = useRef<THREE.Group>(null)
   const lastFramePos = useRef<[number, number, number]>(item.position)
+  const draggingRef = useRef(false)
   const selectedItemIds = useSceneStore((s) => s.selectedItemIds)
   const groups = useSceneStore((s) => s.groups)
   const selectItem = useSceneStore((s) => s.selectItem)
@@ -71,6 +72,15 @@ export function SceneElement({ item }: Props) {
     },
     []
   )
+
+  // Keep lastFramePos in sync when position changes externally (e.g. moveGroup),
+  // so a spurious onChange on TransformControls mount can't snap the element back
+  // to its position at mount time.
+  useEffect(() => {
+    if (!draggingRef.current) {
+      lastFramePos.current = item.position
+    }
+  }, [item.position])
 
   return (
     <>
@@ -136,11 +146,13 @@ export function SceneElement({ item }: Props) {
           mode="translate"
           showY={sceneMode === '3d'}
           onMouseDown={() => {
+            draggingRef.current = true
             if (groupRef.current)
               lastFramePos.current = groupRef.current.position.toArray() as [number, number, number]
             window.dispatchEvent(new CustomEvent('transform-start'))
           }}
           onMouseUp={() => {
+            draggingRef.current = false
             window.dispatchEvent(new CustomEvent('transform-end'))
             if (!groupRef.current) return
             const clamped = clampToRoom(groupRef.current.position, item.dimensions)
@@ -157,6 +169,7 @@ export function SceneElement({ item }: Props) {
               updateItem(item.id, { position: clamped })
           }}
           onChange={() => {
+            if (!draggingRef.current) return // ignore change events fired outside an active drag (e.g. on mount)
             if (!groupRef.current) return
             const clamped = clampToRoom(groupRef.current.position, item.dimensions)
             const allItems = useSceneStore.getState().items
