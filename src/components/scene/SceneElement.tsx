@@ -5,7 +5,7 @@ import type { SceneItem } from '@/types'
 import { useSceneStore, useUIStore } from '@/store'
 import { ElementPopover } from '@/components/ui/ElementPopover'
 import { totalOverlapVolume } from '@/utils/collision'
-import { SCENE_CONFIG } from '@/config/scene'
+import { clampToRoom } from '@/utils/clampToRoom'
 import { getCatalogItemById } from '@/catalog/items'
 import { toast } from 'sonner'
 
@@ -37,18 +37,6 @@ function GltfMesh({ src, dimensions }: { src: string; dimensions: SceneItem['dim
   }, [scene, dimensions.width, dimensions.height, dimensions.depth])
 
   return <primitive object={scaled} />
-}
-
-function clampToRoom(
-  pos: THREE.Vector3,
-  dims: { width: number; height: number; depth: number }
-): [number, number, number] {
-  const { width: roomW, depth: roomD, height: roomH } = SCENE_CONFIG.room
-  return [
-    Math.min(roomW / 2 - dims.width / 2, Math.max(-roomW / 2 + dims.width / 2, pos.x)),
-    Math.min(roomH - dims.height / 2, Math.max(dims.height / 2, pos.y)),
-    Math.min(roomD / 2 - dims.depth / 2, Math.max(-roomD / 2 + dims.depth / 2, pos.z)),
-  ]
 }
 
 interface Props {
