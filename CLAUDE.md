@@ -7,13 +7,19 @@ Frontend-only 3D-редактор для проектирования шкафо
 ## Команды
 
 ```bash
-pnpm dev          # запуск dev-сервера
-pnpm build        # production сборка
-pnpm test         # запуск тестов (Vitest)
-pnpm lint         # ESLint проверка
-pnpm lint:fix     # ESLint автоисправление
-pnpm format       # Prettier форматирование
+pnpm dev           # запуск dev-сервера
+pnpm build         # production сборка (tsc -b + vite build)
+pnpm test          # тесты в watch-режиме (Vitest)
+pnpm test:run      # одиночный прогон тестов
+pnpm test:coverage # прогон с отчётом покрытия + проверка порогов
+pnpm typecheck     # проверка типов без сборки (tsc -b, noEmit)
+pnpm lint          # ESLint проверка
+pnpm lint:fix      # ESLint автоисправление
+pnpm format        # Prettier форматирование
 ```
+
+> **Pre-commit гейт.** На каждый `git commit` husky запускает `lint-staged → typecheck → test:run`.
+> Коммит с падающим линтом, типами или тестами не пройдёт. Хук — в `.husky/pre-commit`.
 
 ---
 
@@ -42,32 +48,38 @@ src/
 ├── types/
 │   └── index.ts          # CatalogItem, SceneItem, PropertyDef (types: number|select|material|color)
 ├── catalog/
-│   └── items.ts          # Хардкод каталога (~19 деталей, 6 категорий)
+│   ├── items.ts          # Хардкод каталога (~19 деталей, 6 категорий)
+│   └── materials.ts      # MATERIAL_OPTIONS, MATERIAL_COLORS (материал → цвета)
 ├── store/
-│   ├── sceneStore.ts     # items, selectedItemId, history/future, все мутации
-│   ├── uiStore.ts        # sceneMode: '2d' | '3d'
+│   ├── sceneStore.ts     # items, groups, выделение, history/future, все мутации
+│   ├── uiStore.ts        # sceneMode '2d'|'3d', activeRightPanelTab 'catalog'|'layers'
+│   ├── defaultScene.ts   # DEFAULT_SCENE_ITEMS / DEFAULT_SCENE_GROUPS — стартовая сцена
 │   └── index.ts          # реэкспорт
 ├── components/
 │   ├── scene/
-│   │   ├── SceneCanvas.tsx       # R3F Canvas, переключение камер
-│   │   ├── Room.tsx              # Пол + стены (размеры из config)
-│   │   ├── SceneElement.tsx      # Один элемент: mesh/GLTF + TransformControls + Popover
-│   │   ├── SceneControls.tsx     # OrbitControls (forwardRef)
-│   │   └── SceneOverlay.tsx      # Кнопки 2D/3D поверх canvas
+│   │   ├── SceneCanvas.tsx          # R3F Canvas, переключение камер
+│   │   ├── Room.tsx                 # Пол + стены (размеры из config)
+│   │   ├── SceneElement.tsx         # Один элемент: mesh/GLTF + TransformControls + Popover
+│   │   ├── GroupTransformProxy.tsx  # Общий gizmo для перемещения выделенной группы
+│   │   ├── SceneControls.tsx        # OrbitControls (forwardRef)
+│   │   └── SceneOverlay.tsx         # Кнопки 2D/3D поверх canvas
 │   ├── panels/
-│   │   ├── RightPanel.tsx        # Переключает между CatalogPanel и PropertiesPanel
+│   │   ├── RightPanel.tsx        # Вкладки Каталог/Слои; при выделении — PropertiesPanel
 │   │   ├── CatalogPanel.tsx      # Каталог с поиском и аккордеоном
+│   │   ├── LayersPanel.tsx       # Дерево слоёв, мультивыбор, группы, контекст-меню
 │   │   ├── PropertiesPanel.tsx   # Форма свойств выбранного элемента
-│   │   └── PropertyField.tsx     # Поле (number input или select)
+│   │   └── PropertyField.tsx     # Поле (number / select / material / color)
 │   └── ui/
 │       ├── AppLayout.tsx         # Корневой flex layout (сцена + панель)
 │       ├── ElementPopover.tsx    # Popover над элементом (поворот, удаление)
 │       └── ScreenGuard.tsx       # Заглушка для экранов < 1024px
-├── hooks/
-│   └── useKeyboard.ts    # Подписка на keydown, ключи формата 'ctrl+z'
 ├── utils/
-│   └── collision.ts      # hasCollision() — AABB-проверка пересечений
-└── main.tsx              # Рендер: ScreenGuard > AppLayout + Toaster + KeyboardShortcuts
+│   ├── collision.ts      # totalOverlapVolume / hasGroupCollision / clampGroupDelta (AABB)
+│   ├── clampToRoom.ts    # Удержание элемента в границах комнаты (чистая функция)
+│   └── groupTransform.ts # computeGroupCenter / groupDragDelta / pivotPositionOnChange
+├── test/
+│   └── setup.ts          # @testing-library/jest-dom
+└── main.tsx              # Рендер: ScreenGuard > AppLayout (SceneCanvas + RightPanel) + Toaster
 ```
 
 ---
@@ -100,18 +112,36 @@ window.dispatchEvent(new CustomEvent('transform-end'))
 // В SceneControls — подписка на эти события для enable/disable OrbitControls
 ```
 
-### Горячие клавиши
-Все хоткеи подключаются через `useKeyboard` в компоненте `KeyboardShortcuts` внутри `main.tsx`.
-Формат ключей: `'ctrl+z'`, `'ctrl+y'`, `'arrowleft'` (lowercase).
+### Клавиатура
+Глобальной системы хоткеев нет (прежний `useKeyboard`/`KeyboardShortcuts` удалён).
+Клавиатура используется точечно:
+- **LayersPanel**, инпут переименования группы: `Enter` — подтвердить, `Escape` — отменить.
+- **Мультивыбор кликом** в LayersPanel: `Ctrl`/`Cmd` — добавить/убрать из выделения, `Shift` — выбрать диапазон.
+
+⚠️ `undo`/`redo` реализованы в сторе, но **сейчас ни к чему не привязаны** (нет ни кнопки, ни хоткея). Если добавляешь привязку — делай её здесь.
 
 ### Undo/Redo
 Реализован в `sceneStore` через два стека (`history`, `future`, лимит 50).
-Каждая мутирующая операция (add/remove/update/rotate) вызывает `pushHistory` перед изменением.
-`selectItem` — **не** попадает в историю.
+Снимок истории хранит и `items`, и `groups`. Каждая мутирующая операция
+(add/remove/update/rotate + групповые: createGroup/ungroup/moveGroup/removeGroup)
+вызывает `pushHistory` перед изменением.
+`selectItem`/`selectItems`/`renameGroup`/`toggleGroupCollapse` — **не** попадают в историю.
+
+### Группы, выделение и слои
+- Два независимых поля выделения: `selectedItemId` (одиночный — **открывает PropertiesPanel**)
+  и `selectedItemIds` (мультивыбор — PropertiesPanel **не** открывает).
+- 3D-клик по элементу → `selectItem()`. Клик в LayersPanel → `selectItems()`/`toggleItemSelection()`.
+- `createGroup()` требует ≥2 выделенных; элемент состоит максимум в одной группе.
+  При перегруппировке элемент уходит из старой группы; если в ней остаётся ≤1 участник — она авто-распускается.
+- `moveGroup()` двигает всех участников и клампит по полу (`y ≥ height/2`).
 
 ### Проверка коллизий
-Вызывается **только при отпускании** TransformControls (`onMouseUp`).
-При коллизии: откат на `lastValidPosition` + `toast.warning(...)`.
+`totalOverlapVolume()` из `utils/collision.ts` (AABB) считает суммарный объём пересечения.
+В `SceneElement`:
+- `onChange` (во время drag) — не даёт увеличивать пересечение: позиция продвигается, только если overlap не растёт.
+- `onMouseUp` — финальная проверка; при пересечении откат на `lastFramePos.current` + `toast.warning(...)`.
+
+Перед обеими проверками позиция прогоняется через `clampToRoom()` (границы комнаты).
 
 ⚠️ **Известное ограничение:** AABB-проверка не учитывает поворот элементов.
 Повёрнутый на 90° корпус 900×600 мм будет проверяться как 900×600, а не 600×900.
@@ -207,9 +237,18 @@ GLB-файлы хранятся в `public/models/`.
 
 ## Тесты
 
-Тестируется юнит-тестами: `sceneStore` (undo/redo, add/remove), `catalog/items`, `collision`, `useKeyboard`, `ScreenGuard`.
-Компоненты 3D-сцены (R3F) **не тестируются** — Three.js не работает в jsdom.
-Запуск: `pnpm test`. Файлы тестов рядом с источником: `*.test.ts`.
+Юнит-тесты (Vitest + @testing-library/react). Файлы рядом с источником: `*.test.ts(x)`.
+Покрыто: `sceneStore` (мутации, группы, undo/redo, инициализация material/color), `uiStore`,
+`catalog/items`, `collision`, `clampToRoom`, `groupTransform`, `PropertiesPanel` (форма, сброс
+цвета, GLTF-scale), `PropertyField`, `ScreenGuard`.
+
+**Компоненты 3D-сцены (R3F) не тестируются** — Three.js не работает в jsdom (нет WebGL).
+Поэтому чистую логику выноси из R3F-компонентов в `utils/` и покрывай там — как сделано с
+`clampToRoom` (вынесен из `SceneElement`). 3D-поведение проверяется вручную через Playwright.
+
+**Покрытие.** `pnpm test:coverage` считает покрытие (v8) по `store/utils/catalog` и проверяет
+пороги (`vite.config.ts` → `test.coverage.thresholds`). Пороги — «пол регрессии», снижать нельзя,
+поднимать по мере роста покрытия.
 
 ## Playwright / браузерная проверка
 
@@ -223,9 +262,10 @@ GLB-файлы хранятся в `public/models/`.
 - Бэкенд, API, авторизация
 - Сохранение сцены (перезагрузка = сброс)
 - Скрытие элементов (только удаление)
-- Множественный выбор
 - Импорт/экспорт 3D-моделей
 - Мобильные устройства (< 1024px → заглушка)
+
+> Мультивыбор и группы — **уже реализованы** (LayersPanel, см. «Группы, выделение и слои»), из скоупа-исключений убраны.
 
 ---
 
