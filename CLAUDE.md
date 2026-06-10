@@ -62,7 +62,7 @@ src/
 │   │   ├── SceneElement.tsx         # Один элемент: mesh/GLTF + Popover (презентационный, без gizmo)
 │   │   ├── TransformProxy.tsx       # Единый gizmo перемещения для 1..N выделенных (pivot + drag-сессия)
 │   │   ├── SceneControls.tsx        # OrbitControls (forwardRef)
-│   │   └── SceneOverlay.tsx         # Кнопки 2D/3D поверх canvas
+│   │   └── SceneOverlay.tsx         # Оверлей поверх canvas: 2D/3D, координаты, размеры выделенного
 │   ├── panels/
 │   │   ├── RightPanel.tsx        # Вкладки Каталог/Слои; при выделении — PropertiesPanel
 │   │   ├── CatalogPanel.tsx      # Каталог с поиском и аккордеоном

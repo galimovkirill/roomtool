@@ -2468,6 +2468,293 @@ expect(result).toEqual([100, 0, 0])
 
 ---
 
+## ФАЗА 12 — Панель действий (Ribbon)
+
+### TASK-029 — Лента (Ribbon): горизонтальная панель действий над сценой
+
+**Промпт для Claude Code:**
+```
+Добавь горизонтальную панель управления (Ribbon) над Canvas-сценой. Это постоянно
+видимая полоса с кнопками действий: переключатель 2D/3D, toggle показа гизмо и
+группа кнопок выравнивания выделенных элементов. Лента заменяет 2D/3D-переключатель
+из SceneOverlay — он переезжает в Ribbon.
+
+---
+
+## 1. src/store/uiStore.ts
+
+Добавь поле и экшн:
+
+```typescript
+interface UIState {
+  // ...existing
+  showGizmo: boolean
+  toggleGizmo: () => void
+}
+
+// initial state:
+showGizmo: true,
+toggleGizmo: () => set((s) => ({ showGizmo: !s.showGizmo })),
+```
+
+---
+
+## 2. src/store/sceneStore.ts
+
+Добавь тип и экшн выравнивания выделенных элементов.
+
+### 2a. Тип
+
+```typescript
+export type AlignmentType =
+  | 'left'    // выровнять левые грани (min X)
+  | 'right'   // выровнять правые грани (max X)
+  | 'centerX' // выровнять центры по X
+  | 'top'     // выровнять верхние грани (max Y)
+  | 'bottom'  // выровнять нижние грани (min Y)
+  | 'centerY' // выровнять центры по Y
+  | 'front'   // выровнять передние грани (min Z)
+  | 'back'    // выровнять задние грани (max Z)
+  | 'centerZ' // выровнять центры по Z
+```
+
+### 2b. Экшн alignItems
+
+```typescript
+alignItems(alignment: AlignmentType): void
+```
+
+Логика:
+1. Взять все items по `selectedItemIds` (только существующие).
+2. Если меньше 2 — выйти без изменений.
+3. Вызвать `pushHistory` (сохранить состояние до изменения).
+4. Вычислить target-координату:
+   - `left`:    `Math.min(...items.map(i => i.position[0] - i.dimensions.width  / 2))`
+   - `right`:   `Math.max(...items.map(i => i.position[0] + i.dimensions.width  / 2))`
+   - `centerX`: среднее центров X
+   - `top`:     `Math.max(...items.map(i => i.position[1] + i.dimensions.height / 2))`
+   - `bottom`:  `Math.min(...items.map(i => i.position[1] - i.dimensions.height / 2))`
+   - `centerY`: среднее центров Y
+   - `front`:   `Math.min(...items.map(i => i.position[2] - i.dimensions.depth  / 2))`
+   - `back`:    `Math.max(...items.map(i => i.position[2] + i.dimensions.depth  / 2))`
+   - `centerZ`: среднее центров Z
+5. Сдвинуть position каждого элемента так, чтобы соответствующая грань/центр совпали с target.
+   Остальные координаты position не трогать.
+6. Обновить `items` через `set`.
+
+Пример для `left`:
+```typescript
+const target = Math.min(...selected.map(i => i.position[0] - i.dimensions.width / 2))
+const updated = items.map(i =>
+  selectedItemIds.includes(i.id)
+    ? { ...i, position: [target + i.dimensions.width / 2, i.position[1], i.position[2]] as [number,number,number] }
+    : i
+)
+```
+
+---
+
+## 3. src/components/scene/SceneRibbon.tsx — новый компонент
+
+Горизонтальная панель над Canvas. Структура:
+
+```tsx
+export function SceneRibbon() {
+  // читает: sceneMode, setSceneMode, showGizmo, toggleGizmo
+  // читает: selectedItemIds (для активации группы выравнивания)
+  // вызывает: alignItems из sceneStore
+}
+```
+
+Разметка (Tailwind):
+
+```
+<div className="flex items-center gap-1 px-3 h-10 bg-white border-b border-gray-200 shrink-0">
+  <!-- Группа «Вид» -->
+  <div role="group" className="flex rounded-md overflow-hidden border border-gray-200">
+    <!-- 2D / 3D кнопки (идентичны старому SceneOverlay) -->
+  </div>
+
+  <div className="w-px h-5 bg-gray-200 mx-1" />  {/* разделитель */}
+
+  <!-- Toggle гизмо -->
+  <button
+    title="Показать / скрыть гизмо"
+    aria-pressed={showGizmo}
+    onClick={toggleGizmo}
+    className={...}  {/* активный: bg-blue-50 text-blue-600; неактивный: text-gray-500 */}
+  >
+    {/* SVG-иконка: три стрелки / «move» или текст «Гизмо» */}
+  </button>
+
+  <div className="w-px h-5 bg-gray-200 mx-1" />
+
+  <!-- Группа «Выравнивание» (disabled при < 2 выделенных) -->
+  <span className="text-xs text-gray-400 mr-1">Выровнять:</span>
+  {ALIGN_BUTTONS.map(({ type, title, icon }) => (
+    <button
+      key={type}
+      title={title}
+      disabled={selectedCount < 2}
+      onClick={() => alignItems(type)}
+      className="..."
+    />
+  ))}
+</div>
+```
+
+Кнопки выравнивания (`ALIGN_BUTTONS`):
+| type | title | иконка (SVG/текст) |
+|------|-------|-------------------|
+| left | По левой грани (X−) | ← |
+| centerX | По центру X | ↔ |
+| right | По правой грани (X+) | → |
+| front | По передней грани (Z−) | ↑ |
+| centerZ | По центру Z | ↕ |
+| back | По задней грани (Z+) | ↓ |
+| bottom | По нижней грани (Y−) | ⬇ |
+| centerY | По центру Y | ⬆⬇ |
+| top | По верхней грани (Y+) | ⬆ |
+
+Используй простые SVG-иконки (inline, 16×16) или текстовые заменители.
+
+---
+
+## 4. src/components/scene/SceneCanvas.tsx
+
+### 4a. Layout
+
+Внешний `<div>` превращается в колоночный flex:
+
+```tsx
+<div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+  <SceneRibbon />
+  <div style={{ flex: 1, position: 'relative' }}>
+    <Canvas style={{ width: '100%', height: '100%' }} onPointerMissed={() => selectItem(null)}>
+      ...
+    </Canvas>
+    <SceneOverlay />
+  </div>
+</div>
+```
+
+### 4b. Условие TransformProxy
+
+```typescript
+const showGizmo = useUIStore((s) => s.showGizmo)
+// ...
+{showTransformProxy && showGizmo && <TransformProxy targetIds={selectedItemIds} />}
+```
+
+---
+
+## 5. src/components/scene/SceneOverlay.tsx
+
+Удали блок с переключателем 2D/3D (переехал в SceneRibbon). Оставить только:
+- Блок координат (coords)
+- Блок размеров (dims)
+
+Новый `return` без группы `role="group" aria-label="Режим просмотра"`.
+
+---
+
+## 6. Документация: CLAUDE.md
+
+### 6a. Раздел «Структура проекта»
+
+В блок `components/scene/` добавь строку:
+```
+│   ├── SceneRibbon.tsx          # Лента (Ribbon): 2D/3D, toggle гизмо, выравнивание
+```
+
+### 6b. Раздел «Режимы сцены»
+
+В таблицу добавь сноску или примечание что переключатель 2D/3D находится в SceneRibbon, а не в SceneOverlay.
+
+### 6c. Новый раздел «Лента (Ribbon)»
+
+Добавить после раздела «Режимы сцены»:
+
+```markdown
+## Лента (Ribbon)
+
+`SceneRibbon.tsx` — горизонтальная панель (~40 px) над Canvas. Всегда видима.
+
+**Группы кнопок:**
+- **Вид**: переключатель 2D/3D; toggle гизмо (`showGizmo` в uiStore → скрывает/показывает TransformProxy)
+- **Выравнивание**: 9 кнопок `alignItems(type: AlignmentType)` из sceneStore; активны только при `selectedItemIds.length ≥ 2`
+
+**Состояние в uiStore:** `showGizmo: boolean`, `toggleGizmo()`
+
+**Экшн в sceneStore:** `alignItems(alignment: AlignmentType)` — выравнивает выделенные элементы по грани/центру, пишет в историю.
+
+`AlignmentType`: `left | right | centerX | top | bottom | centerY | front | back | centerZ`
+```
+
+---
+
+## 7. Тесты
+
+### 7a. src/store/uiStore.test.ts (добавить кейс)
+
+```typescript
+it('toggleGizmo переключает showGizmo', () => {
+  const { showGizmo, toggleGizmo } = useUIStore.getState()
+  expect(showGizmo).toBe(true)
+  toggleGizmo()
+  expect(useUIStore.getState().showGizmo).toBe(false)
+  toggleGizmo()
+  expect(useUIStore.getState().showGizmo).toBe(true)
+})
+```
+
+### 7b. src/store/sceneStore.test.ts (добавить describe-блок)
+
+```typescript
+describe('alignItems', () => {
+  it('выравнивает левые грани (left): все items получают min X', () => {
+    // Добавить 3 элемента с разными position[0]
+    // Выделить все три: selectItems([id1, id2, id3])
+    // Вызвать alignItems('left')
+    // Ожидать что у всех position[0] - width/2 === minX (наименьший из трёх)
+  })
+
+  it('не меняет ничего если выделен 1 или 0 элементов', () => {
+    // alignItems('left') при пустом selectedItemIds → items не меняются
+  })
+
+  it('записывает в историю (undo возвращает позиции)', () => {
+    // после alignItems('left') вызвать undo() → позиции вернулись
+  })
+})
+```
+
+---
+
+## Что НЕ менять
+
+- `SceneOverlay.tsx`: блоки координат и размеров (coords, dims) — оставить как есть.
+- `TransformProxy.tsx` — логика не меняется, только условие рендера в SceneCanvas.
+- `OrbitControls` / `SceneControls` — не трогать.
+- Коллизионную логику — не затрагивать.
+
+---
+
+## Проверка в браузере (вручную, Playwright)
+
+1. Ribbon виден над сценой — полоса с кнопками на всю ширину.
+2. 2D/3D переключатель работает (перенесён из оверлея).
+3. Нажать «Гизмо» → стрелки перемещения исчезают на выделенном элементе.
+   Нажать снова → стрелки появляются.
+4. Добавить два элемента на разных X. Выделить оба (LayersPanel + Ctrl).
+   Нажать «По левой грани» → оба элемента выровнялись по левой грани.
+5. Undo → элементы вернулись на исходные позиции.
+6. При 0 или 1 выделенном — кнопки выравнивания заблокированы (disabled).
+7. Скриншот: `tmp/task029-ribbon.png`
+```
+
+---
+
 ## Сводная таблица задач
 
 | ID | Фаза | Задача | Сложность | Статус |
@@ -2500,6 +2787,7 @@ expect(result).toEqual([100, 0, 0])
 | TASK-026 | UX | Свойства элемента: открытие по двойному клику / контекст-меню «Редактировать» | M | ✅ |
 | TASK-027 | Координаты | Нулевая точка координат в углу комнаты (отображение от угла) | S | ✅ |
 | TASK-028 | Коллизии | Скольжение вдоль препятствий при drag (хард-коллизия per-frame) | L | ✅ |
+| TASK-029 | UX | Лента (Ribbon): панель действий над сценой | L | ⬜ |
 
 **S** = ~30–60 мин · **M** = ~1–2 ч · **L** = ~2–4 ч · **XL** = ~4–8 ч  
 Общая оценка: **~2.5–3 недели** при разработке через Claude Code.
