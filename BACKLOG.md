@@ -2203,6 +2203,271 @@ PropertiesPanel сейчас НЕ показывает позицию (толь�
 
 ---
 
+## ФАЗА 14 — Хард-коллизия при drag
+
+### TASK-028 — Скольжение вдоль препятствий при перемещении элементов
+
+**Промпт для Claude Code:**
+```
+## Проблема
+
+Сейчас `TransformProxy` позволяет тащить элемент сквозь другой во время drag: дельта
+клампится только по стенам комнаты (`clampGroupDelta`), а проверка коллизий с другими
+элементами происходит лишь на `onMouseUp` — если есть пересечение, `endDrag(false)` откатывает
+позицию и показывает `toast.warning`. Это неудобно: элемент «прыгает» назад, вместо того
+чтобы остановиться у поверхности препятствия.
+
+Нужно переместить проверку коллизий с другими элементами внутрь `onChange` (как уже сделано
+для стен), чтобы элемент скользил вдоль поверхности препятствия и не мог пройти сквозь него.
+
+## Поведение после задачи
+
+- Элемент не может пройти сквозь другой ни по одной из осей X/Y/Z.
+- При движении вдоль препятствия (например, только в Z, когда X уже касается)
+  остальные оси не блокируются — элемент скользит вдоль поверхности.
+- Элемент прижимается вплотную (gap = 0), а не залипает при уже существующем перекрытии.
+- `toast.warning` и откат в `onMouseUp` убираются — проникновение стало невозможным.
+
+Ограничение (как было): AABB без учёта поворота. Повёрнутый элемент проверяется по
+axis-aligned bounding box. Это допустимо для MVP и не меняется в данной задаче.
+`totalOverlapVolume` и `hasGroupCollision` **не удалять** — они нужны для других нужд.
+
+---
+
+## 1. `src/utils/collision.ts` — новая функция
+
+Добавь экспортируемую функцию `clampGroupDeltaAgainstItems`. Она работает по аналогии
+с `clampGroupDelta` (стены), но зажимает дельту относительно других элементов сцены.
+
+```typescript
+export function clampGroupDeltaAgainstItems(
+  groupItemIds: string[],
+  delta: [number, number, number],
+  allItems: SceneItem[]
+): [number, number, number] {
+  const groupItems = allItems.filter((i) => groupItemIds.includes(i.id))
+  const outsideItems = allItems.filter((i) => !groupItemIds.includes(i.id))
+
+  let [dx, dy, dz] = delta
+
+  for (const m of groupItems) {
+    for (const o of outsideItems) {
+      // Полуразмеры суммарного AABB
+      const hx = (m.dimensions.width + o.dimensions.width) / 2
+      const hy = (m.dimensions.height + o.dimensions.height) / 2
+      const hz = (m.dimensions.depth + o.dimensions.depth) / 2
+
+      // Вектор центр-центр (M относительно O), знаковый
+      const cx = m.position[0] - o.position[0]
+      const cy = m.position[1] - o.position[1]
+      const cz = m.position[2] - o.position[2]
+
+      // Текущий overlap по каждой оси
+      const curOX = Math.abs(cx) < hx
+      const curOY = Math.abs(cy) < hy
+      const curOZ = Math.abs(cz) < hz
+
+      // Пред-существующее полное перекрытие — не блокировать (иначе залипнет)
+      if (curOX && curOY && curOZ) continue
+
+      // Клампинг по X: срабатывает, только если Y и Z уже перекрываются
+      // (элемент «выровнен» с препятствием по Y/Z, движется вдоль X)
+      if (curOY && curOZ) {
+        const nx = cx + dx
+        if (Math.abs(nx) < hx) {
+          if (cx >= 0) dx = Math.max(dx, hx - cx)
+          else dx = Math.min(dx, -hx - cx)
+        }
+      }
+
+      // Клампинг по Y: срабатывает, только если X и Z уже перекрываются
+      if (curOX && curOZ) {
+        const ny = cy + dy
+        if (Math.abs(ny) < hy) {
+          if (cy >= 0) dy = Math.max(dy, hy - cy)
+          else dy = Math.min(dy, -hy - cy)
+        }
+      }
+
+      // Клампинг по Z: срабатывает, только если X и Y уже перекрываются
+      if (curOX && curOY) {
+        const nz = cz + dz
+        if (Math.abs(nz) < hz) {
+          if (cz >= 0) dz = Math.max(dz, hz - cz)
+          else dz = Math.min(dz, -hz - cz)
+        }
+      }
+    }
+  }
+
+  return [dx, dy, dz]
+}
+```
+
+Принцип: для каждой пары (перемещаемый M, препятствие O) и каждой оси — клампим дельту
+по этой оси только если на ДВУХ других осях уже есть overlap. Это позволяет скользить
+вдоль поверхности (другие оси свободны), но останавливает движение «в лоб».
+
+---
+
+## 2. `src/utils/groupTransform.ts` — интеграция
+
+В функции `groupDragDelta`, после `clampGroupDelta` (стены), примени новую функцию:
+
+```typescript
+import { clampGroupDelta, clampGroupDeltaAgainstItems } from './collision'
+
+export function groupDragDelta(
+  pivotPosition: Vec3,
+  initialCenter: Vec3,
+  groupItemIds: string[],
+  items: SceneItem[]
+): Vec3 {
+  const raw: Vec3 = [
+    pivotPosition[0] - initialCenter[0],
+    pivotPosition[1] - initialCenter[1],
+    pivotPosition[2] - initialCenter[2],
+  ]
+  const clampedByWalls = clampGroupDelta(groupItemIds, raw, items)
+  return clampGroupDeltaAgainstItems(groupItemIds, clampedByWalls, items)
+}
+```
+
+Порядок важен: сначала стены (абсолютное ограничение), затем другие элементы.
+
+---
+
+## 3. `src/components/scene/TransformProxy.tsx` — убрать откат на `onMouseUp`
+
+В обработчике `onMouseUp` удали блок проверки `hasGroupCollision` с `endDrag(false)`
+и `toast.warning`. Проникновение теперь невозможно — откат больше не нужен.
+
+Было:
+```typescript
+if (hasGroupCollision(targetIds, lastDeltaRef.current, startItemsRef.current)) {
+  endDrag(false)
+  pivotMesh.position.set(...initialCenterRef.current)
+  toast.warning('Элементы не могут пересекаться')
+  return
+}
+endDrag(true)
+```
+
+Должно остаться только:
+```typescript
+endDrag(true)
+```
+
+Также удали импорт `hasGroupCollision` из этого файла — он больше не используется здесь.
+Импорт `toast` тоже убери (если больше не нужен).
+
+---
+
+## 4. Тесты `src/utils/collision.test.ts`
+
+Добавь тест-блок `describe('clampGroupDeltaAgainstItems', ...)` со следующими кейсами.
+Вспомогательная функция создания элемента:
+
+```typescript
+function makeItem(
+  id: string,
+  pos: [number, number, number],
+  dims: { width: number; height: number; depth: number }
+): SceneItem {
+  return {
+    id, catalogId: 'test', name: id, groupId: null, locked: false,
+    position: pos, rotationY: 0, dimensions: dims, properties: {},
+  }
+}
+```
+
+**Кейс 1 — движение прямо в препятствие, dx клампится до gap = 0:**
+```
+M: pos=[-600, 0, 0], dims=400×400×400
+O: pos=[0, 0, 0],    dims=400×400×400
+hx = 400, зазор = |cx| - hx = 600 - 400 = 200
+
+delta = [400, 0, 0]  // двигаемся вправо, пройдём сквозь O
+expect(result[0]).toBe(200)  // clamped: cx + dx = -600 + 200 = -400 = -hx (касание)
+expect(result[1]).toBe(0)
+expect(result[2]).toBe(0)
+```
+
+**Кейс 2 — движение только вдоль Z, препятствия нет на пути (разные X-позиции):**
+```
+M: pos=[600, 0, -600], dims=400×400×400   // сдвинут по X — не перекрывается
+O: pos=[0, 0, 0],      dims=400×400×400
+
+delta = [0, 0, 800]   // движение только в Z
+// curOX = false → ни один блок клампинга не сработает
+expect(result).toEqual([0, 0, 800])
+```
+
+**Кейс 3 — диагональное движение (+X+Z), препятствие по X: X клампится, Z сохраняется:**
+```
+M: pos=[-600, 0, 0], dims=400×400×400
+O: pos=[0, 0, 0],    dims=400×400×400
+// curOY = true (cy=0 < 400), curOZ = true (cz=0 < 400), curOX = false
+
+delta = [400, 0, 300]
+// X блок: curOY && curOZ → true → nx = -600+400 = -200, |nx|=200 < hx=400 → clamp
+//   dx = max(400, 400 - 600) = max(400, -200) = 400... wait
+//   cx = -600 (< 0) → dx = min(400, -400 - (-600)) = min(400, 200) = 200
+// Z блок: curOX && curOY → false (curOX = false) → без клампинга
+
+expect(result[0]).toBe(200)  // clamped
+expect(result[2]).toBe(300)  // preserved
+```
+
+**Кейс 4 — группа из двух элементов упирается в препятствие: вся группа останавливается:**
+```
+M1: pos=[-600, 0, 0], dims=200×200×200
+M2: pos=[-600, 0, 300], dims=200×200×200
+O:  pos=[0, 0, 0],    dims=400×400×400
+// оба M двигаются к O
+
+delta = [300, 0, 0]
+// M1: hx=(200+400)/2=300, cy=0<300, cz=0<300, cx=-600
+//   curOX = 600<300 = false. блок: dy&&dz → min(300, -300-(-600))=min(300,300)=300 → dx=300? 
+// Пересчёт: cx=-600, hx=300. -hx-cx = -300-(-600) = 300. min(300, 300) = 300. nx=-600+300=-300=−hx ✓
+// Аналогично M2 — тот же результат
+expect(result[0]).toBeLessThanOrEqual(300)  // ограничена
+// Фактическое значение зависит от конкретных позиций — проверяем что не проникает
+const m1After = -600 + result[0]
+expect(Math.abs(m1After - 0)).toBeGreaterThanOrEqual(300 - 1)  // gap >= 0 (hx=300)
+```
+
+**Кейс 5 — пред-существующее перекрытие: delta не блокируется (не залипает):**
+```
+M: pos=[0, 0, 0], dims=400×400×400   // полностью совпадает с O
+O: pos=[0, 0, 0], dims=400×400×400
+
+delta = [100, 0, 0]
+// curOX = curOY = curOZ = true → continue (skip)
+expect(result).toEqual([100, 0, 0])
+```
+
+---
+
+## Что НЕ менять
+
+- `totalOverlapVolume` и `hasGroupCollision` в `collision.ts` — не удалять.
+- Остальную логику `TransformProxy.tsx` (beginDrag, dragSelectionBy, zero-delta check).
+- `clampGroupDelta` (стены) — не трогать.
+- Тесты стен в `collision.test.ts` — не менять.
+
+## Проверка в браузере (вручную, Playwright)
+
+1. Добавить два элемента рядом.
+2. Тащить один в сторону другого — элемент должен остановиться у поверхности, не пройти сквозь.
+3. Тащить вдоль поверхности (Z при упоре по X) — скользит, не залипает.
+4. Тащить под углом к препятствию — одна ось стопорится, другая сохраняется (скольжение).
+5. Отпустить — никакого тоста, элемент остаётся у поверхности.
+6. Undo работает корректно.
+```
+
+---
+
 ## Сводная таблица задач
 
 | ID | Фаза | Задача | Сложность | Статус |
@@ -2234,6 +2499,7 @@ PropertiesPanel сейчас НЕ показывает позицию (толь�
 | TASK-025 | Архитектура | Унификация movement-слоя: единый источник истины (стор) | L | ✅ |
 | TASK-026 | UX | Свойства элемента: открытие по двойному клику / контекст-меню «Редактировать» | M | ✅ |
 | TASK-027 | Координаты | Нулевая точка координат в углу комнаты (отображение от угла) | S | ✅ |
+| TASK-028 | Коллизии | Скольжение вдоль препятствий при drag (хард-коллизия per-frame) | L | ⬜ |
 
 **S** = ~30–60 мин · **M** = ~1–2 ч · **L** = ~2–4 ч · **XL** = ~4–8 ч  
 Общая оценка: **~2.5–3 недели** при разработке через Claude Code.
