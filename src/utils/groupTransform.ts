@@ -1,5 +1,5 @@
 import type { SceneItem } from '@/types'
-import { clampGroupDelta } from './collision'
+import { clampGroupDelta, clampGroupDeltaAgainstItems } from './collision'
 
 type Vec3 = [number, number, number]
 
@@ -40,5 +40,6 @@ export function groupDragDelta(
     pivotPosition[1] - initialCenter[1],
     pivotPosition[2] - initialCenter[2],
   ]
-  return clampGroupDelta(groupItemIds, raw, items)
+  const clampedByWalls = clampGroupDelta(groupItemIds, raw, items)
+  return clampGroupDeltaAgainstItems(groupItemIds, clampedByWalls, items)
 }

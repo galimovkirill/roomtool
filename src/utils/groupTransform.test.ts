@@ -62,4 +62,15 @@ describe('groupDragDelta', () => {
     const maxDx = half - item.dimensions.width / 2 - item.position[0]
     expect(delta[0]).toBeCloseTo(maxDx)
   })
+
+  it('clamps displacement when moving toward an outside obstacle', () => {
+    // Mover 100×100×100 at origin, obstacle at x=500 — gap = 400 (hx=100)
+    // Dragging 500 units right would penetrate; clamped to 400 (gap=0, touching)
+    const mover = makeItem('m', [0, 50, 0], { width: 100, height: 100, depth: 100 })
+    const obstacle = makeItem('obs', [500, 50, 0], { width: 100, height: 100, depth: 100 })
+    const delta = groupDragDelta([500, 50, 0], [0, 50, 0], ['m'], [mover, obstacle])
+    expect(delta[0]).toBe(400)
+    expect(delta[1]).toBe(0)
+    expect(delta[2]).toBe(0)
+  })
 })

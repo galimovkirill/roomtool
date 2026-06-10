@@ -1,4 +1,9 @@
-import { totalOverlapVolume, hasGroupCollision, clampGroupDelta } from './collision'
+import {
+  totalOverlapVolume,
+  hasGroupCollision,
+  clampGroupDelta,
+  clampGroupDeltaAgainstItems,
+} from './collision'
 import type { SceneItem } from '@/types'
 
 function makeItem(id: string, position: [number, number, number], size = 100): SceneItem {
@@ -113,5 +118,71 @@ describe('hasGroupCollision', () => {
     const b = makeItem('b', [10, 50, 0]) // overlapping each other within group
     // no outside items
     expect(hasGroupCollision(['a', 'b'], [5, 0, 0], [a, b])).toBe(false)
+  })
+})
+
+describe('clampGroupDeltaAgainstItems', () => {
+  function makeItemWithDims(
+    id: string,
+    pos: [number, number, number],
+    dims: { width: number; height: number; depth: number }
+  ): SceneItem {
+    return {
+      id,
+      catalogId: 'test',
+      name: id,
+      groupId: null,
+      position: pos,
+      rotationY: 0,
+      dimensions: dims,
+      properties: {},
+    }
+  }
+
+  it('clamps dx to gap=0 when moving directly into an obstacle', () => {
+    // M left of O, both 400×400×400 cubes. cx=-600, hx=400 → gap=200
+    const m = makeItemWithDims('m', [-600, 0, 0], { width: 400, height: 400, depth: 400 })
+    const o = makeItemWithDims('o', [0, 0, 0], { width: 400, height: 400, depth: 400 })
+    const result = clampGroupDeltaAgainstItems(['m'], [400, 0, 0], [m, o])
+    expect(result[0]).toBe(200)
+    expect(result[1]).toBe(0)
+    expect(result[2]).toBe(0)
+  })
+
+  it('does not clamp dz when X positions do not overlap (no collision path)', () => {
+    // M shifted far along X — no X overlap with O, so Z movement is free
+    const m = makeItemWithDims('m', [600, 0, -600], { width: 400, height: 400, depth: 400 })
+    const o = makeItemWithDims('o', [0, 0, 0], { width: 400, height: 400, depth: 400 })
+    const result = clampGroupDeltaAgainstItems(['m'], [0, 0, 800], [m, o])
+    expect(result).toEqual([0, 0, 800])
+  })
+
+  it('clamps dx but preserves dz on diagonal move (sliding along surface)', () => {
+    // M left of O: curOX=false, curOY=true, curOZ=true → X clamped, Z free
+    const m = makeItemWithDims('m', [-600, 0, 0], { width: 400, height: 400, depth: 400 })
+    const o = makeItemWithDims('o', [0, 0, 0], { width: 400, height: 400, depth: 400 })
+    const result = clampGroupDeltaAgainstItems(['m'], [400, 0, 300], [m, o])
+    expect(result[0]).toBe(200)
+    expect(result[2]).toBe(300)
+  })
+
+  it('stops entire group when any member would penetrate an obstacle', () => {
+    // M1 and M2 both approaching O from the left
+    const m1 = makeItemWithDims('m1', [-600, 0, 0], { width: 200, height: 200, depth: 200 })
+    const m2 = makeItemWithDims('m2', [-600, 0, 300], { width: 200, height: 200, depth: 200 })
+    const o = makeItemWithDims('o', [0, 0, 0], { width: 400, height: 400, depth: 400 })
+    const result = clampGroupDeltaAgainstItems(['m1', 'm2'], [300, 0, 0], [m1, m2, o])
+    // m1 after move: -600 + dx. hx for m1+o = (200+400)/2 = 300. m1 must not pass -300.
+    expect(result[0]).toBeLessThanOrEqual(300)
+    const m1After = -600 + result[0]
+    expect(Math.abs(m1After - 0)).toBeGreaterThanOrEqual(300 - 1)
+  })
+
+  it('does not block movement when items already fully overlap (no lock-in)', () => {
+    // M and O at same position — pre-existing overlap is skipped
+    const m = makeItemWithDims('m', [0, 0, 0], { width: 400, height: 400, depth: 400 })
+    const o = makeItemWithDims('o', [0, 0, 0], { width: 400, height: 400, depth: 400 })
+    const result = clampGroupDeltaAgainstItems(['m'], [100, 0, 0], [m, o])
+    expect(result).toEqual([100, 0, 0])
   })
 })

@@ -49,6 +49,65 @@ export function clampGroupDelta(
   return [dx, dy, dz]
 }
 
+// Clamps a group movement delta so that no item in the group passes through any
+// outside item. For each axis, clamping only activates when the other two axes
+// already overlap — this allows sliding along a surface without getting stuck.
+// Pre-existing full overlap is skipped to avoid locking items that started inside.
+export function clampGroupDeltaAgainstItems(
+  groupItemIds: string[],
+  delta: [number, number, number],
+  allItems: SceneItem[]
+): [number, number, number] {
+  const groupItems = allItems.filter((i) => groupItemIds.includes(i.id))
+  const outsideItems = allItems.filter((i) => !groupItemIds.includes(i.id))
+
+  let [dx, dy, dz] = delta
+
+  for (const m of groupItems) {
+    for (const o of outsideItems) {
+      const hx = (m.dimensions.width + o.dimensions.width) / 2
+      const hy = (m.dimensions.height + o.dimensions.height) / 2
+      const hz = (m.dimensions.depth + o.dimensions.depth) / 2
+
+      const cx = m.position[0] - o.position[0]
+      const cy = m.position[1] - o.position[1]
+      const cz = m.position[2] - o.position[2]
+
+      const curOX = Math.abs(cx) < hx
+      const curOY = Math.abs(cy) < hy
+      const curOZ = Math.abs(cz) < hz
+
+      if (curOX && curOY && curOZ) continue
+
+      if (curOY && curOZ) {
+        const nx = cx + dx
+        if (Math.abs(nx) < hx) {
+          if (cx >= 0) dx = Math.max(dx, hx - cx)
+          else dx = Math.min(dx, -hx - cx)
+        }
+      }
+
+      if (curOX && curOZ) {
+        const ny = cy + dy
+        if (Math.abs(ny) < hy) {
+          if (cy >= 0) dy = Math.max(dy, hy - cy)
+          else dy = Math.min(dy, -hy - cy)
+        }
+      }
+
+      if (curOX && curOY) {
+        const nz = cz + dz
+        if (Math.abs(nz) < hz) {
+          if (cz >= 0) dz = Math.max(dz, hz - cz)
+          else dz = Math.min(dz, -hz - cz)
+        }
+      }
+    }
+  }
+
+  return [dx, dy, dz]
+}
+
 export function hasGroupCollision(
   groupItemIds: string[],
   delta: [number, number, number],

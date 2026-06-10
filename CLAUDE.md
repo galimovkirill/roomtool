@@ -74,7 +74,7 @@ src/
 │       ├── ElementPopover.tsx    # Popover над элементом (поворот, удаление)
 │       └── ScreenGuard.tsx       # Заглушка для экранов < 1024px
 ├── utils/
-│   ├── collision.ts      # totalOverlapVolume / hasGroupCollision / clampGroupDelta (AABB)
+│   ├── collision.ts      # totalOverlapVolume / hasGroupCollision / clampGroupDelta / clampGroupDeltaAgainstItems (AABB)
 │   ├── clampToRoom.ts    # Удержание элемента в границах комнаты (чистая функция)
 │   └── groupTransform.ts # computeGroupCenter / groupDragDelta / pivotPositionOnChange
 ├── test/
@@ -125,9 +125,10 @@ Three.js-объекты рендерятся из стора (`<group position={
 Интерактивное перемещение — это `beginDrag(ids)` → `dragSelectionBy(delta)` (каждый кадр,
 **без** истории) → `endDrag(commit)`. `beginDrag` снимает полный pre-drag снапшот; `dragSelectionBy`
 применяет дельту относительно стартовых позиций; `endDrag(true)` коммитит **один** undo-шаг на
-весь жест, `endDrag(false)` откатывает (коллизия / нулевое смещение). Дельта клампится по
-стенам (`clampGroupDelta`) на стороне `TransformProxy`, финальная коллизия — `hasGroupCollision`.
-`moveGroup()` остаётся отдельным one-shot delta+история примитивом (тесты, потенциальные хоткеи).
+весь жест, `endDrag(false)` откатывает только при нулевом смещении. Дельта клампится по стенам
+(`clampGroupDelta`) и затем по другим элементам (`clampGroupDeltaAgainstItems`) на стороне
+`TransformProxy` — see «Проверка коллизий». `moveGroup()` остаётся отдельным one-shot
+delta+история примитивом (тесты, потенциальные хоткеи).
 
 ### Конфликт TransformControls и OrbitControls
 Решается через `window.dispatchEvent`:
@@ -176,16 +177,25 @@ window.dispatchEvent(new CustomEvent('transform-end'))
 ### Проверка коллизий
 `totalOverlapVolume()` из `utils/collision.ts` (AABB) считает суммарный объём пересечения.
 Перемещение идёт через `TransformProxy`:
-- **во время drag** — дельта клампится по стенам через `clampGroupDelta()` (элемент/группа не
-  проходит сквозь стену), позиции пишутся в стор живьём;
-- **на отпускании** — финальная проверка `hasGroupCollision()`; при пересечении `endDrag(false)`
-  откатывает на pre-drag снапшот + `toast.warning(...)`.
+- **во время drag** — дельта сначала клампится по стенам `clampGroupDelta()`, затем по другим
+  элементам `clampGroupDeltaAgainstItems()`. Обе функции работают против снапшота позиций на
+  старте drag (`startItemsRef`), так что дельта всегда относительна начала жеста;
+- **на отпускании** — `endDrag(true)` всегда коммитит; проникновение предотвращено per-frame.
+
+`clampGroupDeltaAgainstItems` — скользящий клампинг: ось X блокируется только если Y и Z уже
+перекрываются, и т.д. Это позволяет скользить вдоль поверхности. Пары с пред-существующим
+полным 3D-перекрытием (all 3 axes) пропускаются — иначе элементы, размещённые внутри других
+(конструктивные примыкания), залипали бы и не могли двигаться.
 
 `clampToRoom()` — отдельная чистая функция (границы комнаты), покрыта тестами.
+`hasGroupCollision` и `totalOverlapVolume` сохранены как утилиты (не удалять).
 
-⚠️ **Известное ограничение:** AABB-проверка не учитывает поворот элементов.
-Повёрнутый на 90° корпус 900×600 мм будет проверяться как 900×600, а не 600×900.
-Это допустимо для MVP, усложнять не нужно.
+⚠️ **Известные ограничения:**
+- AABB-проверка не учитывает поворот элементов. Повёрнутый на 90° корпус 900×600 мм
+  проверяется как 900×600, а не 600×900. Допустимо для MVP.
+- Пары с конструктивным AABB-перекрытием (например, задняя стенка внутри боковин в дефолтном
+  шкафу) не блокируются при drag друг через друга — это цена anti-lockout поведения для
+  пред-существующих перекрытий.
 
 ### Tailwind v4
 Используется через Vite-плагин (`@tailwindcss/vite`). Импорт в CSS: `@import "tailwindcss"`.

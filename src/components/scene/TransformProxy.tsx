@@ -1,11 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { TransformControls } from '@react-three/drei'
-import { toast } from 'sonner'
 import type { SceneItem } from '@/types'
 import { useSceneStore } from '@/store'
 import { useUIStore } from '@/store/uiStore'
-import { hasGroupCollision } from '@/utils/collision'
 import { computeGroupCenter, groupDragDelta } from '@/utils/groupTransform'
 
 type Vec3 = [number, number, number]
@@ -105,12 +103,6 @@ export function TransformProxy({ targetIds }: Props) {
             // No movement: drop the gesture (no history, no toast).
             if (dx === 0 && dy === 0 && dz === 0) {
               endDrag(false)
-              return
-            }
-            if (hasGroupCollision(targetIds, lastDeltaRef.current, startItemsRef.current)) {
-              endDrag(false)
-              pivotMesh.position.set(...initialCenterRef.current)
-              toast.warning('Элементы не могут пересекаться')
               return
             }
             endDrag(true)
