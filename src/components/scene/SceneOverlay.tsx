@@ -1,5 +1,6 @@
 import { useShallow } from 'zustand/shallow'
 import { useSceneStore, useUIStore } from '@/store'
+import { worldToRoomX, worldToRoomZ } from '@/utils/roomCoords'
 
 export function SceneOverlay() {
   const sceneMode = useUIStore((s) => s.sceneMode)
@@ -14,12 +15,13 @@ export function SceneOverlay() {
       })
       if (selected.length === 0) return null
       const n = selected.length
+      // X/Z показываем от дальнего угла комнаты (см. utils/roomCoords); Y — от пола.
       return {
-        x: Math.round(selected.reduce((sum, i) => sum + i.position[0], 0) / n),
+        x: Math.round(worldToRoomX(selected.reduce((sum, i) => sum + i.position[0], 0) / n)),
         y: Math.round(
           selected.reduce((sum, i) => sum + (i.position[1] - i.dimensions.height / 2), 0) / n
         ),
-        z: Math.round(selected.reduce((sum, i) => sum + i.position[2], 0) / n),
+        z: Math.round(worldToRoomZ(selected.reduce((sum, i) => sum + i.position[2], 0) / n)),
       }
     })
   )
