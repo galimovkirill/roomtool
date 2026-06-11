@@ -14,6 +14,20 @@ import { TransformProxy } from './TransformProxy'
 import { Scene2DView } from './Scene2DView'
 
 const { initialPosition, fov, near, far } = SCENE_CONFIG.camera
+
+// Lumens for a ceiling point light; high value compensates ACESFilmic tone mapping applied by R3F Canvas
+const CEILING_LIGHT_LUMENS = 4_000_000
+// Objects within 10cm of the ceiling won't cast shadows — acceptable for MVP
+const SHADOW_NEAR_DISTANCE = 100
+// Max shadow distance: ceiling center → farthest floor corner + margin
+const SHADOW_MAX_DISTANCE =
+  Math.ceil(
+    Math.sqrt(
+      (SCENE_CONFIG.room.width / 2) ** 2 +
+        SCENE_CONFIG.room.height ** 2 +
+        (SCENE_CONFIG.room.depth / 2) ** 2
+    )
+  ) + 500
 const perspPosition: [number, number, number] = [
   initialPosition[0],
   initialPosition[1],
@@ -35,6 +49,7 @@ function isItemVisibleInHierarchy(item: SceneItem, groups: SceneGroup[]): boolea
 export function SceneCanvas() {
   const sceneMode = useUIStore((s) => s.sceneMode)
   const showGizmo = useUIStore((s) => s.showGizmo)
+  const showCeilingLight = useUIStore((s) => s.showCeilingLight)
   const items = useSceneStore((s) => s.items)
   const groups = useSceneStore((s) => s.groups)
   const selectedItemIds = useSceneStore((s) => s.selectedItemIds)
@@ -69,6 +84,7 @@ export function SceneCanvas() {
         ) : (
           <>
             <Canvas
+              shadows
               style={{ width: '100%', height: '100%' }}
               onPointerMissed={() => selectItem(null)}
             >
@@ -79,8 +95,17 @@ export function SceneCanvas() {
                 near={near}
                 far={far}
               />
-              <ambientLight intensity={0.6} />
-              <directionalLight position={[5000, 8000, 5000]} />
+              <ambientLight intensity={showCeilingLight ? 0.8 : 1} />
+              {showCeilingLight && (
+                <pointLight
+                  position={[0, SCENE_CONFIG.room.height, 0]}
+                  intensity={CEILING_LIGHT_LUMENS}
+                  castShadow
+                  shadow-mapSize={[1024, 1024]}
+                  shadow-camera-near={SHADOW_NEAR_DISTANCE}
+                  shadow-camera-far={SHADOW_MAX_DISTANCE}
+                />
+              )}
               <Room />
               <SceneControls />
               {items

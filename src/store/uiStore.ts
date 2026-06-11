@@ -7,6 +7,8 @@ interface UIState {
   setActiveRightPanelTab: (tab: 'catalog' | 'layers') => void
   showGizmo: boolean
   toggleGizmo: () => void
+  showCeilingLight: boolean
+  toggleCeilingLight: () => void
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -16,4 +18,6 @@ export const useUIStore = create<UIState>((set) => ({
   setActiveRightPanelTab: (tab) => set({ activeRightPanelTab: tab }),
   showGizmo: true,
   toggleGizmo: () => set((s) => ({ showGizmo: !s.showGizmo })),
+  showCeilingLight: true,
+  toggleCeilingLight: () => set((s) => ({ showCeilingLight: !s.showCeilingLight })),
 }))

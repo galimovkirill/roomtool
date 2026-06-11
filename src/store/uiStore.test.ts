@@ -2,7 +2,12 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { useUIStore } from './uiStore'
 
 beforeEach(() => {
-  useUIStore.setState({ sceneMode: '3d', activeRightPanelTab: 'catalog', showGizmo: true })
+  useUIStore.setState({
+    sceneMode: '3d',
+    activeRightPanelTab: 'catalog',
+    showGizmo: true,
+    showCeilingLight: true,
+  })
 })
 
 describe('uiStore', () => {
@@ -29,5 +34,17 @@ describe('uiStore', () => {
     expect(useUIStore.getState().showGizmo).toBe(false)
     toggleGizmo()
     expect(useUIStore.getState().showGizmo).toBe(true)
+  })
+
+  it('showCeilingLight по умолчанию true', () => {
+    expect(useUIStore.getState().showCeilingLight).toBe(true)
+  })
+
+  it('toggleCeilingLight переключает showCeilingLight', () => {
+    const { toggleCeilingLight } = useUIStore.getState()
+    toggleCeilingLight()
+    expect(useUIStore.getState().showCeilingLight).toBe(false)
+    toggleCeilingLight()
+    expect(useUIStore.getState().showCeilingLight).toBe(true)
   })
 })

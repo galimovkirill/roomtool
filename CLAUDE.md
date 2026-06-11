@@ -82,7 +82,7 @@ src/
 │   └── materials.ts      # MATERIAL_OPTIONS, MATERIAL_COLORS (материал → цвета)
 ├── store/
 │   ├── sceneStore.ts     # items, groups, выделение, history/future, все мутации
-│   ├── uiStore.ts        # sceneMode '2d'|'3d', activeRightPanelTab 'catalog'|'layers', showGizmo
+│   ├── uiStore.ts        # sceneMode '2d'|'3d', activeRightPanelTab 'catalog'|'layers', showGizmo, showCeilingLight
 │   ├── defaultScene.ts   # DEFAULT_SCENE_ITEMS / DEFAULT_SCENE_GROUPS — стартовая сцена
 │   └── index.ts          # реэкспорт
 ├── components/
@@ -102,9 +102,10 @@ src/
 │   │   ├── PropertiesPanel.tsx   # Форма свойств выбранного элемента
 │   │   └── PropertyField.tsx     # Поле (number / select / material / color)
 │   └── ui/
-│       ├── AppLayout.tsx         # Корневой flex layout (сцена + панель)
-│       ├── ElementPopover.tsx    # Popover над элементом (поворот, удаление)
-│       └── ScreenGuard.tsx       # Заглушка для экранов < 1024px
+│       ├── AppLayout.tsx              # Корневой flex layout (сцена + панель)
+│       ├── ElementPopover.tsx         # Popover над элементом (поворот, удаление)
+│       ├── ScreenGuard.tsx            # Заглушка для экранов < 1024px
+│       └── ToolbarToggleButton.tsx    # Переиспользуемая toggle-кнопка с тултипом для Ribbon
 ├── utils/
 │   ├── collision.ts      # totalOverlapVolume / hasGroupCollision / clampGroupDelta / clampGroupDeltaAgainstItems (AABB)
 │   ├── clampToRoom.ts    # Удержание элемента в границах комнаты (чистая функция)
@@ -277,10 +278,14 @@ toast.warning('Элементы не могут пересекаться')
 `SceneRibbon.tsx` — горизонтальная панель (~40 px) над Canvas. Всегда видима.
 
 **Группы кнопок:**
-- **Вид**: переключатель 2D/3D; toggle гизмо (`showGizmo` в uiStore → скрывает/показывает TransformProxy)
+- **Вид**: переключатель 2D/3D; toggle гизмо (`showGizmo`); toggle потолочного освещения (`showCeilingLight`)
 - **Выравнивание**: 9 кнопок `alignItems(type: AlignmentType)` из sceneStore; активны только при `selectedItemIds.length ≥ 2`
 
-**Состояние в uiStore:** `showGizmo: boolean`, `toggleGizmo()`
+**Состояние в uiStore:** `showGizmo: boolean`, `toggleGizmo()`, `showCeilingLight: boolean`, `toggleCeilingLight()`
+
+**`ToolbarToggleButton`** — переиспользуемый компонент (`src/components/ui/ToolbarToggleButton.tsx`) для toggle-кнопок с тултипом в риббоне. Props: `pressed`, `onPressedChange`, `tooltip: string | (pressed) => string`, `aria-label`.
+
+⚠️ **Композиция Tooltip + Toggle (Radix):** нельзя использовать `Tooltip.Trigger asChild` напрямую на `Toggle.Root` — Tooltip перезаписывает `data-state` кнопки своим (`"closed"`/`"open"`), и стили `data-[state=on]` перестают работать. Правильный паттерн: обернуть `Toggle.Root` в `<span tabIndex={-1}>` и сделать `asChild` на нём.
 
 **Экшн в sceneStore:** `alignItems(alignment: AlignmentType)` — выравнивает выделенные элементы по грани/центру, пишет в историю.
 
