@@ -32,7 +32,7 @@ pnpm format        # Prettier форматирование
 | 3D | Three.js + @react-three/fiber + @react-three/drei |
 | Стейт | Zustand |
 | Стили | Tailwind CSS v4 |
-| UI-примитивы | Radix UI |
+| UI-примитивы | shadcn/ui (Base UI) |
 | Уведомления | Sonner (`toast()`) |
 | Тесты | Vitest + @testing-library/react |
 | Пакеты | pnpm |
@@ -41,31 +41,41 @@ pnpm format        # Prettier форматирование
 
 ### UI-примитивы
 
-Radix UI — единственный источник готовых компонентов в проекте.
-Используется везде, где Radix покрывает сценарий:
+shadcn/ui — единственный источник готовых компонентов в проекте. Компоненты хранятся в
+`src/components/ui/` (копируются `npx shadcn@latest add <name>`). Под капотом — `@base-ui/react`
+(следующее поколение Radix UI, тот же автор).
 
-| Задача | Radix-компонент |
-|--------|----------------|
-| Выпадающий список | `@radix-ui/react-select` |
-| Тултип | `@radix-ui/react-tooltip` |
-| Popover | `@radix-ui/react-popover` |
-| Контекстное меню | `@radix-ui/react-context-menu` |
-| Переключатель (toggle) | `@radix-ui/react-toggle` |
-| Группа переключателей | `@radix-ui/react-toggle-group` |
-| Разделитель | `@radix-ui/react-separator` |
-| Label | `@radix-ui/react-label` |
+| Задача | shadcn-компонент | Импорт |
+|--------|-----------------|--------|
+| Выпадающий список | Select | `@/components/ui/select` |
+| Тултип | Tooltip | `@/components/ui/tooltip` |
+| Контекстное меню | ContextMenu | `@/components/ui/context-menu` |
+| Переключатель (toggle) | Toggle | `@/components/ui/toggle` |
+| Группа переключателей | ToggleGroup | `@/components/ui/toggle-group` |
+| Разделитель | Separator | `@/components/ui/separator` |
+| Label | Label | `@/components/ui/label` |
 
-⚠️ **Не создавай собственные реализации** для компонентов, которые Radix покрывает.
-Кастомный код — только для того, чего в Radix нет (цветовая палитра `type === 'color'`
-в PropertyField, или Html-поповер над 3D-объектом через `@react-three/drei`).
+⚠️ **Не создавай собственные реализации** для компонентов, которые shadcn покрывает.
+Кастомный код — только для того, чего нет (цветовая палитра `type === 'color'` в PropertyField,
+или Html-поповер над 3D-объектом через `@react-three/drei`).
 
-Стилизация Radix — через Tailwind-классы напрямую (`className` на примитивах) и
-через data-атрибуты состояния (`data-[state=on]`, `data-[highlighted]`, `data-[disabled]`).
+Стилизация shadcn — через Tailwind-классы (`className` на компонентах) и через атрибуты
+состояния Base UI: `aria-pressed:` (вместо Radix `data-[state=on]`), `data-[highlighted]`,
+`data-[disabled]`, `data-[side=...]`. ContextMenu.Item использует `onClick` (не `onSelect`).
 
-**Тестирование Radix Select:** `@radix-ui/react-select` мокируется нативным `<select>` в тест-файлах
-через `vi.mock('@radix-ui/react-select', ...)` — это позволяет использовать `getByRole('combobox')`,
-`getByRole('option')` и `fireEvent.change`. Без мока Radix Select рендерит `<button role="combobox">`
-и не реагирует на `fireEvent.change`.
+**ToggleGroup (Base UI):** value всегда массив (`value: string[]`), нет `type="single"`.
+Для single-select: `value={[activeValue]} onValueChange={(vals) => vals.length > 0 && set(vals[0])}`.
+
+**TooltipProvider** должен быть один на всё приложение — добавлен в `AppLayout.tsx`.
+Для Tooltip+Toggle в риббоне используется `render` prop на `TooltipTrigger` (не `asChild`).
+
+**Тестирование shadcn Select:** `@/components/ui/select` мокируется нативным `<select>` в тест-файлах
+через `vi.mock('@/components/ui/select', ...)` — экспортирует `Select`, `SelectTrigger`,
+`SelectValue`, `SelectContent`, `SelectItem`. Это позволяет использовать `getByRole('combobox')`,
+`getByRole('option')` и `fireEvent.change`.
+
+**Добавить новый компонент:** `npx shadcn@latest add <name>` — файл появится в `src/components/ui/`.
+Конфиг shadcn — `components.json` в корне проекта.
 
 ---
 
@@ -102,10 +112,15 @@ src/
 │   │   ├── PropertiesPanel.tsx   # Форма свойств выбранного элемента
 │   │   └── PropertyField.tsx     # Поле (number / select / material / color)
 │   └── ui/
-│       ├── AppLayout.tsx              # Корневой flex layout (сцена + панель)
+│       ├── AppLayout.tsx              # Корневой flex layout (сцена + панель) + TooltipProvider
 │       ├── ElementPopover.tsx         # Popover над элементом (поворот, удаление)
 │       ├── ScreenGuard.tsx            # Заглушка для экранов < 1024px
-│       └── ToolbarToggleButton.tsx    # Переиспользуемая toggle-кнопка с тултипом для Ribbon
+│       ├── ToolbarToggleButton.tsx    # Переиспользуемая toggle-кнопка с тултипом для Ribbon
+│       ├── button.tsx / label.tsx / select.tsx / separator.tsx  # shadcn-компоненты
+│       ├── toggle.tsx / toggle-group.tsx / tooltip.tsx / context-menu.tsx
+│       └── (добавлять: npx shadcn@latest add <name>)
+├── lib/
+│   └── utils.ts          # cn() helper (clsx + tailwind-merge), используется shadcn-компонентами
 ├── utils/
 │   ├── collision.ts      # totalOverlapVolume / hasGroupCollision / clampGroupDelta / clampGroupDeltaAgainstItems (AABB)
 │   ├── clampToRoom.ts    # Удержание элемента в границах комнаты (чистая функция)

@@ -5,32 +5,25 @@ import { PropertiesPanel } from './PropertiesPanel'
 import { MATERIAL_COLORS } from '@/catalog/materials'
 import type { CatalogItem, SceneItem } from '@/types'
 
-vi.mock('@radix-ui/react-select', () => ({
-  Root: ({
+vi.mock('@/components/ui/select', () => ({
+  Select: ({
     children,
     onValueChange,
     value,
-    disabled,
   }: React.PropsWithChildren<{
     onValueChange?: (v: string) => void
     value?: string
-    disabled?: boolean
   }>) => (
-    <select value={value} onChange={(e) => onValueChange?.(e.target.value)} disabled={disabled}>
+    <select value={value} onChange={(e) => onValueChange?.(e.target.value)}>
       {children}
     </select>
   ),
-  Trigger: () => null,
-  Value: () => null,
-  Icon: () => null,
-  Portal: ({ children }: React.PropsWithChildren) => <>{children}</>,
-  Content: ({ children }: React.PropsWithChildren) => <>{children}</>,
-  Viewport: ({ children }: React.PropsWithChildren) => <>{children}</>,
-  Item: ({ value, children }: React.PropsWithChildren<{ value: string }>) => (
+  SelectTrigger: () => null,
+  SelectValue: () => null,
+  SelectContent: ({ children }: React.PropsWithChildren) => <>{children}</>,
+  SelectItem: ({ value, children }: React.PropsWithChildren<{ value: string }>) => (
     <option value={value}>{children}</option>
   ),
-  ItemText: ({ children }: React.PropsWithChildren) => <>{children}</>,
-  ItemIndicator: () => null,
 }))
 
 const mockUpdateItem = vi.hoisted(() => vi.fn())

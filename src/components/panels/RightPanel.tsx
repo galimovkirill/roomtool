@@ -1,4 +1,4 @@
-import * as Separator from '@radix-ui/react-separator'
+import { Separator } from '@/components/ui/separator'
 import { useSceneStore } from '@/store'
 import { useUIStore } from '@/store/uiStore'
 import { CatalogPanel } from './CatalogPanel'
@@ -40,7 +40,7 @@ export function RightPanel() {
         </button>
       </div>
 
-      <Separator.Root className="h-px bg-gray-200" />
+      <Separator className="bg-gray-200" />
 
       <div className="flex-1 overflow-hidden">
         {showProperties ? (

@@ -1,5 +1,11 @@
 import { useState } from 'react'
-import * as ContextMenu from '@radix-ui/react-context-menu'
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu'
 import { toast } from 'sonner'
 import { useSceneStore } from '@/store'
 import {
@@ -250,101 +256,97 @@ export function LayersPanel() {
   }
 
   return (
-    <ContextMenu.Root>
-      <ContextMenu.Trigger asChild>
-        <div className="overflow-y-auto h-full py-1 select-none">
-          {tree.map((node) => renderNode(node, 0))}
-        </div>
-      </ContextMenu.Trigger>
+    <ContextMenu>
+      <ContextMenuTrigger render={<div className="overflow-y-auto h-full py-1 select-none" />}>
+        {tree.map((node) => renderNode(node, 0))}
+      </ContextMenuTrigger>
 
-      <ContextMenu.Portal>
-        <ContextMenu.Content className="bg-white rounded-lg shadow-lg border border-gray-200 p-1 min-w-[180px] z-50">
-          {ctxTarget?.kind === 'item' && (
-            <>
-              <ContextMenu.Item
+      <ContextMenuContent className="bg-white rounded-lg shadow-lg border border-gray-200 p-1 min-w-[180px] z-50">
+        {ctxTarget?.kind === 'item' && (
+          <>
+            <ContextMenuItem
+              className="px-3 py-1.5 text-sm cursor-pointer rounded hover:bg-gray-100 outline-none"
+              onClick={() => ctxTarget && editItem(ctxTarget.id)}
+            >
+              Редактировать
+            </ContextMenuItem>
+            {selectedItemIds.length >= 2 && (
+              <ContextMenuItem
                 className="px-3 py-1.5 text-sm cursor-pointer rounded hover:bg-gray-100 outline-none"
-                onSelect={() => ctxTarget && editItem(ctxTarget.id)}
+                onClick={() => createGroup()}
               >
-                Редактировать
-              </ContextMenu.Item>
-              {selectedItemIds.length >= 2 && (
-                <ContextMenu.Item
+                Создать группу ({selectedItemIds.length})
+              </ContextMenuItem>
+            )}
+            <ContextMenuItem
+              className="px-3 py-1.5 text-sm cursor-pointer rounded hover:bg-red-50 text-red-600 outline-none"
+              onClick={() => {
+                const ids =
+                  selectedItemIds.length >= 1 ? selectedItemIds : ctxTarget ? [ctxTarget.id] : []
+                removeItems(ids)
+              }}
+            >
+              {selectedItemIds.length > 1 ? `Удалить (${selectedItemIds.length})` : 'Удалить'}
+            </ContextMenuItem>
+            {ctxItem?.groupId && (
+              <>
+                <ContextMenuSeparator className="my-1 border-t border-gray-100" />
+                <ContextMenuItem
                   className="px-3 py-1.5 text-sm cursor-pointer rounded hover:bg-gray-100 outline-none"
-                  onSelect={() => createGroup()}
+                  onClick={() => {
+                    if (ctxItem.groupId) ungroupItems(ctxItem.groupId)
+                  }}
                 >
-                  Создать группу ({selectedItemIds.length})
-                </ContextMenu.Item>
-              )}
-              <ContextMenu.Item
-                className="px-3 py-1.5 text-sm cursor-pointer rounded hover:bg-red-50 text-red-600 outline-none"
-                onSelect={() => {
-                  const ids =
-                    selectedItemIds.length >= 1 ? selectedItemIds : ctxTarget ? [ctxTarget.id] : []
-                  removeItems(ids)
-                }}
-              >
-                {selectedItemIds.length > 1 ? `Удалить (${selectedItemIds.length})` : 'Удалить'}
-              </ContextMenu.Item>
-              {ctxItem?.groupId && (
-                <>
-                  <ContextMenu.Separator className="my-1 border-t border-gray-100" />
-                  <ContextMenu.Item
-                    className="px-3 py-1.5 text-sm cursor-pointer rounded hover:bg-gray-100 outline-none"
-                    onSelect={() => {
-                      if (ctxItem.groupId) ungroupItems(ctxItem.groupId)
-                    }}
-                  >
-                    Разгруппировать
-                  </ContextMenu.Item>
-                </>
-              )}
-            </>
-          )}
+                  Разгруппировать
+                </ContextMenuItem>
+              </>
+            )}
+          </>
+        )}
 
-          {ctxTarget?.kind === 'group' && (
-            <>
-              <ContextMenu.Item
-                className="px-3 py-1.5 text-sm cursor-pointer rounded hover:bg-gray-100 outline-none"
-                onSelect={() => {
-                  if (ctxGroup) startRename(ctxGroup.id, ctxGroup.name)
-                }}
-              >
-                Переименовать
-              </ContextMenu.Item>
-              {selectedItemIds.length >= 2 &&
-                (() => {
-                  const ctxGroupId = ctxTarget.id
-                  const allInThisGroup = selectedItemIds.every(
-                    (id) => items.find((i) => i.id === id)?.groupId === ctxGroupId
-                  )
-                  return (
-                    <ContextMenu.Item
-                      className="px-3 py-1.5 text-sm cursor-pointer rounded hover:bg-gray-100 outline-none"
-                      onSelect={() => createGroup()}
-                    >
-                      {allInThisGroup
-                        ? `Создать подгруппу (${selectedItemIds.length})`
-                        : `Создать группу (${selectedItemIds.length})`}
-                    </ContextMenu.Item>
-                  )
-                })()}
-              <ContextMenu.Item
-                className="px-3 py-1.5 text-sm cursor-pointer rounded hover:bg-gray-100 outline-none"
-                onSelect={() => ctxTarget && ungroupItems(ctxTarget.id)}
-              >
-                Разгруппировать
-              </ContextMenu.Item>
-              <ContextMenu.Separator className="my-1 border-t border-gray-100" />
-              <ContextMenu.Item
-                className="px-3 py-1.5 text-sm cursor-pointer rounded hover:bg-red-50 text-red-600 outline-none"
-                onSelect={() => ctxTarget && removeGroup(ctxTarget.id)}
-              >
-                Удалить группу и элементы
-              </ContextMenu.Item>
-            </>
-          )}
-        </ContextMenu.Content>
-      </ContextMenu.Portal>
-    </ContextMenu.Root>
+        {ctxTarget?.kind === 'group' && (
+          <>
+            <ContextMenuItem
+              className="px-3 py-1.5 text-sm cursor-pointer rounded hover:bg-gray-100 outline-none"
+              onClick={() => {
+                if (ctxGroup) startRename(ctxGroup.id, ctxGroup.name)
+              }}
+            >
+              Переименовать
+            </ContextMenuItem>
+            {selectedItemIds.length >= 2 &&
+              (() => {
+                const ctxGroupId = ctxTarget.id
+                const allInThisGroup = selectedItemIds.every(
+                  (id) => items.find((i) => i.id === id)?.groupId === ctxGroupId
+                )
+                return (
+                  <ContextMenuItem
+                    className="px-3 py-1.5 text-sm cursor-pointer rounded hover:bg-gray-100 outline-none"
+                    onClick={() => createGroup()}
+                  >
+                    {allInThisGroup
+                      ? `Создать подгруппу (${selectedItemIds.length})`
+                      : `Создать группу (${selectedItemIds.length})`}
+                  </ContextMenuItem>
+                )
+              })()}
+            <ContextMenuItem
+              className="px-3 py-1.5 text-sm cursor-pointer rounded hover:bg-gray-100 outline-none"
+              onClick={() => ctxTarget && ungroupItems(ctxTarget.id)}
+            >
+              Разгруппировать
+            </ContextMenuItem>
+            <ContextMenuSeparator className="my-1 border-t border-gray-100" />
+            <ContextMenuItem
+              className="px-3 py-1.5 text-sm cursor-pointer rounded hover:bg-red-50 text-red-600 outline-none"
+              onClick={() => ctxTarget && removeGroup(ctxTarget.id)}
+            >
+              Удалить группу и элементы
+            </ContextMenuItem>
+          </>
+        )}
+      </ContextMenuContent>
+    </ContextMenu>
   )
 }

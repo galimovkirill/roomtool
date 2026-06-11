@@ -2,34 +2,27 @@ import React from 'react'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { PropertyField } from './PropertyField'
 
-// Radix Select is not well-suited for jsdom interaction; replace with a native
-// select so tests can continue to use role/option/fireEvent.change selectors.
-vi.mock('@radix-ui/react-select', () => ({
-  Root: ({
+// shadcn Select (Base UI) is not well-suited for jsdom interaction; replace with
+// a native select so tests can use role/option/fireEvent.change selectors.
+vi.mock('@/components/ui/select', () => ({
+  Select: ({
     children,
     onValueChange,
     value,
-    disabled,
   }: React.PropsWithChildren<{
     onValueChange?: (v: string) => void
     value?: string
-    disabled?: boolean
   }>) => (
-    <select value={value} onChange={(e) => onValueChange?.(e.target.value)} disabled={disabled}>
+    <select value={value} onChange={(e) => onValueChange?.(e.target.value)}>
       {children}
     </select>
   ),
-  Trigger: () => null,
-  Value: () => null,
-  Icon: () => null,
-  Portal: ({ children }: React.PropsWithChildren) => <>{children}</>,
-  Content: ({ children }: React.PropsWithChildren) => <>{children}</>,
-  Viewport: ({ children }: React.PropsWithChildren) => <>{children}</>,
-  Item: ({ value, children }: React.PropsWithChildren<{ value: string }>) => (
+  SelectTrigger: () => null,
+  SelectValue: () => null,
+  SelectContent: ({ children }: React.PropsWithChildren) => <>{children}</>,
+  SelectItem: ({ value, children }: React.PropsWithChildren<{ value: string }>) => (
     <option value={value}>{children}</option>
   ),
-  ItemText: ({ children }: React.PropsWithChildren) => <>{children}</>,
-  ItemIndicator: () => null,
 }))
 
 const numberDef = {

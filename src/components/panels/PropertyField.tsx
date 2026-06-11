@@ -1,5 +1,11 @@
-import * as Label from '@radix-ui/react-label'
-import * as Select from '@radix-ui/react-select'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import type { PropertyDef } from '@/types'
 import { MATERIAL_COLORS, MATERIAL_OPTIONS, type MaterialType } from '@/catalog/materials'
 
@@ -15,7 +21,7 @@ const inputClass =
   'focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-100 ' +
   'hover:border-gray-300 transition-colors'
 
-const labelClass = 'text-xs text-gray-400'
+const labelClass = 'text-xs text-gray-400 font-normal'
 
 export function PropertyField({ def, value, onChange, allProperties }: PropertyFieldProps) {
   const label = def.unit ? `${def.label}, ${def.unit}` : def.label
@@ -24,9 +30,9 @@ export function PropertyField({ def, value, onChange, allProperties }: PropertyF
   if (def.type === 'number') {
     return (
       <div className="flex flex-col gap-1">
-        <Label.Root htmlFor={fieldId} className={labelClass}>
+        <Label htmlFor={fieldId} className={labelClass}>
           {label}
-        </Label.Root>
+        </Label>
         <input
           id={fieldId}
           type="number"
@@ -85,38 +91,24 @@ export function PropertyField({ def, value, onChange, allProperties }: PropertyF
 
   return (
     <div className="flex flex-col gap-1">
-      <Label.Root htmlFor={fieldId} className={labelClass}>
+      <Label htmlFor={fieldId} className={labelClass}>
         {label}
-      </Label.Root>
-      <Select.Root value={value as string} onValueChange={(v) => onChange(v)}>
-        <Select.Trigger
+      </Label>
+      <Select value={value as string} onValueChange={(v) => v !== null && onChange(v)}>
+        <SelectTrigger
           id={fieldId}
-          className="flex items-center justify-between w-full border border-gray-200 rounded px-2 py-1.5 text-sm text-gray-700 bg-white hover:border-gray-300 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full border-gray-200 text-gray-700 bg-white hover:border-gray-300 focus:border-blue-400 focus:ring-blue-100"
         >
-          <Select.Value />
-          <Select.Icon className="text-gray-400 ml-1 shrink-0">▾</Select.Icon>
-        </Select.Trigger>
-        <Select.Portal>
-          <Select.Content
-            className="bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden"
-            position="popper"
-            sideOffset={4}
-          >
-            <Select.Viewport className="p-1">
-              {options.map((opt) => (
-                <Select.Item
-                  key={opt.value}
-                  value={opt.value}
-                  className="flex items-center px-3 py-1.5 text-sm rounded cursor-pointer outline-none hover:bg-blue-50 hover:text-blue-700 data-[highlighted]:bg-blue-50 data-[highlighted]:text-blue-700"
-                >
-                  <Select.ItemText>{opt.label}</Select.ItemText>
-                  <Select.ItemIndicator className="ml-auto text-blue-600">✓</Select.ItemIndicator>
-                </Select.Item>
-              ))}
-            </Select.Viewport>
-          </Select.Content>
-        </Select.Portal>
-      </Select.Root>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((opt) => (
+            <SelectItem key={opt.value} value={opt.value}>
+              {opt.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   )
 }
