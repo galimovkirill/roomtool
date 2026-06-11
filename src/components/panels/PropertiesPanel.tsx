@@ -9,6 +9,34 @@ interface PropertiesPanelProps {
   itemId: string
 }
 
+function CloseIcon() {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 12 12"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <path
+        d="M1.5 1.5l9 9M10.5 1.5l-9 9"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="px-3 pt-3 pb-1.5">
+      <span className="text-xs font-medium uppercase tracking-wider text-gray-400">{children}</span>
+    </div>
+  )
+}
+
 export function PropertiesPanel({ itemId }: PropertiesPanelProps) {
   const item = useSceneStore((s) => s.items.find((i) => i.id === itemId))
   const updateItem = useSceneStore((s) => s.updateItem)
@@ -30,15 +58,15 @@ export function PropertiesPanel({ itemId }: PropertiesPanelProps) {
   }
 
   const header = (
-    <div className="flex items-center justify-between px-4 py-3 border-b">
-      <span className="font-semibold">{item.name}</span>
+    <div className="flex items-center justify-between px-3 h-10 bg-white border-b border-gray-200">
+      <span className="text-sm font-medium text-gray-700 truncate">{item.name}</span>
       <button
         onClick={closeEditing}
         title="Закрыть панель"
         aria-label="Закрыть панель"
-        className="text-gray-400 hover:text-gray-600 transition-colors"
+        className="w-7 h-7 flex items-center justify-center rounded text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors shrink-0 ml-2"
       >
-        ✕
+        <CloseIcon />
       </button>
     </div>
   )
@@ -48,8 +76,8 @@ export function PropertiesPanel({ itemId }: PropertiesPanelProps) {
     return (
       <div className="overflow-y-auto h-full">
         {header}
-        <div className="px-4 py-3 flex flex-col gap-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Размер</p>
+        <SectionLabel>Размер</SectionLabel>
+        <div className="px-3 pb-3 flex flex-col gap-2.5">
           {catalogItem.properties.map((def) => (
             <PropertyField
               key={def.key}
@@ -88,70 +116,74 @@ export function PropertiesPanel({ itemId }: PropertiesPanelProps) {
     <div className="overflow-y-auto h-full">
       {header}
 
-      <div className="px-4 py-3 border-b flex flex-col gap-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Размеры</p>
-        <PropertyField
-          def={{
-            key: 'width',
-            label: 'Ширина',
-            type: 'number',
-            unit: 'мм',
-            min: 1,
-            max: SCENE_CONFIG.room.width,
-          }}
-          value={item.dimensions.width}
-          onChange={(v) => {
-            if (typeof v === 'number')
-              updateItem(item.id, { dimensions: { ...item.dimensions, width: v } })
-          }}
-        />
-        <PropertyField
-          def={{
-            key: 'height',
-            label: 'Высота',
-            type: 'number',
-            unit: 'мм',
-            min: 1,
-            max: SCENE_CONFIG.room.height,
-          }}
-          value={item.dimensions.height}
-          onChange={(v) => {
-            if (typeof v === 'number')
-              updateItem(item.id, {
-                dimensions: { ...item.dimensions, height: v },
-                position: [item.position[0], v / 2, item.position[2]],
-              })
-          }}
-        />
-        <PropertyField
-          def={{
-            key: 'depth',
-            label: 'Глубина',
-            type: 'number',
-            unit: 'мм',
-            min: 1,
-            max: SCENE_CONFIG.room.depth,
-          }}
-          value={item.dimensions.depth}
-          onChange={(v) => {
-            if (typeof v === 'number')
-              updateItem(item.id, { dimensions: { ...item.dimensions, depth: v } })
-          }}
-        />
+      <div className="border-b border-gray-100">
+        <SectionLabel>Размеры</SectionLabel>
+        <div className="px-3 pb-3 flex flex-col gap-2.5">
+          <PropertyField
+            def={{
+              key: 'width',
+              label: 'Ширина',
+              type: 'number',
+              unit: 'мм',
+              min: 1,
+              max: SCENE_CONFIG.room.width,
+            }}
+            value={item.dimensions.width}
+            onChange={(v) => {
+              if (typeof v === 'number')
+                updateItem(item.id, { dimensions: { ...item.dimensions, width: v } })
+            }}
+          />
+          <PropertyField
+            def={{
+              key: 'height',
+              label: 'Высота',
+              type: 'number',
+              unit: 'мм',
+              min: 1,
+              max: SCENE_CONFIG.room.height,
+            }}
+            value={item.dimensions.height}
+            onChange={(v) => {
+              if (typeof v === 'number')
+                updateItem(item.id, {
+                  dimensions: { ...item.dimensions, height: v },
+                  position: [item.position[0], v / 2, item.position[2]],
+                })
+            }}
+          />
+          <PropertyField
+            def={{
+              key: 'depth',
+              label: 'Глубина',
+              type: 'number',
+              unit: 'мм',
+              min: 1,
+              max: SCENE_CONFIG.room.depth,
+            }}
+            value={item.dimensions.depth}
+            onChange={(v) => {
+              if (typeof v === 'number')
+                updateItem(item.id, { dimensions: { ...item.dimensions, depth: v } })
+            }}
+          />
+        </div>
       </div>
 
       {catalogItem.properties.length > 0 && (
-        <div className="px-4 py-3 flex flex-col gap-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Свойства</p>
-          {catalogItem.properties.map((def) => (
-            <PropertyField
-              key={def.key}
-              def={def}
-              value={item.properties[def.key] ?? (def.type === 'number' ? 0 : '')}
-              allProperties={item.properties}
-              onChange={(v) => handleChange(def, v)}
-            />
-          ))}
+        <div>
+          <SectionLabel>Свойства</SectionLabel>
+          <div className="px-3 pb-3 flex flex-col gap-2.5">
+            {catalogItem.properties.map((def) => (
+              <PropertyField
+                key={def.key}
+                def={def}
+                value={item.properties[def.key] ?? (def.type === 'number' ? 0 : '')}
+                allProperties={item.properties}
+                onChange={(v) => handleChange(def, v)}
+              />
+            ))}
+          </div>
         </div>
       )}
     </div>

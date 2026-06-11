@@ -8,6 +8,13 @@ interface PropertyFieldProps {
   allProperties?: Record<string, string | number>
 }
 
+const inputClass =
+  'border border-gray-200 rounded px-2 py-1.5 w-full text-sm text-gray-700 ' +
+  'focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-100 ' +
+  'hover:border-gray-300 transition-colors'
+
+const labelClass = 'text-xs text-gray-400'
+
 export function PropertyField({ def, value, onChange, allProperties }: PropertyFieldProps) {
   const label = def.unit ? `${def.label}, ${def.unit}` : def.label
   const fieldId = `field-${def.key}`
@@ -15,7 +22,7 @@ export function PropertyField({ def, value, onChange, allProperties }: PropertyF
   if (def.type === 'number') {
     return (
       <div className="flex flex-col gap-1">
-        <label htmlFor={fieldId} className="text-xs text-gray-500">
+        <label htmlFor={fieldId} className={labelClass}>
           {label}
         </label>
         <input
@@ -32,7 +39,7 @@ export function PropertyField({ def, value, onChange, allProperties }: PropertyF
               onChange(Math.min(max, Math.max(min, n)))
             }
           }}
-          className="border rounded px-2 py-1.5 w-full text-sm"
+          className={inputClass}
         />
       </div>
     )
@@ -46,9 +53,9 @@ export function PropertyField({ def, value, onChange, allProperties }: PropertyF
       : []
     if (colorOptions.length === 0) return null
     return (
-      <div className="flex flex-col gap-1">
-        <span className="text-xs text-gray-500">{label}</span>
-        <div className="flex flex-wrap gap-1.5 mt-1">
+      <div className="flex flex-col gap-1.5">
+        <span className={labelClass}>{label}</span>
+        <div className="flex flex-wrap gap-1.5">
           {colorOptions.map((opt) => (
             <button
               key={opt.value}
@@ -57,8 +64,8 @@ export function PropertyField({ def, value, onChange, allProperties }: PropertyF
               onClick={() => onChange(opt.value)}
               className={`w-6 h-6 rounded-full border-2 cursor-pointer transition-all ${
                 value === opt.value
-                  ? 'border-blue-600 scale-110'
-                  : 'border-transparent hover:border-gray-400'
+                  ? 'border-blue-500 scale-110'
+                  : 'border-transparent hover:border-gray-300'
               }`}
               style={{ backgroundColor: opt.value }}
             />
@@ -76,14 +83,14 @@ export function PropertyField({ def, value, onChange, allProperties }: PropertyF
 
   return (
     <div className="flex flex-col gap-1">
-      <label htmlFor={fieldId} className="text-xs text-gray-500">
+      <label htmlFor={fieldId} className={labelClass}>
         {label}
       </label>
       <select
         id={fieldId}
         value={value as string}
         onChange={(e) => onChange(e.target.value)}
-        className="border rounded px-2 py-1.5 w-full text-sm"
+        className={inputClass}
       >
         {options.map((opt) => (
           <option key={opt.value} value={opt.value}>
