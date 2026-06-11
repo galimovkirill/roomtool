@@ -2755,6 +2755,547 @@ describe('alignItems', () => {
 
 ---
 
+## ФАЗА 15 — Переработка 2D-режима
+
+### TASK-030 — Полная переработка 2D-вида: SVG-план в стиле Basis Мебельщик / SketchUp
+
+**Промпт для Claude Code:**
+```
+## Цель
+
+Текущий 2D-режим — OrthographicCamera Three.js, смотрящая сверху + Html-метки с
+размерами. Это не настоящий «технический вид»: нет линеек, нет размерных линий,
+масштабирование неудобное. Нужно переделать 2D-режим по образцу профессиональных
+программ (Basis Мебельщик, SketchUp, IKEA Planner): SVG-план с линейками,
+архитектурными размерными линиями, pan/zoom мышью, чистым плоским стилем.
+
+---
+
+## Шаг 1 — Удалить текущий 2D-код
+
+### 1a. src/components/scene/SceneCanvas.tsx
+
+Убрать всё, что относится к sceneMode === '2d' внутри <Canvas>:
+- Удалить `<OrthographicCamera makeDefault ...>` при sceneMode === '2d'
+- Удалить условный рендер `<Grid ...>` (если привязан к sceneMode)
+- Убрать передачу sceneMode в SceneControls для ограничения OrbitControls
+
+После правки SceneCanvas работает только в 3D-режиме.
+sceneMode по-прежнему живёт в uiStore — используется для переключения видимости компонентов.
+
+### 1b. src/components/scene/SceneElement.tsx
+
+Найти и удалить блок с `<Html>` для отображения «W × D мм» в 2D-режиме.
+Компонент перестаёт зависеть от sceneMode.
+
+### 1c. src/components/scene/Room.tsx
+
+Убрать условное скрытие стен и Grid при sceneMode === '2d' (если есть).
+Room работает одинаково в любом режиме.
+
+### 1d. src/components/scene/SceneControls.tsx
+
+Убрать подписку на sceneMode и условие `enableRotate={sceneMode === '3d'}` (если есть).
+OrbitControls всегда полноценный.
+
+---
+
+## Шаг 2 — Создать src/components/scene/Scene2DView.tsx
+
+Новый компонент — чистый React + SVG, без Three.js / R3F.
+Занимает весь контейнер (100% × 100%), показывает план комнаты сверху.
+
+### 2a. Система координат
+
+```typescript
+// scale: мм → пиксели; offset: смещение пана (в пикселях)
+const worldToSvgX = (wx: number) =>
+  (wx + SCENE_CONFIG.room.width  / 2) * scale + offset.x
+const worldToSvgZ = (wz: number) =>
+  (wz + SCENE_CONFIG.room.depth / 2) * scale + offset.y
+```
+
+### 2b. Состояние компонента
+
+```typescript
+const RULER = 36  // px, ширина/высота линеек
+
+const [scale,   setScale]   = useState(0)      // 0 = не инициализировано
+const [offset,  setOffset]  = useState({ x: 0, y: 0 })
+const [panning, setPanning] = useState(false)
+const containerRef = useRef<HTMLDivElement>(null)
+const panStart     = useRef({ mx: 0, my: 0, ox: 0, oy: 0 })
+const [containerSize, setContainerSize] = useState({ w: 0, h: 0 })
+```
+
+Auto-fit при монтировании (useEffect с зависимостью []):
+```typescript
+const rect = containerRef.current!.getBoundingClientRect()
+const cw = rect.width, ch = rect.height
+const s = Math.min(
+  (cw - RULER) * 0.85 / SCENE_CONFIG.room.width,
+  (ch - RULER) * 0.85 / SCENE_CONFIG.room.depth,
+)
+setScale(s)
+setOffset({
+  x: RULER + ((cw - RULER) - SCENE_CONFIG.room.width  * s) / 2,
+  y: RULER + ((ch - RULER) - SCENE_CONFIG.room.depth * s) / 2,
+})
+setContainerSize({ w: cw, h: ch })
+```
+
+### 2c. Pan и Zoom
+
+```typescript
+const handleWheel = (e: React.WheelEvent) => {
+  e.preventDefault()
+  const rect = containerRef.current!.getBoundingClientRect()
+  const mx = e.clientX - rect.left
+  const my = e.clientY - rect.top
+  const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12
+  setScale(prev => {
+    const next = Math.min(Math.max(prev * factor, 0.03), 2)
+    setOffset(o => ({
+      x: mx - (mx - o.x) * (next / prev),
+      y: my - (my - o.y) * (next / prev),
+    }))
+    return next
+  })
+}
+
+// ЛКМ на пустой области → pan; клик по элементу обрабатывается внутри Element2D
+const handleMouseDown = (e: React.MouseEvent<SVGSVGElement>) => {
+  if (e.button !== 0) return
+  setPanning(true)
+  panStart.current = { mx: e.clientX, my: e.clientY, ox: offset.x, oy: offset.y }
+}
+const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+  if (!panning) return
+  setOffset({
+    x: panStart.current.ox + (e.clientX - panStart.current.mx),
+    y: panStart.current.oy + (e.clientY - panStart.current.my),
+  })
+}
+const handleMouseUp = () => setPanning(false)
+```
+
+### 2d. JSX-структура компонента
+
+```tsx
+return (
+  <div
+    ref={containerRef}
+    style={{ width: '100%', height: '100%', overflow: 'hidden', background: '#f0f0f0' }}
+  >
+    {scale > 0 && (
+      <svg
+        width="100%" height="100%"
+        style={{ cursor: panning ? 'grabbing' : 'default', display: 'block' }}
+        onWheel={handleWheel}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+      >
+        {/* Сетка и контур комнаты */}
+        <PlanGrid scale={scale} offset={offset} />
+        <RoomOutline scale={scale} offset={offset} />
+
+        {/* Элементы */}
+        {items.map(item => (
+          <Element2D
+            key={item.id}
+            item={item}
+            scale={scale}
+            offset={offset}
+            isSelected={selectedItemIds.includes(item.id)}
+            onSelect={() => { selectItem(item.id) }}
+          />
+        ))}
+
+        {/* Размерные линии для одиночного выделенного элемента */}
+        {selectedItemIds.length === 1 && selectedItem && (
+          <DimensionLines item={selectedItem} scale={scale} offset={offset} />
+        )}
+
+        {/* Линейки поверх всего (в пикселях, вне трансформации мира) */}
+        <HorizontalRuler
+          scale={scale} offset={offset}
+          containerWidth={containerSize.w} rulerSize={RULER}
+        />
+        <VerticalRuler
+          scale={scale} offset={offset}
+          containerHeight={containerSize.h} rulerSize={RULER}
+        />
+
+        {/* Угловой квадрат на пересечении линеек */}
+        <rect x={0} y={0} width={RULER} height={RULER} fill="white" stroke="#ccc" />
+      </svg>
+    )}
+  </div>
+)
+```
+
+Все вспомогательные компоненты определяются в том же файле (не экспортировать их).
+
+### 2e. PlanGrid
+
+```tsx
+function PlanGrid({ scale, offset }: { scale: number; offset: { x: number; y: number } }) {
+  const { width, depth } = SCENE_CONFIG.room
+  const step = scale >= 0.3 ? 100 : scale >= 0.1 ? 500 : 1000  // шаг в мм
+  const majorStep = step * 5
+
+  const lines: React.ReactNode[] = []
+
+  // Вертикальные (по X)
+  for (let x = -width / 2; x <= width / 2; x += step) {
+    const sx = (x + width / 2) * scale + offset.x
+    const isMajor = Math.abs(x % majorStep) < 0.1
+    lines.push(
+      <line key={`vx${x}`}
+        x1={sx} y1={offset.y}
+        x2={sx} y2={offset.y + depth * scale}
+        stroke={isMajor ? '#c0c0c0' : '#e0e0e0'}
+        strokeWidth={isMajor ? 1 : 0.5}
+      />
+    )
+  }
+  // Горизонтальные (по Z)
+  for (let z = -depth / 2; z <= depth / 2; z += step) {
+    const sy = (z + depth / 2) * scale + offset.y
+    const isMajor = Math.abs(z % majorStep) < 0.1
+    lines.push(
+      <line key={`hz${z}`}
+        x1={offset.x} y1={sy}
+        x2={offset.x + width * scale} y2={sy}
+        stroke={isMajor ? '#c0c0c0' : '#e0e0e0'}
+        strokeWidth={isMajor ? 1 : 0.5}
+      />
+    )
+  }
+  return <>{lines}</>
+}
+```
+
+### 2f. RoomOutline
+
+```tsx
+function RoomOutline({ scale, offset }: { scale: number; offset: { x: number; y: number } }) {
+  const { width, depth } = SCENE_CONFIG.room
+  return (
+    <rect
+      x={offset.x}
+      y={offset.y}
+      width={width  * scale}
+      height={depth * scale}
+      fill="white"
+      stroke="#888"
+      strokeWidth={2}
+    />
+  )
+}
+```
+
+strokeWidth=2 — фиксированный (в пикселях), не масштабируется.
+
+### 2g. Element2D
+
+Проекция на плоскость XZ (вид сверху). Поворот rotationY учитывается через transform.
+
+```tsx
+function Element2D({ item, scale, offset, isSelected, onSelect }: {
+  item: SceneItem
+  scale: number
+  offset: { x: number; y: number }
+  isSelected: boolean
+  onSelect: () => void
+}) {
+  const cx = (item.position[0] + SCENE_CONFIG.room.width  / 2) * scale + offset.x
+  const cz = (item.position[2] + SCENE_CONFIG.room.depth / 2) * scale + offset.y
+  const w  = item.dimensions.width  * scale
+  const d  = item.dimensions.depth  * scale
+
+  const fill   = typeof item.properties.color === 'string' &&
+                 item.properties.color.startsWith('#')
+    ? item.properties.color
+    : '#d4d4d4'
+  const stroke = isSelected ? '#2563eb' : '#444'
+  const sw     = isSelected ? 2 : 1
+
+  const angleDeg = -(item.rotationY * 180) / Math.PI
+
+  return (
+    <g
+      transform={`translate(${cx},${cz}) rotate(${angleDeg})`}
+      onClick={(e) => { e.stopPropagation(); onSelect() }}
+      style={{ cursor: 'pointer' }}
+    >
+      <rect x={-w / 2} y={-d / 2} width={w} height={d}
+        fill={fill} stroke={stroke} strokeWidth={sw} />
+      {w > 40 && d > 14 && (
+        <text
+          x={0} y={0}
+          textAnchor="middle" dominantBaseline="middle"
+          fontSize={Math.min(11, d * 0.4)}
+          fill="#333"
+          style={{ pointerEvents: 'none', userSelect: 'none' }}
+        >
+          {item.name}
+        </text>
+      )}
+    </g>
+  )
+}
+```
+
+### 2h. DimensionLines
+
+Размерные линии для выделенного элемента (архитектурный стиль: линия + засечки + текст).
+
+```tsx
+function DimensionLines({ item, scale, offset }: {
+  item: SceneItem
+  scale: number
+  offset: { x: number; y: number }
+}) {
+  // мировые координаты → SVG-пиксели
+  const toSvgX = (wx: number) =>
+    (wx + SCENE_CONFIG.room.width  / 2) * scale + offset.x
+  const toSvgZ = (wz: number) =>
+    (wz + SCENE_CONFIG.room.depth / 2) * scale + offset.y
+
+  const cx = item.position[0], cz = item.position[2]
+  const hw = item.dimensions.width  / 2
+  const hd = item.dimensions.depth  / 2
+  const GAP   = 28   // px отступ от элемента
+  const TICK  = 6    // px длина засечки
+  const COLOR = '#1d4ed8'
+  const FSIZE = 11
+
+  // Линия ширины (над элементом)
+  const dimY  = toSvgZ(cz - hd) - GAP
+  const x1svg = toSvgX(cx - hw)
+  const x2svg = toSvgX(cx + hw)
+  const wLabel = `${Math.round(item.dimensions.width)} мм`
+
+  // Линия глубины (справа от элемента)
+  const dimX  = toSvgX(cx + hw) + GAP
+  const z1svg = toSvgZ(cz - hd)
+  const z2svg = toSvgZ(cz + hd)
+  const dLabel = `${Math.round(item.dimensions.depth)} мм`
+
+  return (
+    <g stroke={COLOR} fill={COLOR} fontSize={FSIZE} fontFamily="sans-serif">
+      {/* Линия ширины */}
+      <line x1={x1svg} y1={dimY} x2={x2svg} y2={dimY} strokeWidth={1} />
+      <line x1={x1svg} y1={dimY - TICK} x2={x1svg} y2={dimY + TICK} strokeWidth={1} />
+      <line x1={x2svg} y1={dimY - TICK} x2={x2svg} y2={dimY + TICK} strokeWidth={1} />
+      {/* Выноски от углов элемента */}
+      <line x1={x1svg} y1={toSvgZ(cz - hd)} x2={x1svg} y2={dimY + TICK} strokeWidth={0.5} strokeDasharray="2,2" />
+      <line x1={x2svg} y1={toSvgZ(cz - hd)} x2={x2svg} y2={dimY + TICK} strokeWidth={0.5} strokeDasharray="2,2" />
+      <text
+        x={(x1svg + x2svg) / 2} y={dimY - 4}
+        textAnchor="middle" dominantBaseline="auto"
+        style={{ pointerEvents: 'none' }}
+      >
+        {wLabel}
+      </text>
+
+      {/* Линия глубины */}
+      <line x1={dimX} y1={z1svg} x2={dimX} y2={z2svg} strokeWidth={1} />
+      <line x1={dimX - TICK} y1={z1svg} x2={dimX + TICK} y2={z1svg} strokeWidth={1} />
+      <line x1={dimX - TICK} y1={z2svg} x2={dimX + TICK} y2={z2svg} strokeWidth={1} />
+      <line x1={toSvgX(cx + hw)} y1={z1svg} x2={dimX - TICK} y2={z1svg} strokeWidth={0.5} strokeDasharray="2,2" />
+      <line x1={toSvgX(cx + hw)} y1={z2svg} x2={dimX - TICK} y2={z2svg} strokeWidth={0.5} strokeDasharray="2,2" />
+      <text
+        x={dimX + 4} y={(z1svg + z2svg) / 2}
+        textAnchor="start" dominantBaseline="middle"
+        style={{ pointerEvents: 'none' }}
+      >
+        {dLabel}
+      </text>
+    </g>
+  )
+}
+```
+
+### 2i. Линейки
+
+Адаптивный шаг деления:
+```typescript
+function rulerStep(scale: number): number {
+  if (scale > 0.8) return 100
+  if (scale > 0.3) return 500
+  if (scale > 0.1) return 1000
+  return 2000
+}
+```
+
+HorizontalRuler (полоса вверху, высота RULER px):
+```tsx
+function HorizontalRuler({ scale, offset, containerWidth, rulerSize }) {
+  const { width } = SCENE_CONFIG.room
+  const step = rulerStep(scale)
+  const ticks: React.ReactNode[] = []
+
+  for (let wx = -width / 2; wx <= width / 2; wx += step) {
+    const sx = (wx + width / 2) * scale + offset.x
+    if (sx < rulerSize || sx > containerWidth) continue
+    const isMajor = Math.abs(wx % (step * 5)) < 0.1
+    const displayVal = Math.round(worldToRoomX(wx))  // от угла комнаты
+    ticks.push(
+      <g key={`tx${wx}`}>
+        <line x1={sx} y1={rulerSize - (isMajor ? 10 : 5)} x2={sx} y2={rulerSize} stroke="#888" strokeWidth={1} />
+        {isMajor && (
+          <text x={sx + 2} y={rulerSize - 12} fontSize={9} fill="#666">{displayVal}</text>
+        )}
+      </g>
+    )
+  }
+
+  return (
+    <g>
+      <rect x={rulerSize} y={0} width={containerWidth - rulerSize} height={rulerSize}
+        fill="white" stroke="none" />
+      <line x1={rulerSize} y1={rulerSize} x2={containerWidth} y2={rulerSize} stroke="#ccc" strokeWidth={1} />
+      {ticks}
+    </g>
+  )
+}
+```
+
+VerticalRuler — аналогично по Z, использует `worldToRoomZ`.
+
+---
+
+## Шаг 3 — Подключить в SceneCanvas
+
+```tsx
+// SceneCanvas.tsx
+const { sceneMode } = useUIStore()
+
+return (
+  <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <SceneRibbon />
+    <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+      {sceneMode === '2d' ? (
+        <Scene2DView />
+      ) : (
+        <>
+          <Canvas
+            style={{ width: '100%', height: '100%' }}
+            onPointerMissed={() => selectItem(null)}
+          >
+            {/* 3D-содержимое без изменений */}
+          </Canvas>
+          <SceneOverlay />
+        </>
+      )}
+    </div>
+  </div>
+)
+```
+
+SceneOverlay (координаты + размеры) остаётся только в 3D-ветке — в 2D-режиме не показывается.
+
+---
+
+## Шаг 4 — Обновить CLAUDE.md
+
+### 4a. Структура проекта (components/scene/)
+
+Добавить строку:
+```
+│   ├── Scene2DView.tsx          # SVG-план (2D-режим): линейки, размерные линии, pan/zoom
+```
+
+### 4b. Раздел «Режимы сцены»
+
+Полностью переписать таблицу:
+
+| | 3D | 2D |
+|--|----|----|
+| Рендерер | R3F Canvas (WebGL) | React SVG |
+| Камера | PerspectiveCamera + OrbitControls | — (SVG viewBox + CSS transform) |
+| Pan/Zoom | OrbitControls | колесо мыши + drag |
+| Стены | видимы | — (SVG план, стены не рендерятся) |
+| Сетка | скрыта | PlanGrid (SVG, 100 мм / 500 мм) |
+| Размерные линии | нет | DimensionLines (SVG, при одиночном выделении) |
+| Линейки | нет | HorizontalRuler / VerticalRuler (SVG, мм от угла комнаты) |
+| Выделение | click → selectItem | click → selectItem (тот же стор) |
+| SceneOverlay | да | нет |
+
+Добавить примечание: «2D-режим — полностью отдельный SVG-компонент,
+Three.js / R3F при sceneMode === "2d" не монтируется».
+
+---
+
+## Шаг 5 — Тест src/components/scene/Scene2DView.test.tsx
+
+(Компонент — чистый React + SVG, тестируется в jsdom без WebGL)
+
+```typescript
+vi.mock('@/store', () => ({
+  useSceneStore: (selector: (s: unknown) => unknown) =>
+    selector({
+      items: [],
+      selectedItemId: null,
+      selectedItemIds: [],
+      selectItem: vi.fn(),
+      groups: [],
+    }),
+}))
+
+vi.mock('@/store/uiStore', () => ({
+  useUIStore: (selector: (s: unknown) => unknown) =>
+    selector({ sceneMode: '2d' }),
+}))
+
+// мок getBoundingClientRect чтобы useEffect вычислил scale
+beforeEach(() => {
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(
+    { width: 800, height: 600, left: 0, top: 0, right: 800, bottom: 600 } as DOMRect
+  )
+})
+
+it('рендерит <svg> при пустой сцене', () => {
+  render(<Scene2DView />)
+  expect(document.querySelector('svg')).toBeTruthy()
+})
+
+it('рендерит <rect> для каждого элемента', () => {
+  // переопределить мок useSceneStore с 2 items
+  // render, проверить что есть 2 Element2D rect
+})
+
+it('клик по элементу вызывает selectItem с нужным id', async () => {
+  const selectItem = vi.fn()
+  // мок с одним item и selectItem
+  render(<Scene2DView />)
+  // найти <g> с rect, fireEvent.click
+  expect(selectItem).toHaveBeenCalledWith(itemId)
+})
+```
+
+---
+
+## Проверить в браузере (Playwright, скриншоты в tmp/)
+
+1. В 3D добавить 4–5 разноцветных элементов (боковая панель, полка, дверь).
+2. Переключить в 2D (SceneRibbon) → виден план: белый прямоугольник комнаты,
+   элементы — закрашенные прямоугольники с именами.
+3. Прокрутить колесо → zoom, комната масштабируется вокруг курсора.
+4. Перетащить → pan, сцена сдвигается.
+5. Кликнуть по элементу → синяя обводка, выноски с мм.
+6. Линейки по краям: верхняя показывает X в мм от угла, левая — Z.
+7. Снять выделение кликом на пустое место → размерные линии исчезают.
+8. Вернуться в 3D → 3D-сцена работает, выделение сохранено.
+9. Скриншоты: tmp/task030-2d.png (вид плана), tmp/task030-2d-dims.png (с размерными линиями).
+```
+
+---
+
 ## Сводная таблица задач
 
 | ID | Фаза | Задача | Сложность | Статус |
@@ -2788,6 +3329,7 @@ describe('alignItems', () => {
 | TASK-027 | Координаты | Нулевая точка координат в углу комнаты (отображение от угла) | S | ✅ |
 | TASK-028 | Коллизии | Скольжение вдоль препятствий при drag (хард-коллизия per-frame) | L | ✅ |
 | TASK-029 | UX | Лента (Ribbon): панель действий над сценой | L | ✅ |
+| TASK-030 | 2D-режим | Полная переработка 2D-вида: SVG-план с линейками и размерными линиями | XL | ⬜ |
 
 **S** = ~30–60 мин · **M** = ~1–2 ч · **L** = ~2–4 ч · **XL** = ~4–8 ч  
 Общая оценка: **~2.5–3 недели** при разработке через Claude Code.
