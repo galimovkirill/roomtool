@@ -108,7 +108,8 @@ src/
 ├── utils/
 │   ├── collision.ts      # totalOverlapVolume / hasGroupCollision / clampGroupDelta / clampGroupDeltaAgainstItems (AABB)
 │   ├── clampToRoom.ts    # Удержание элемента в границах комнаты (чистая функция)
-│   └── groupTransform.ts # computeGroupCenter / groupDragDelta / pivotPositionOnChange
+│   ├── groupTransform.ts # computeGroupCenter / groupDragDelta / pivotPositionOnChange
+│   └── layerTree.ts      # buildLayerTree / flattenLayerTree / getAllItemIdsInGroup — дерево для LayersPanel
 ├── test/
 │   └── setup.ts          # @testing-library/jest-dom
 └── main.tsx              # Рендер: ScreenGuard > AppLayout (SceneCanvas + RightPanel) + Toaster
@@ -204,8 +205,17 @@ window.dispatchEvent(new CustomEvent('transform-end'))
   `selectItems` / `toggleItemSelection`) — панель и gizmo всегда согласованы.
 - 3D-клик по элементу → `selectItem()`. Клик в LayersPanel → `selectItems()`/`toggleItemSelection()`.
 - `createGroup()` требует ≥2 выделенных; элемент состоит максимум в одной группе.
-  При перегруппировке элемент уходит из старой группы; если в ней остаётся ≤1 участник — она авто-распускается.
-- `moveGroup()` двигает всех участников и клампит по полу (`y ≥ height/2`).
+  Если все выделенные элементы имеют **одинаковый** прямой `groupId`, новая группа создаётся
+  вложенной (`parentGroupId = общий родитель`). Иначе — на корневом уровне.
+  Группа авто-распускается (solo-member → `groupId: null`) только если у неё ≤1 прямых участников
+  **и нет дочерних групп**. Группа с дочерними группами сохраняется, даже если прямых участников нет.
+- **Вложенные группы.** `SceneGroup.parentGroupId?: string | null` — определяет иерархию.
+  Вложенность неограничена. Клик по заголовку группы выделяет **все** элементы рекурсивно
+  (`getAllItemIdsInGroup` из `utils/layerTree.ts`). `LayersPanel` рендерит дерево рекурсивно.
+- `moveGroup()` / `removeGroup()` работают рекурсивно по всему поддереву.
+  `ungroupItems()` перемещает прямых участников к родительской группе (если есть), иначе в корень;
+  дочерние группы поднимаются на уровень выше.
+- `moveGroup()` двигает **всех** участников поддерева и клампит по полу (`y ≥ height/2`).
 
 ### Проверка коллизий
 `totalOverlapVolume()` из `utils/collision.ts` (AABB) считает суммарный объём пересечения.
@@ -346,8 +356,9 @@ GLB-файлы хранятся в `public/models/`.
 ## Тесты
 
 Юнит-тесты (Vitest + @testing-library/react). Файлы рядом с источником: `*.test.ts(x)`.
-Покрыто: `sceneStore` (мутации, группы, undo/redo, drag-сессия, инициализация material/color),
-`uiStore`, `catalog/items`, `collision`, `clampToRoom`, `groupTransform`, `PropertiesPanel`
+Покрыто: `sceneStore` (мутации, группы, вложенные группы, undo/redo, drag-сессия, инициализация material/color),
+`uiStore`, `catalog/items`, `collision`, `clampToRoom`, `groupTransform`, `layerTree`
+(`buildLayerTree`, `flattenLayerTree`, `getAllItemIdsInGroup`), `PropertiesPanel`
 (форма, сброс цвета, GLTF-scale), `PropertyField`, `ScreenGuard`.
 
 **Компоненты 3D-сцены (R3F) не тестируются** — Three.js не работает в jsdom (нет WebGL).

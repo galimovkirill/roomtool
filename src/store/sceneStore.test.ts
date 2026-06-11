@@ -459,7 +459,7 @@ describe('groups', () => {
     expect(items).toHaveLength(1) // third item survives
   })
 
-  it('createGroup removes regrouped items from their previous group', () => {
+  it('createGroup nests a new group inside the common parent when all selected items share one', () => {
     useSceneStore.getState().addItem(TEST_ITEM)
     useSceneStore.getState().addItem(TEST_ITEM)
     useSceneStore.getState().addItem(TEST_ITEM)
@@ -468,19 +468,23 @@ describe('groups', () => {
     useSceneStore.getState().selectItems([a.id, b.id, c.id])
     useSceneStore.getState().createGroup()
     const g1Id = useSceneStore.getState().groups[0].id
-    // Now re-select a and b to create a second group
+    // Now re-select a and b — both share g1 as direct parent → new group nests inside g1
     useSceneStore.getState().selectItems([a.id, b.id])
     useSceneStore.getState().createGroup()
     const { groups, items } = useSceneStore.getState()
     const g1 = groups.find((g) => g.id === g1Id)
     const g2 = groups.find((g) => g.id !== g1Id)
-    // g1 had 3 members; lost a and b → 1 remaining → auto-ungrouped
-    expect(g1).toBeUndefined()
-    expect(items.find((i) => i.id === c.id)?.groupId).toBeNull()
-    // a and b are in the new group
+    // g1 survives: a and b moved to child group g2, c remains direct member of g1
+    expect(g1).toBeDefined()
+    expect(g1?.itemIds).toContain(c.id)
+    expect(g1?.itemIds).not.toContain(a.id)
+    expect(g1?.itemIds).not.toContain(b.id)
+    // g2 is nested inside g1
+    expect(g2?.parentGroupId).toBe(g1Id)
     expect(g2?.itemIds).toContain(a.id)
     expect(g2?.itemIds).toContain(b.id)
     expect(items.find((i) => i.id === a.id)?.groupId).toBe(g2?.id)
+    expect(items.find((i) => i.id === c.id)?.groupId).toBe(g1Id)
   })
 
   it('createGroup names group using store counter, not stale React snapshot', () => {
@@ -508,6 +512,83 @@ describe('groups', () => {
     const { groups, items } = useSceneStore.getState()
     expect(groups).toHaveLength(0)
     expect(items.find((i) => i.id === a.id)?.groupId).toBeNull()
+  })
+
+  it('createGroup creates at root level when selection mixes ungrouped and grouped items', () => {
+    useSceneStore.getState().addItem(TEST_ITEM)
+    useSceneStore.getState().addItem(TEST_ITEM)
+    useSceneStore.getState().addItem(TEST_ITEM)
+    const [a, b, c] = useSceneStore.getState().items
+    // Put a and b into g1
+    useSceneStore.getState().selectItems([a.id, b.id])
+    useSceneStore.getState().createGroup()
+    const g1Id = useSceneStore.getState().groups[0].id
+    // Select b (in g1) and c (ungrouped) → mixed selection → root-level group
+    useSceneStore.getState().selectItems([b.id, c.id])
+    useSceneStore.getState().createGroup()
+    const { groups } = useSceneStore.getState()
+    const g2 = groups.find((g) => g.id !== g1Id)
+    expect(g2?.parentGroupId).toBeFalsy()
+  })
+
+  it('ungroupItems moves items to parent group when subgroup has a parent', () => {
+    useSceneStore.getState().addItem(TEST_ITEM)
+    useSceneStore.getState().addItem(TEST_ITEM)
+    useSceneStore.getState().addItem(TEST_ITEM)
+    const [a, b, c] = useSceneStore.getState().items
+    // g1 = [a, b, c]; then g2 (nested in g1) = [a, b]
+    useSceneStore.getState().selectItems([a.id, b.id, c.id])
+    useSceneStore.getState().createGroup()
+    const g1Id = useSceneStore.getState().groups[0].id
+    useSceneStore.getState().selectItems([a.id, b.id])
+    useSceneStore.getState().createGroup()
+    const g2Id = useSceneStore.getState().groups.find((g) => g.id !== g1Id)!.id
+    // Ungroup g2 → a and b should return to g1
+    useSceneStore.getState().ungroupItems(g2Id)
+    const { groups, items } = useSceneStore.getState()
+    expect(groups.find((g) => g.id === g2Id)).toBeUndefined()
+    expect(items.find((i) => i.id === a.id)?.groupId).toBe(g1Id)
+    expect(items.find((i) => i.id === b.id)?.groupId).toBe(g1Id)
+    expect(groups.find((g) => g.id === g1Id)?.itemIds).toContain(a.id)
+  })
+
+  it('removeGroup recursively removes nested subgroups and their items', () => {
+    useSceneStore.getState().addItem(TEST_ITEM)
+    useSceneStore.getState().addItem(TEST_ITEM)
+    useSceneStore.getState().addItem(TEST_ITEM)
+    useSceneStore.getState().addItem(TEST_ITEM) // d: standalone
+    const [a, b, c, d] = useSceneStore.getState().items
+    // g1 = [a, b, c]; g2 (nested) = [a, b]
+    useSceneStore.getState().selectItems([a.id, b.id, c.id])
+    useSceneStore.getState().createGroup()
+    const g1Id = useSceneStore.getState().groups[0].id
+    useSceneStore.getState().selectItems([a.id, b.id])
+    useSceneStore.getState().createGroup()
+    // Remove g1 — should also remove g2 and items a, b, c; d survives
+    useSceneStore.getState().removeGroup(g1Id)
+    const { groups, items } = useSceneStore.getState()
+    expect(groups).toHaveLength(0)
+    expect(items.find((i) => i.id === a.id)).toBeUndefined()
+    expect(items.find((i) => i.id === b.id)).toBeUndefined()
+    expect(items.find((i) => i.id === c.id)).toBeUndefined()
+    expect(items.find((i) => i.id === d.id)).toBeDefined()
+  })
+
+  it('removeItem does not dissolve a group that still has child groups', () => {
+    useSceneStore.getState().addItem(TEST_ITEM)
+    useSceneStore.getState().addItem(TEST_ITEM)
+    useSceneStore.getState().addItem(TEST_ITEM)
+    const [a, b, c] = useSceneStore.getState().items
+    // g1 = [a, b, c]; g2 (nested) = [a, b]; g1 has 1 direct member c + child g2
+    useSceneStore.getState().selectItems([a.id, b.id, c.id])
+    useSceneStore.getState().createGroup()
+    const g1Id = useSceneStore.getState().groups[0].id
+    useSceneStore.getState().selectItems([a.id, b.id])
+    useSceneStore.getState().createGroup()
+    // Remove c — g1 now has 0 direct items but still has child group g2 → must survive
+    useSceneStore.getState().removeItem(c.id)
+    const { groups } = useSceneStore.getState()
+    expect(groups.find((g) => g.id === g1Id)).toBeDefined()
   })
 
   it('undo after moveGroup restores positions', () => {

@@ -37,4 +37,5 @@ export interface SceneGroup {
   itemIds: string[]
   collapsed: boolean
   hidden?: boolean
+  parentGroupId?: string | null
 }

@@ -3,6 +3,8 @@ import { Canvas } from '@react-three/fiber'
 import { PerspectiveCamera } from '@react-three/drei'
 import { SCENE_CONFIG } from '@/config/scene'
 import { useSceneStore, useUIStore } from '@/store'
+import { getAllItemIdsInGroup } from '@/utils/layerTree'
+import type { SceneGroup, SceneItem } from '@/types'
 import { Room } from './Room'
 import { SceneControls } from './SceneControls'
 import { SceneOverlay } from './SceneOverlay'
@@ -18,6 +20,18 @@ const perspPosition: [number, number, number] = [
   initialPosition[2],
 ]
 
+function isItemVisibleInHierarchy(item: SceneItem, groups: SceneGroup[]): boolean {
+  if (item.hidden) return false
+  let groupId: string | null | undefined = item.groupId
+  while (groupId) {
+    const g = groups.find((g) => g.id === groupId)
+    if (!g) break
+    if (g.hidden) return false
+    groupId = g.parentGroupId
+  }
+  return true
+}
+
 export function SceneCanvas() {
   const sceneMode = useUIStore((s) => s.sceneMode)
   const showGizmo = useUIStore((s) => s.showGizmo)
@@ -28,18 +42,17 @@ export function SceneCanvas() {
 
   const activeGroupId = useMemo(() => {
     if (selectedItemIds.length < 2) return null
-    const group = groups.find(
-      (g) =>
-        g.itemIds.length === selectedItemIds.length &&
-        selectedItemIds.every((id) => g.itemIds.includes(id))
-    )
+    const selectedSet = new Set(selectedItemIds)
+    const group = groups.find((g) => {
+      const allIds = getAllItemIdsInGroup(g.id, items, groups)
+      return allIds.length === selectedItemIds.length && allIds.every((id) => selectedSet.has(id))
+    })
     return group?.id ?? null
-  }, [selectedItemIds, groups])
+  }, [selectedItemIds, groups, items])
 
   const allSelectedVisible = selectedItemIds.every((id) => {
     const item = items.find((i) => i.id === id)
-    if (!item || item.hidden) return false
-    return !groups.find((g) => g.id === item.groupId)?.hidden
+    return item ? isItemVisibleInHierarchy(item, groups) : false
   })
 
   // Show the gizmo for a single element or a fully-selected group. An arbitrary
@@ -71,9 +84,7 @@ export function SceneCanvas() {
               <Room />
               <SceneControls />
               {items
-                .filter(
-                  (item) => !item.hidden && !groups.find((g) => g.id === item.groupId)?.hidden
-                )
+                .filter((item) => isItemVisibleInHierarchy(item, groups))
                 .map((item) => (
                   <SceneElement key={item.id} item={item} />
                 ))}

@@ -21,6 +21,21 @@ type Vec3 = [number, number, number]
 
 type HistorySnapshot = { items: SceneItem[]; groups: SceneGroup[] }
 
+function collectDescendantGroupIds(rootId: string, groups: SceneGroup[]): Set<string> {
+  const ids = new Set<string>([rootId])
+  let changed = true
+  while (changed) {
+    changed = false
+    for (const g of groups) {
+      if (g.parentGroupId && ids.has(g.parentGroupId) && !ids.has(g.id)) {
+        ids.add(g.id)
+        changed = true
+      }
+    }
+  }
+  return ids
+}
+
 // Transient state of an in-progress gizmo drag. Excluded from history:
 // the whole gesture commits as a single history entry on endDrag(true).
 // `snapshot` is the full pre-drag state (for undo + rollback on collision);
@@ -132,7 +147,8 @@ export const useSceneStore = create<SceneState>((set, get) => ({
         const group = groups.find((g) => g.id === groupId)
         if (group) {
           const remaining = group.itemIds.filter((iid) => iid !== id)
-          if (remaining.length <= 1) {
+          const hasChildGroups = groups.some((g) => g.parentGroupId === groupId)
+          if (remaining.length <= 1 && !hasChildGroups) {
             // ungroup: clear groupId on surviving member, remove group
             groups = groups.filter((g) => g.id !== groupId)
             const survivors = new Set(remaining)
@@ -178,7 +194,8 @@ export const useSceneStore = create<SceneState>((set, get) => ({
         const group = groups.find((g) => g.id === groupId)
         if (!group) continue
         const remaining = group.itemIds.filter((iid) => !idSet.has(iid))
-        if (remaining.length <= 1) {
+        const hasChildGroups = groups.some((g) => g.parentGroupId === groupId)
+        if (remaining.length <= 1 && !hasChildGroups) {
           dissolvedGroupIds.add(groupId)
           groups = groups.filter((g) => g.id !== groupId)
         } else {
@@ -280,20 +297,39 @@ export const useSceneStore = create<SceneState>((set, get) => ({
   createGroup() {
     set((state) => {
       if (state.selectedItemIds.length < 2) return {}
+
+      const selectedSet = new Set(state.selectedItemIds)
+
+      // Nest inside the common parent only when ALL selected items share the same non-null groupId.
+      // Nulls must be included in the uniqueness check — mixing ungrouped with grouped items
+      // would otherwise yield a false size-1 set and incorrectly nest the new group.
+      const directGroupIds = state.selectedItemIds.map(
+        (id) => state.items.find((i) => i.id === id)?.groupId ?? null
+      )
+      const uniqueGroupIds = new Set(directGroupIds)
+      const parentGroupId =
+        uniqueGroupIds.size === 1 && [...uniqueGroupIds][0] !== null
+          ? ([...uniqueGroupIds][0] as string)
+          : null
+
       const newCounter = state.groupCounter + 1
       const group: SceneGroup = {
         id: uuid(),
         name: `Группа ${newCounter}`,
         itemIds: [...state.selectedItemIds],
         collapsed: false,
+        parentGroupId: parentGroupId ?? null,
       }
-      const selectedSet = new Set(state.selectedItemIds)
 
-      // Remove selected items from their existing groups; auto-ungroup if ≤ 1 member remains
+      // Remove selected items from their existing groups;
+      // auto-ungroup only if ≤1 direct member remains AND no child groups exist/will exist
       const soloMembers = new Set<string>()
       const updatedGroups = state.groups
         .map((g) => ({ ...g, itemIds: g.itemIds.filter((id) => !selectedSet.has(id)) }))
         .filter((g) => {
+          const isNewGroupParent = g.id === group.parentGroupId
+          const hasExistingChildren = state.groups.some((og) => og.parentGroupId === g.id)
+          if (isNewGroupParent || hasExistingChildren) return true
           if (g.itemIds.length === 0) return false
           if (g.itemIds.length === 1) {
             soloMembers.add(g.itemIds[0])
@@ -318,24 +354,43 @@ export const useSceneStore = create<SceneState>((set, get) => ({
   },
 
   ungroupItems(groupId) {
-    set((state) => ({
-      ...pushHistory(state),
-      groups: state.groups.filter((g) => g.id !== groupId),
-      items: state.items.map((item) =>
-        item.groupId === groupId ? { ...item, groupId: null } : item
-      ),
-    }))
+    set((state) => {
+      const group = state.groups.find((g) => g.id === groupId)
+      if (!group) return {}
+      const newParentId = group.parentGroupId ?? null
+
+      // Move child groups up one level
+      let groups = state.groups
+        .filter((g) => g.id !== groupId)
+        .map((g) => (g.parentGroupId === groupId ? { ...g, parentGroupId: newParentId } : g))
+
+      // If ungrouping into a parent, add items to parent's itemIds
+      if (newParentId) {
+        groups = groups.map((g) =>
+          g.id === newParentId ? { ...g, itemIds: [...g.itemIds, ...group.itemIds] } : g
+        )
+      }
+
+      return {
+        ...pushHistory(state),
+        groups,
+        items: state.items.map((item) =>
+          item.groupId === groupId ? { ...item, groupId: newParentId } : item
+        ),
+      }
+    })
   },
 
   moveGroup(groupId, delta) {
     set((state) => {
-      const group = state.groups.find((g) => g.id === groupId)
-      if (!group) return state
-      const memberSet = new Set(group.itemIds)
+      if (!state.groups.find((g) => g.id === groupId)) return state
+
+      const allGroupIds = collectDescendantGroupIds(groupId, state.groups)
+
       return {
         ...pushHistory(state),
         items: state.items.map((item) => {
-          if (!memberSet.has(item.id) || item.groupId !== groupId) return item
+          if (!item.groupId || !allGroupIds.has(item.groupId)) return item
           return {
             ...item,
             position: [
@@ -409,13 +464,18 @@ export const useSceneStore = create<SceneState>((set, get) => ({
 
   removeGroup(groupId) {
     set((state) => {
+      const allGroupIds = collectDescendantGroupIds(groupId, state.groups)
+
       const removedIds = new Set(
-        state.items.filter((item) => item.groupId === groupId).map((item) => item.id)
+        state.items
+          .filter((item) => item.groupId && allGroupIds.has(item.groupId))
+          .map((item) => item.id)
       )
+
       return {
         ...pushHistory(state),
-        items: state.items.filter((item) => item.groupId !== groupId),
-        groups: state.groups.filter((g) => g.id !== groupId),
+        items: state.items.filter((item) => !removedIds.has(item.id)),
+        groups: state.groups.filter((g) => !allGroupIds.has(g.id)),
         selectedItemId: null,
         selectedItemIds: [],
         editingItemId:
