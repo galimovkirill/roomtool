@@ -3296,6 +3296,266 @@ it('клик по элементу вызывает selectItem с нужным i
 
 ---
 
+## ФАЗА 14 — Дизайн-система на Radix UI
+
+### TASK-031 — Миграция UI-примитивов на Radix UI + установка дизайн-соглашений
+
+**Промпт для Claude Code:**
+```
+## Контекст
+
+В проекте уже подключён @radix-ui, но исторически большинство UI-примитивов написаны
+вручную (нативные <select>, <input>, кастомные поповеры). Цель задачи — мигрировать
+все подходящие компоненты на Radix UI и зафиксировать соглашение: дизайн строится
+вокруг Radix там, где это возможно.
+
+---
+
+## 1. Инвентаризация и установка пакетов
+
+Проверь, какие Radix-пакеты уже установлены в package.json.
+Доустанови недостающие:
+
+```bash
+pnpm add \
+  @radix-ui/react-select \
+  @radix-ui/react-popover \
+  @radix-ui/react-tooltip \
+  @radix-ui/react-separator \
+  @radix-ui/react-label \
+  @radix-ui/react-toggle \
+  @radix-ui/react-toggle-group
+```
+
+(@radix-ui/react-context-menu уже установлен — не переустанавливать)
+
+---
+
+## 2. PropertyField.tsx — нативный <select> → Radix Select
+
+Файл: `src/components/panels/PropertyField.tsx`
+
+Замени все нативные `<select>` (type === 'select' и type === 'material') на
+`@radix-ui/react-select`. Нативный `<select>` оставить только если Radix Select
+не поддерживает нужный сценарий (например, disabled через props — убедись что поддерживает).
+
+Пример структуры Radix Select:
+```tsx
+import * as Select from '@radix-ui/react-select'
+
+<Select.Root value={String(value)} onValueChange={(v) => onChange(v)} disabled={disabled}>
+  <Select.Trigger className="flex items-center justify-between w-full border rounded px-2 py-1.5 text-sm bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed">
+    <Select.Value />
+    <Select.Icon className="text-gray-400 ml-1">▾</Select.Icon>
+  </Select.Trigger>
+  <Select.Portal>
+    <Select.Content className="bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden">
+      <Select.Viewport className="p-1">
+        {options.map(opt => (
+          <Select.Item
+            key={opt.value}
+            value={opt.value}
+            className="flex items-center px-3 py-1.5 text-sm rounded cursor-pointer hover:bg-blue-50 hover:text-blue-700 outline-none data-[highlighted]:bg-blue-50 data-[highlighted]:text-blue-700"
+          >
+            <Select.ItemText>{opt.label}</Select.ItemText>
+            <Select.ItemIndicator className="ml-auto text-blue-600">✓</Select.ItemIndicator>
+          </Select.Item>
+        ))}
+      </Select.Viewport>
+    </Select.Content>
+  </Select.Portal>
+</Select.Root>
+```
+
+Сохрани поддержку проп `disabled` — Radix Select.Root принимает `disabled`.
+
+---
+
+## 3. PropertyField.tsx — <label> → Radix Label
+
+Замени все `<label>` на `@radix-ui/react-label`:
+
+```tsx
+import * as Label from '@radix-ui/react-label'
+<Label.Root className="text-xs text-gray-500 mb-1 block" htmlFor={def.key}>
+  {def.label}{def.unit ? ` (${def.unit})` : ''}
+</Label.Root>
+<input id={def.key} ... />
+```
+
+---
+
+## 4. ElementPopover.tsx — кастомный HTML Popover → Radix Popover
+
+Файл: `src/components/ui/ElementPopover.tsx`
+
+Текущий компонент использует `<Html>` из @react-three/drei для размещения HTML
+над 3D-элементом. Это обоснованно для 3D-сцены — не мигрировать.
+
+Однако если в проекте есть другие кастомные поверхности/тултипы за пределами R3F Canvas
+(например, в LayersPanel, PropertiesPanel, RightPanel) — проверь и замени на
+Radix Tooltip или Radix Popover там, где это уместно.
+
+---
+
+## 5. SceneRibbon.tsx — кнопки выравнивания → Radix ToggleGroup / Tooltip
+
+Файл: `src/components/scene/SceneRibbon.tsx`
+
+Оберни кнопки переключателя 2D/3D в `@radix-ui/react-toggle-group`:
+
+```tsx
+import * as ToggleGroup from '@radix-ui/react-toggle-group'
+
+<ToggleGroup.Root
+  type="single"
+  value={sceneMode}
+  onValueChange={(v) => v && setSceneMode(v as '2d' | '3d')}
+  className="flex rounded-lg overflow-hidden shadow-md border border-gray-200"
+>
+  <ToggleGroup.Item
+    value="3d"
+    className="px-4 py-2 text-sm font-medium transition-colors
+      data-[state=on]:bg-blue-600 data-[state=on]:text-white
+      data-[state=off]:bg-white data-[state=off]:text-gray-700
+      data-[state=off]:hover:bg-gray-50"
+  >
+    3D
+  </ToggleGroup.Item>
+  <ToggleGroup.Item
+    value="2d"
+    className="px-4 py-2 text-sm font-medium transition-colors border-l border-gray-200
+      data-[state=on]:bg-blue-600 data-[state=on]:text-white
+      data-[state=off]:bg-white data-[state=off]:text-gray-700
+      data-[state=off]:hover:bg-gray-50"
+  >
+    2D
+  </ToggleGroup.Item>
+</ToggleGroup.Root>
+```
+
+Кнопку toggle гизмо (`showGizmo`) замени на `@radix-ui/react-toggle`:
+
+```tsx
+import * as Toggle from '@radix-ui/react-toggle'
+
+<Toggle.Root
+  pressed={showGizmo}
+  onPressedChange={toggleGizmo}
+  className="px-3 py-2 text-sm rounded-lg border border-gray-200 transition-colors
+    data-[state=on]:bg-blue-600 data-[state=on]:text-white data-[state=on]:border-blue-600
+    data-[state=off]:bg-white data-[state=off]:text-gray-700
+    data-[state=off]:hover:bg-gray-50"
+  aria-label="Гизмо"
+>
+  ⌖
+</Toggle.Root>
+```
+
+Добавь `@radix-ui/react-tooltip` на кнопки выравнивания — при наведении показывать
+название действия (например, "Выровнять по левому краю"):
+
+```tsx
+import * as Tooltip from '@radix-ui/react-tooltip'
+
+// Оберни весь Ribbon в <Tooltip.Provider delayDuration={400}>
+// Каждую кнопку выравнивания:
+<Tooltip.Root>
+  <Tooltip.Trigger asChild>
+    <button ...>{icon}</button>
+  </Tooltip.Trigger>
+  <Tooltip.Portal>
+    <Tooltip.Content
+      className="bg-gray-900 text-white text-xs rounded px-2 py-1 shadow-lg"
+      sideOffset={6}
+    >
+      {label}
+      <Tooltip.Arrow className="fill-gray-900" />
+    </Tooltip.Content>
+  </Tooltip.Portal>
+</Tooltip.Root>
+```
+
+---
+
+## 6. RightPanel.tsx — вкладки → Radix Separator
+
+Добавь `@radix-ui/react-separator` между TabBar и контентом:
+
+```tsx
+import * as Separator from '@radix-ui/react-separator'
+<Separator.Root className="h-px bg-gray-200" />
+```
+
+---
+
+## 7. Обнови тесты
+
+Компоненты с нативными select/label заменены — обнови тесты в:
+- `src/components/panels/PropertiesPanel.test.tsx` — убедись что селекторы
+  `getByRole('combobox')` или `getByLabelText` корректно находят Radix Select.
+  Radix Select рендерит `<button>` с role="combobox", не `<select>` — скорректируй
+  тестовые запросы при необходимости.
+- `src/components/panels/PropertyField.test.tsx` — аналогично.
+
+Пороги покрытия снижать нельзя. Убедись что `pnpm test:run` проходит.
+
+---
+
+## 8. Обнови документацию
+
+### CLAUDE.md
+
+Добавь / замени раздел **«UI-примитивы»** (между «Стек» и «Структура проекта» или
+в соответствующей секции):
+
+```markdown
+### UI-примитивы
+
+Radix UI — единственный источник готовых компонентов в проекте.
+Используется везде, где Radix покрывает сценарий:
+
+| Задача | Radix-компонент |
+|--------|----------------|
+| Выпадающий список | `@radix-ui/react-select` |
+| Тултип | `@radix-ui/react-tooltip` |
+| Попover | `@radix-ui/react-popover` |
+| Контекстное меню | `@radix-ui/react-context-menu` |
+| Переключатель (toggle) | `@radix-ui/react-toggle` |
+| Группа переключателей | `@radix-ui/react-toggle-group` |
+| Разделитель | `@radix-ui/react-separator` |
+| Label | `@radix-ui/react-label` |
+
+⚠️ **Не создавай собственные реализации** для компонентов, которые Radix покрывает.
+Кастомный код — только для того, чего в Radix нет (например, цветовая палитра `type === 'color'`
+в PropertyField, или Html-попоровер над 3D-объектом через @react-three/drei).
+
+Стилизация Radix — через Tailwind-классы напрямую (className на примитивах) и
+через data-атрибуты состояния (`data-[state=on]`, `data-[highlighted]`, `data-[disabled]`).
+Никаких CSS-переменных Radix для тем — у проекта нет тёмной темы в скоупе MVP.
+```
+
+### ARCHITECTURE.md
+
+Если существует раздел «Стек» или «UI» — добавь Radix UI в таблицу компонентов.
+Если раздела нет — не создавать новый файл, достаточно CLAUDE.md.
+
+---
+
+## 9. Проверь в браузере (Playwright, скриншоты в tmp/)
+
+1. Открыть приложение — SceneRibbon виден, 2D/3D-переключатель работает через Radix ToggleGroup.
+2. Нажать кнопку гизмо — Toggle меняет состояние (подсветка on/off).
+3. Навести курсор на кнопку выравнивания — Tooltip появляется с названием действия.
+4. Добавить элемент из каталога → выбрать элемент → открыть PropertiesPanel (двойной клик).
+5. В PropertiesPanel: поле Материал — Radix Select, при нажатии открывается кастомный дропдаун.
+6. Выбрать материал → цвет сбрасывается на первый цвет нового материала (поведение не изменилось).
+7. Поле заблокированного элемента — Select задизейблен (disabled), нельзя открыть.
+8. Скриншоты: tmp/task031-ribbon.png (лента с тоглами), tmp/task031-select.png (Radix Select открыт).
+```
+
+---
+
 ## Сводная таблица задач
 
 | ID | Фаза | Задача | Сложность | Статус |
@@ -3330,6 +3590,7 @@ it('клик по элементу вызывает selectItem с нужным i
 | TASK-028 | Коллизии | Скольжение вдоль препятствий при drag (хард-коллизия per-frame) | L | ✅ |
 | TASK-029 | UX | Лента (Ribbon): панель действий над сценой | L | ✅ |
 | TASK-030 | 2D-режим | Полная переработка 2D-вида: SVG-план с линейками и размерными линиями | XL | ✅ |
+| TASK-031 | Дизайн-система | Миграция UI-примитивов на Radix UI + дизайн-соглашения | L | ⬜ |
 
 **S** = ~30–60 мин · **M** = ~1–2 ч · **L** = ~2–4 ч · **XL** = ~4–8 ч  
 Общая оценка: **~2.5–3 недели** при разработке через Claude Code.
