@@ -1,3 +1,4 @@
+import * as Separator from '@radix-ui/react-separator'
 import { useSceneStore } from '@/store'
 import { useUIStore } from '@/store/uiStore'
 import { CatalogPanel } from './CatalogPanel'
@@ -16,7 +17,7 @@ export function RightPanel() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex border-b border-gray-200 flex-shrink-0">
+      <div className="flex flex-shrink-0">
         <button
           className={`px-4 py-2.5 text-sm font-medium transition-colors ${
             activeTab === 'catalog'
@@ -38,6 +39,8 @@ export function RightPanel() {
           Слои
         </button>
       </div>
+
+      <Separator.Root className="h-px bg-gray-200" />
 
       <div className="flex-1 overflow-hidden">
         {showProperties ? (

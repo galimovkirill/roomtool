@@ -1,5 +1,36 @@
+import React from 'react'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { PropertyField } from './PropertyField'
+
+// Radix Select is not well-suited for jsdom interaction; replace with a native
+// select so tests can continue to use role/option/fireEvent.change selectors.
+vi.mock('@radix-ui/react-select', () => ({
+  Root: ({
+    children,
+    onValueChange,
+    value,
+    disabled,
+  }: React.PropsWithChildren<{
+    onValueChange?: (v: string) => void
+    value?: string
+    disabled?: boolean
+  }>) => (
+    <select value={value} onChange={(e) => onValueChange?.(e.target.value)} disabled={disabled}>
+      {children}
+    </select>
+  ),
+  Trigger: () => null,
+  Value: () => null,
+  Icon: () => null,
+  Portal: ({ children }: React.PropsWithChildren) => <>{children}</>,
+  Content: ({ children }: React.PropsWithChildren) => <>{children}</>,
+  Viewport: ({ children }: React.PropsWithChildren) => <>{children}</>,
+  Item: ({ value, children }: React.PropsWithChildren<{ value: string }>) => (
+    <option value={value}>{children}</option>
+  ),
+  ItemText: ({ children }: React.PropsWithChildren) => <>{children}</>,
+  ItemIndicator: () => null,
+}))
 
 const numberDef = {
   key: 'width',
@@ -65,7 +96,9 @@ describe('PropertyField — number', () => {
 describe('PropertyField — select', () => {
   it('renders label without unit', () => {
     render(<PropertyField def={selectDef} value="Белый" onChange={() => {}} />)
-    expect(screen.getByLabelText('Цвет')).toBeInTheDocument()
+    // Radix Label renders a native <label>; check it appears without a unit suffix
+    expect(screen.getByText('Цвет')).toBeInTheDocument()
+    expect(screen.getByRole('combobox')).toBeInTheDocument()
   })
 
   it('renders all options', () => {

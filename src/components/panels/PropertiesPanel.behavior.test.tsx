@@ -1,8 +1,37 @@
+import React from 'react'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { PropertiesPanel } from './PropertiesPanel'
 import { MATERIAL_COLORS } from '@/catalog/materials'
 import type { CatalogItem, SceneItem } from '@/types'
+
+vi.mock('@radix-ui/react-select', () => ({
+  Root: ({
+    children,
+    onValueChange,
+    value,
+    disabled,
+  }: React.PropsWithChildren<{
+    onValueChange?: (v: string) => void
+    value?: string
+    disabled?: boolean
+  }>) => (
+    <select value={value} onChange={(e) => onValueChange?.(e.target.value)} disabled={disabled}>
+      {children}
+    </select>
+  ),
+  Trigger: () => null,
+  Value: () => null,
+  Icon: () => null,
+  Portal: ({ children }: React.PropsWithChildren) => <>{children}</>,
+  Content: ({ children }: React.PropsWithChildren) => <>{children}</>,
+  Viewport: ({ children }: React.PropsWithChildren) => <>{children}</>,
+  Item: ({ value, children }: React.PropsWithChildren<{ value: string }>) => (
+    <option value={value}>{children}</option>
+  ),
+  ItemText: ({ children }: React.PropsWithChildren) => <>{children}</>,
+  ItemIndicator: () => null,
+}))
 
 const mockUpdateItem = vi.hoisted(() => vi.fn())
 // Mutable holders so each test configures the rendered item / catalog entry.
@@ -57,7 +86,7 @@ describe('PropertiesPanel — material → color reset', () => {
 
   it('resets color to the first color of the newly selected material', () => {
     render(<PropertiesPanel itemId="item-1" />)
-    fireEvent.change(screen.getByLabelText('Материал'), { target: { value: 'Массив' } })
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'Массив' } })
 
     expect(mockUpdateItem).toHaveBeenCalledWith('item-1', {
       properties: {
@@ -70,7 +99,7 @@ describe('PropertiesPanel — material → color reset', () => {
   it('preserves other properties while resetting color on material change', () => {
     fixture.item!.properties = { material: 'Металл', color: '#C0C0C0', thickness: 18 }
     render(<PropertiesPanel itemId="item-1" />)
-    fireEvent.change(screen.getByLabelText('Материал'), { target: { value: 'Стекло' } })
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'Стекло' } })
 
     expect(mockUpdateItem).toHaveBeenCalledWith('item-1', {
       properties: {

@@ -1,3 +1,5 @@
+import * as Label from '@radix-ui/react-label'
+import * as Select from '@radix-ui/react-select'
 import type { PropertyDef } from '@/types'
 import { MATERIAL_COLORS, MATERIAL_OPTIONS, type MaterialType } from '@/catalog/materials'
 
@@ -22,9 +24,9 @@ export function PropertyField({ def, value, onChange, allProperties }: PropertyF
   if (def.type === 'number') {
     return (
       <div className="flex flex-col gap-1">
-        <label htmlFor={fieldId} className={labelClass}>
+        <Label.Root htmlFor={fieldId} className={labelClass}>
           {label}
-        </label>
+        </Label.Root>
         <input
           id={fieldId}
           type="number"
@@ -83,21 +85,38 @@ export function PropertyField({ def, value, onChange, allProperties }: PropertyF
 
   return (
     <div className="flex flex-col gap-1">
-      <label htmlFor={fieldId} className={labelClass}>
+      <Label.Root htmlFor={fieldId} className={labelClass}>
         {label}
-      </label>
-      <select
-        id={fieldId}
-        value={value as string}
-        onChange={(e) => onChange(e.target.value)}
-        className={inputClass}
-      >
-        {options.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
+      </Label.Root>
+      <Select.Root value={value as string} onValueChange={(v) => onChange(v)}>
+        <Select.Trigger
+          id={fieldId}
+          className="flex items-center justify-between w-full border border-gray-200 rounded px-2 py-1.5 text-sm text-gray-700 bg-white hover:border-gray-300 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <Select.Value />
+          <Select.Icon className="text-gray-400 ml-1 shrink-0">▾</Select.Icon>
+        </Select.Trigger>
+        <Select.Portal>
+          <Select.Content
+            className="bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden"
+            position="popper"
+            sideOffset={4}
+          >
+            <Select.Viewport className="p-1">
+              {options.map((opt) => (
+                <Select.Item
+                  key={opt.value}
+                  value={opt.value}
+                  className="flex items-center px-3 py-1.5 text-sm rounded cursor-pointer outline-none hover:bg-blue-50 hover:text-blue-700 data-[highlighted]:bg-blue-50 data-[highlighted]:text-blue-700"
+                >
+                  <Select.ItemText>{opt.label}</Select.ItemText>
+                  <Select.ItemIndicator className="ml-auto text-blue-600">✓</Select.ItemIndicator>
+                </Select.Item>
+              ))}
+            </Select.Viewport>
+          </Select.Content>
+        </Select.Portal>
+      </Select.Root>
     </div>
   )
 }

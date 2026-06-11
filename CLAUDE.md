@@ -39,6 +39,36 @@ pnpm format        # Prettier форматирование
 
 ---
 
+### UI-примитивы
+
+Radix UI — единственный источник готовых компонентов в проекте.
+Используется везде, где Radix покрывает сценарий:
+
+| Задача | Radix-компонент |
+|--------|----------------|
+| Выпадающий список | `@radix-ui/react-select` |
+| Тултип | `@radix-ui/react-tooltip` |
+| Popover | `@radix-ui/react-popover` |
+| Контекстное меню | `@radix-ui/react-context-menu` |
+| Переключатель (toggle) | `@radix-ui/react-toggle` |
+| Группа переключателей | `@radix-ui/react-toggle-group` |
+| Разделитель | `@radix-ui/react-separator` |
+| Label | `@radix-ui/react-label` |
+
+⚠️ **Не создавай собственные реализации** для компонентов, которые Radix покрывает.
+Кастомный код — только для того, чего в Radix нет (цветовая палитра `type === 'color'`
+в PropertyField, или Html-поповер над 3D-объектом через `@react-three/drei`).
+
+Стилизация Radix — через Tailwind-классы напрямую (`className` на примитивах) и
+через data-атрибуты состояния (`data-[state=on]`, `data-[highlighted]`, `data-[disabled]`).
+
+**Тестирование Radix Select:** `@radix-ui/react-select` мокируется нативным `<select>` в тест-файлах
+через `vi.mock('@radix-ui/react-select', ...)` — это позволяет использовать `getByRole('combobox')`,
+`getByRole('option')` и `fireEvent.change`. Без мока Radix Select рендерит `<button role="combobox">`
+и не реагирует на `fireEvent.change`.
+
+---
+
 ## Структура проекта
 
 ```
