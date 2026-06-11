@@ -57,8 +57,9 @@ src/
 │   └── index.ts          # реэкспорт
 ├── components/
 │   ├── scene/
-│   │   ├── SceneCanvas.tsx          # R3F Canvas, переключение камер
-│   │   ├── Room.tsx                 # Пол + стены (размеры из config)
+│   │   ├── SceneCanvas.tsx          # R3F Canvas (только 3D) + монтирует Scene2DView в 2D
+│   │   ├── Scene2DView.tsx          # Чистый SVG-план (2D): pan/zoom, сетка, линейки, размерные линии
+│   │   ├── Room.tsx                 # Пол + стены (размеры из config; только в 3D-Canvas)
 │   │   ├── SceneElement.tsx         # Один элемент: mesh/GLTF + Popover (презентационный, без gizmo)
 │   │   ├── TransformProxy.tsx       # Единый gizmo перемещения для 1..N выделенных (pivot + drag-сессия)
 │   │   ├── SceneControls.tsx        # OrbitControls (forwardRef)
@@ -218,11 +219,13 @@ toast.warning('Элементы не могут пересекаться')
 
 | | 3D | 2D |
 |--|----|----|
-| Камера | PerspectiveCamera | OrthographicCamera (вид сверху) |
-| OrbitControls | rotate + pan + zoom | только pan + zoom |
-| Стены | видимы | скрыты |
-| Grid | скрыт | показан |
-| Размеры на элементах | нет | есть (`Html` из drei) |
+| Рендер | R3F Canvas (`PerspectiveCamera`) | Чистый SVG (`Scene2DView`) — без Three.js |
+| Навигация | OrbitControls (rotate + pan + zoom) | Pan мышью + zoom колёсиком (нативные события) |
+| Стены | видимы | — (R3F Canvas не монтируется) |
+| Сетка | нет | SVG-сетка с адаптивным шагом (100/500/1000 мм) |
+| Линейки | нет | Горизонтальная + вертикальная (мм от угла комнаты) |
+| Размеры элементов | нет | Архитектурные выноски при выделении одного элемента |
+| Выбор элемента | клик → `selectItem` | клик → `selectItem` (мультивыбор только в LayersPanel) |
 
 ---
 

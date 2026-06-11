@@ -5,11 +5,7 @@ import { SCENE_CONFIG } from '@/config/scene'
 
 type OrbitControlsRef = ComponentRef<typeof OrbitControls>
 
-interface SceneControlsProps {
-  enableRotate?: boolean
-}
-
-export function SceneControls({ enableRotate = true }: SceneControlsProps) {
+export function SceneControls() {
   const orbitRef = useRef<OrbitControlsRef>(null)
 
   const { target } = SCENE_CONFIG.camera
@@ -41,7 +37,6 @@ export function SceneControls({ enableRotate = true }: SceneControlsProps) {
       minDistance={SCENE_CONFIG.camera.minDistance}
       maxDistance={SCENE_CONFIG.camera.maxDistance}
       target={orbitTarget}
-      enableRotate={enableRotate}
       zoomToCursor
     />
   )

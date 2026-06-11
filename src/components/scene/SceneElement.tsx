@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import * as THREE from 'three'
-import { Edges, Html, useGLTF } from '@react-three/drei'
+import { Edges, useGLTF } from '@react-three/drei'
 import type { SceneItem } from '@/types'
-import { useSceneStore, useUIStore } from '@/store'
+import { useSceneStore } from '@/store'
 import { ElementPopover } from '@/components/ui/ElementPopover'
 import { getCatalogItemById } from '@/catalog/items'
 
@@ -46,7 +46,6 @@ export function SceneElement({ item }: Props) {
   const selectedItemIds = useSceneStore((s) => s.selectedItemIds)
   const selectItem = useSceneStore((s) => s.selectItem)
   const editItem = useSceneStore((s) => s.editItem)
-  const sceneMode = useUIStore((s) => s.sceneMode)
 
   const isSelected = selectedItemIds.includes(item.id)
 
@@ -118,14 +117,6 @@ export function SceneElement({ item }: Props) {
         </mesh>
       )}
       {selectedItemIds.length === 1 && isSelected && <ElementPopover item={item} />}
-      {sceneMode === '2d' && (
-        // TODO: при ротации width/depth не меняются местами — Known Limitation (AABB без учёта поворота)
-        <Html center position={[0, item.dimensions.height / 2 + 20, 0]}>
-          <div className="text-xs bg-white/80 px-1 py-0.5 rounded border border-gray-400 whitespace-nowrap pointer-events-none">
-            {item.dimensions.width} × {item.dimensions.depth} мм
-          </div>
-        </Html>
-      )}
     </group>
   )
 }
