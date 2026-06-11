@@ -36,9 +36,16 @@ export function SceneCanvas() {
     return group?.id ?? null
   }, [selectedItemIds, groups])
 
+  const allSelectedVisible = selectedItemIds.every((id) => {
+    const item = items.find((i) => i.id === id)
+    if (!item || item.hidden) return false
+    return !groups.find((g) => g.id === item.groupId)?.hidden
+  })
+
   // Show the gizmo for a single element or a fully-selected group. An arbitrary
   // multi-selection that is not a saved group cannot be moved (no gizmo).
-  const showTransformProxy = selectedItemIds.length === 1 || activeGroupId !== null
+  const showTransformProxy =
+    (selectedItemIds.length === 1 || activeGroupId !== null) && allSelectedVisible
 
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -63,9 +70,13 @@ export function SceneCanvas() {
               <directionalLight position={[5000, 8000, 5000]} />
               <Room />
               <SceneControls />
-              {items.map((item) => (
-                <SceneElement key={item.id} item={item} />
-              ))}
+              {items
+                .filter(
+                  (item) => !item.hidden && !groups.find((g) => g.id === item.groupId)?.hidden
+                )
+                .map((item) => (
+                  <SceneElement key={item.id} item={item} />
+                ))}
               {showTransformProxy && showGizmo && <TransformProxy targetIds={selectedItemIds} />}
             </Canvas>
             <SceneOverlay />

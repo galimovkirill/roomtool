@@ -98,7 +98,7 @@ src/
 │   ├── panels/
 │   │   ├── RightPanel.tsx        # Вкладки Каталог/Слои; при выделении — PropertiesPanel
 │   │   ├── CatalogPanel.tsx      # Каталог с поиском и аккордеоном
-│   │   ├── LayersPanel.tsx       # Дерево слоёв, мультивыбор, группы, контекст-меню
+│   │   ├── LayersPanel.tsx       # Дерево слоёв, мультивыбор, группы, контекст-меню, toggle видимости (👁)
 │   │   ├── PropertiesPanel.tsx   # Форма свойств выбранного элемента
 │   │   └── PropertyField.tsx     # Поле (number / select / material / color)
 │   └── ui/
@@ -187,7 +187,7 @@ window.dispatchEvent(new CustomEvent('transform-end'))
 вызывает `pushHistory` перед изменением. Интерактивный drag — особый случай: `beginDrag`
 снимает снапшот, `endDrag(true)` кладёт его в историю **одним** шагом (см. «Drag-сессия»),
 а `dragSelectionBy` в историю не пишет.
-`selectItem`/`selectItems`/`editItem`/`closeEditing`/`renameGroup`/`toggleGroupCollapse` — **не** попадают в историю.
+`selectItem`/`selectItems`/`editItem`/`closeEditing`/`renameGroup`/`toggleGroupCollapse`/`toggleItemVisibility`/`toggleGroupVisibility` — **не** попадают в историю.
 `alignItems(alignment)` — **попадает** в историю (один undo-шаг на всё выравнивание).
 
 ### Группы, выделение и слои
@@ -229,6 +229,9 @@ window.dispatchEvent(new CustomEvent('transform-end'))
 - Пары с конструктивным AABB-перекрытием (например, задняя стенка внутри боковин в дефолтном
   шкафу) не блокируются при drag друг через друга — это цена anti-lockout поведения для
   пред-существующих перекрытий.
+- **Скрытые элементы (`hidden: true`) участвуют в коллизии** — `clampGroupDeltaAgainstItems`
+  использует снапшот `state.items` целиком, не фильтруя по `hidden`. Скрытый элемент остаётся
+  препятствием для движения. Допустимо для MVP.
 
 ### Tailwind v4
 Используется через Vite-плагин (`@tailwindcss/vite`). Импорт в CSS: `@import "tailwindcss"`.

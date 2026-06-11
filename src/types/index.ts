@@ -28,6 +28,7 @@ export interface SceneItem {
   dimensions: { width: number; height: number; depth: number }
   properties: Record<string, number | string>
   groupId: string | null
+  hidden?: boolean
 }
 
 export interface SceneGroup {
@@ -35,4 +36,5 @@ export interface SceneGroup {
   name: string
   itemIds: string[]
   collapsed: boolean
+  hidden?: boolean
 }

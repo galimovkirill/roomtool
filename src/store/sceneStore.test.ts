@@ -967,3 +967,61 @@ describe('alignItems', () => {
     expect(gb.position[2]).toBeCloseTo(100)
   })
 })
+
+describe('toggleItemVisibility / toggleGroupVisibility', () => {
+  it('toggleItemVisibility скрывает и показывает элемент', () => {
+    useSceneStore.getState().addItem(TEST_ITEM)
+    const id = useSceneStore.getState().items[0].id
+    expect(useSceneStore.getState().items[0].hidden).toBeFalsy()
+    useSceneStore.getState().toggleItemVisibility(id)
+    expect(useSceneStore.getState().items[0].hidden).toBe(true)
+    useSceneStore.getState().toggleItemVisibility(id)
+    expect(useSceneStore.getState().items[0].hidden).toBe(false)
+  })
+
+  it('toggleItemVisibility не пишет в историю', () => {
+    useSceneStore.getState().addItem(TEST_ITEM)
+    const id = useSceneStore.getState().items[0].id
+    useSceneStore.getState().toggleItemVisibility(id)
+    expect(useSceneStore.getState().history).toHaveLength(1) // только addItem
+  })
+
+  it('toggleGroupVisibility скрывает и показывает группу', () => {
+    useSceneStore.getState().addItem(TEST_ITEM)
+    useSceneStore.getState().addItem(TEST_ITEM)
+    const [a, b] = useSceneStore.getState().items
+    useSceneStore.getState().selectItems([a.id, b.id])
+    useSceneStore.getState().createGroup()
+    const groupId = useSceneStore.getState().groups[0].id
+    expect(useSceneStore.getState().groups[0].hidden).toBeFalsy()
+    useSceneStore.getState().toggleGroupVisibility(groupId)
+    expect(useSceneStore.getState().groups[0].hidden).toBe(true)
+    useSceneStore.getState().toggleGroupVisibility(groupId)
+    expect(useSceneStore.getState().groups[0].hidden).toBe(false)
+  })
+
+  it('toggleGroupVisibility не трогает hidden у элементов группы', () => {
+    useSceneStore.getState().addItem(TEST_ITEM)
+    useSceneStore.getState().addItem(TEST_ITEM)
+    const [a, b] = useSceneStore.getState().items
+    useSceneStore.getState().selectItems([a.id, b.id])
+    useSceneStore.getState().createGroup()
+    const groupId = useSceneStore.getState().groups[0].id
+    useSceneStore.getState().toggleGroupVisibility(groupId)
+    const items = useSceneStore.getState().items
+    expect(items.find((i) => i.id === a.id)!.hidden).toBeFalsy()
+    expect(items.find((i) => i.id === b.id)!.hidden).toBeFalsy()
+  })
+
+  it('toggleGroupVisibility не пишет в историю', () => {
+    useSceneStore.getState().addItem(TEST_ITEM)
+    useSceneStore.getState().addItem(TEST_ITEM)
+    const [a, b] = useSceneStore.getState().items
+    useSceneStore.getState().selectItems([a.id, b.id])
+    useSceneStore.getState().createGroup()
+    const historyBefore = useSceneStore.getState().history.length
+    const groupId = useSceneStore.getState().groups[0].id
+    useSceneStore.getState().toggleGroupVisibility(groupId)
+    expect(useSceneStore.getState().history).toHaveLength(historyBefore)
+  })
+})

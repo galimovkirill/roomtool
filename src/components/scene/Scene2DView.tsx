@@ -376,6 +376,7 @@ function VerticalRuler({
 
 export function Scene2DView() {
   const items = useSceneStore((s) => s.items)
+  const groups = useSceneStore((s) => s.groups)
   const selectedItemIds = useSceneStore((s) => s.selectedItemIds)
   const selectItem = useSceneStore((s) => s.selectItem)
 
@@ -449,8 +450,12 @@ export function Scene2DView() {
 
   const handleMouseUp = () => setPanning(false)
 
+  const visibleItems = items.filter(
+    (item) => !item.hidden && !groups.find((g) => g.id === item.groupId)?.hidden
+  )
+
   const selectedItem =
-    selectedItemIds.length === 1 ? items.find((i) => i.id === selectedItemIds[0]) : undefined
+    selectedItemIds.length === 1 ? visibleItems.find((i) => i.id === selectedItemIds[0]) : undefined
 
   return (
     <div
@@ -471,7 +476,7 @@ export function Scene2DView() {
           <PlanGrid scale={scale} offset={offset} />
           <RoomOutline scale={scale} offset={offset} />
 
-          {items.map((item) => (
+          {visibleItems.map((item) => (
             <Element2D
               key={item.id}
               item={item}

@@ -6,6 +6,43 @@ import { buildFlatOrder, buildLayerRows, rangeSelection } from '@/utils/layerTre
 
 type CtxTarget = { kind: 'item'; id: string } | { kind: 'group'; id: string } | null
 
+function EyeIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z" />
+      <circle cx="8" cy="8" r="2" />
+    </svg>
+  )
+}
+
+function EyeOffIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z" />
+      <circle cx="8" cy="8" r="2" />
+      <line x1="2" y1="2" x2="14" y2="14" />
+    </svg>
+  )
+}
+
 export function LayersPanel() {
   const items = useSceneStore((s) => s.items)
   const groups = useSceneStore((s) => s.groups)
@@ -19,6 +56,8 @@ export function LayersPanel() {
   const removeGroup = useSceneStore((s) => s.removeGroup)
   const renameGroup = useSceneStore((s) => s.renameGroup)
   const toggleGroupCollapse = useSceneStore((s) => s.toggleGroupCollapse)
+  const toggleItemVisibility = useSceneStore((s) => s.toggleItemVisibility)
+  const toggleGroupVisibility = useSceneStore((s) => s.toggleGroupVisibility)
 
   const [ctxTarget, setCtxTarget] = useState<CtxTarget>(null)
   const [renamingGroupId, setRenamingGroupId] = useState<string | null>(null)
@@ -88,7 +127,7 @@ export function LayersPanel() {
               return (
                 <div
                   key={item.id}
-                  className={`flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-gray-50 ${
+                  className={`flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-gray-50 group/row ${
                     isSelected ? 'bg-blue-50 text-blue-700' : ''
                   }`}
                   onClick={(e) => handleItemClick(item.id, e)}
@@ -101,7 +140,23 @@ export function LayersPanel() {
                   }}
                 >
                   <span className="text-gray-400 flex-shrink-0 text-xs">▪</span>
-                  <span className="text-sm truncate flex-1">{item.name}</span>
+                  <span className={`text-sm truncate flex-1 ${item.hidden ? 'opacity-40' : ''}`}>
+                    {item.name}
+                  </span>
+                  <button
+                    className={`flex-shrink-0 rounded p-0.5 transition-opacity ${
+                      item.hidden
+                        ? 'opacity-60 hover:opacity-100 text-gray-400'
+                        : 'opacity-0 group-hover/row:opacity-60 hover:!opacity-100 text-gray-400'
+                    }`}
+                    aria-label={item.hidden ? 'Показать элемент' : 'Скрыть элемент'}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      toggleItemVisibility(item.id)
+                    }}
+                  >
+                    {item.hidden ? <EyeOffIcon /> : <EyeIcon />}
+                  </button>
                 </div>
               )
             }
@@ -111,7 +166,7 @@ export function LayersPanel() {
             return (
               <div key={group.id}>
                 <div
-                  className={`flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-gray-50 ${
+                  className={`flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-gray-50 group/row ${
                     allSelected ? 'bg-blue-50 text-blue-700' : ''
                   }`}
                   onClick={() => {
@@ -132,7 +187,11 @@ export function LayersPanel() {
                   >
                     {group.collapsed ? '▶' : '▼'}
                   </button>
-                  <span className="text-gray-500 flex-shrink-0">⊞</span>
+                  <span
+                    className={`text-gray-500 flex-shrink-0 ${group.hidden ? 'opacity-40' : ''}`}
+                  >
+                    ⊞
+                  </span>
                   {renamingGroupId === group.id ? (
                     <input
                       className="text-sm flex-1 border border-blue-400 rounded px-1 outline-none"
@@ -148,38 +207,77 @@ export function LayersPanel() {
                       autoFocus
                     />
                   ) : (
-                    <span className="text-sm font-medium truncate flex-1">{group.name}</span>
+                    <span
+                      className={`text-sm font-medium truncate flex-1 ${group.hidden ? 'opacity-40' : ''}`}
+                    >
+                      {group.name}
+                    </span>
                   )}
-                  <span className="text-xs text-gray-400 ml-auto flex-shrink-0">
+                  <span className="text-xs text-gray-400 flex-shrink-0">
                     {group.itemIds.length}
                   </span>
+                  <button
+                    className={`flex-shrink-0 rounded p-0.5 transition-opacity ${
+                      group.hidden
+                        ? 'opacity-60 hover:opacity-100 text-gray-400'
+                        : 'opacity-0 group-hover/row:opacity-60 hover:!opacity-100 text-gray-400'
+                    }`}
+                    aria-label={group.hidden ? 'Показать группу' : 'Скрыть группу'}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      toggleGroupVisibility(group.id)
+                    }}
+                  >
+                    {group.hidden ? <EyeOffIcon /> : <EyeIcon />}
+                  </button>
                 </div>
 
-                {!group.collapsed &&
-                  group.itemIds.map((itemId) => {
-                    const member = items.find((i) => i.id === itemId)
-                    if (!member) return null
-                    const isMemberSelected = selectedItemIds.includes(itemId)
-                    return (
-                      <div
-                        key={itemId}
-                        className={`flex items-center gap-2 pl-8 pr-3 py-1.5 cursor-pointer hover:bg-gray-50 ${
-                          isMemberSelected ? 'bg-blue-50 text-blue-700' : ''
-                        }`}
-                        onClick={(e) => handleItemClick(itemId, e)}
-                        onContextMenu={() => {
-                          if (!isMemberSelected) {
-                            selectItems([itemId])
-                            setAnchorId(itemId)
-                          }
-                          setCtxTarget({ kind: 'item', id: itemId })
-                        }}
-                      >
-                        <span className="text-gray-300 flex-shrink-0 text-xs">▪</span>
-                        <span className="text-sm truncate">{member.name}</span>
-                      </div>
-                    )
-                  })}
+                {!group.collapsed && (
+                  <div className={group.hidden ? 'opacity-50' : ''}>
+                    {group.itemIds.map((itemId) => {
+                      const member = items.find((i) => i.id === itemId)
+                      if (!member) return null
+                      const isMemberSelected = selectedItemIds.includes(itemId)
+                      return (
+                        <div
+                          key={itemId}
+                          className={`flex items-center gap-2 pl-8 pr-3 py-1.5 cursor-pointer hover:bg-gray-50 group/row ${
+                            isMemberSelected ? 'bg-blue-50 text-blue-700' : ''
+                          }`}
+                          onClick={(e) => handleItemClick(itemId, e)}
+                          onContextMenu={() => {
+                            if (!isMemberSelected) {
+                              selectItems([itemId])
+                              setAnchorId(itemId)
+                            }
+                            setCtxTarget({ kind: 'item', id: itemId })
+                          }}
+                        >
+                          <span className="text-gray-300 flex-shrink-0 text-xs">▪</span>
+                          <span
+                            className={`text-sm truncate flex-1 ${member.hidden ? 'opacity-40' : ''}`}
+                          >
+                            {member.name}
+                          </span>
+                          <button
+                            className={`flex-shrink-0 rounded p-0.5 transition-opacity ${
+                              member.hidden
+                                ? 'opacity-60 hover:opacity-100 text-gray-400'
+                                : 'opacity-0 group-hover/row:opacity-60 hover:!opacity-100 text-gray-400'
+                            }`}
+                            aria-label={member.hidden ? 'Показать элемент' : 'Скрыть элемент'}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              toggleItemVisibility(itemId)
+                            }}
+                          >
+                            {member.hidden ? <EyeOffIcon /> : <EyeIcon />}
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
             )
           })}
