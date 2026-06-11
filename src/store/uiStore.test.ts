@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { useUIStore } from './uiStore'
 
 beforeEach(() => {
-  useUIStore.setState({ sceneMode: '3d', activeRightPanelTab: 'catalog' })
+  useUIStore.setState({ sceneMode: '3d', activeRightPanelTab: 'catalog', showGizmo: true })
 })
 
 describe('uiStore', () => {
@@ -20,5 +20,14 @@ describe('uiStore', () => {
   it('setActiveRightPanelTab switches to layers', () => {
     useUIStore.getState().setActiveRightPanelTab('layers')
     expect(useUIStore.getState().activeRightPanelTab).toBe('layers')
+  })
+
+  it('toggleGizmo переключает showGizmo', () => {
+    const { showGizmo, toggleGizmo } = useUIStore.getState()
+    expect(showGizmo).toBe(true)
+    toggleGizmo()
+    expect(useUIStore.getState().showGizmo).toBe(false)
+    toggleGizmo()
+    expect(useUIStore.getState().showGizmo).toBe(true)
   })
 })

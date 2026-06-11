@@ -5,6 +5,8 @@ interface UIState {
   setSceneMode: (mode: '2d' | '3d') => void
   activeRightPanelTab: 'catalog' | 'layers'
   setActiveRightPanelTab: (tab: 'catalog' | 'layers') => void
+  showGizmo: boolean
+  toggleGizmo: () => void
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -12,4 +14,6 @@ export const useUIStore = create<UIState>((set) => ({
   setSceneMode: (mode) => set({ sceneMode: mode }),
   activeRightPanelTab: 'catalog',
   setActiveRightPanelTab: (tab) => set({ activeRightPanelTab: tab }),
+  showGizmo: true,
+  toggleGizmo: () => set((s) => ({ showGizmo: !s.showGizmo })),
 }))

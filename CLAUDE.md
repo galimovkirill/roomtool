@@ -52,7 +52,7 @@ src/
 │   └── materials.ts      # MATERIAL_OPTIONS, MATERIAL_COLORS (материал → цвета)
 ├── store/
 │   ├── sceneStore.ts     # items, groups, выделение, history/future, все мутации
-│   ├── uiStore.ts        # sceneMode '2d'|'3d', activeRightPanelTab 'catalog'|'layers'
+│   ├── uiStore.ts        # sceneMode '2d'|'3d', activeRightPanelTab 'catalog'|'layers', showGizmo
 │   ├── defaultScene.ts   # DEFAULT_SCENE_ITEMS / DEFAULT_SCENE_GROUPS — стартовая сцена
 │   └── index.ts          # реэкспорт
 ├── components/
@@ -62,7 +62,8 @@ src/
 │   │   ├── SceneElement.tsx         # Один элемент: mesh/GLTF + Popover (презентационный, без gizmo)
 │   │   ├── TransformProxy.tsx       # Единый gizmo перемещения для 1..N выделенных (pivot + drag-сессия)
 │   │   ├── SceneControls.tsx        # OrbitControls (forwardRef)
-│   │   └── SceneOverlay.tsx         # Оверлей поверх canvas: 2D/3D, координаты, размеры выделенного
+│   │   ├── SceneRibbon.tsx          # Лента (Ribbon): 2D/3D, toggle гизмо, выравнивание
+│   │   └── SceneOverlay.tsx         # Оверлей поверх canvas: координаты и размеры выделенного
 │   ├── panels/
 │   │   ├── RightPanel.tsx        # Вкладки Каталог/Слои; при выделении — PropertiesPanel
 │   │   ├── CatalogPanel.tsx      # Каталог с поиском и аккордеоном
@@ -156,6 +157,7 @@ window.dispatchEvent(new CustomEvent('transform-end'))
 снимает снапшот, `endDrag(true)` кладёт его в историю **одним** шагом (см. «Drag-сессия»),
 а `dragSelectionBy` в историю не пишет.
 `selectItem`/`selectItems`/`editItem`/`closeEditing`/`renameGroup`/`toggleGroupCollapse` — **не** попадают в историю.
+`alignItems(alignment)` — **попадает** в историю (один undo-шаг на всё выравнивание).
 
 ### Группы, выделение и слои
 - Три независимых поля состояния: `selectedItemId` (одиночное выделение → gizmo),
@@ -212,6 +214,8 @@ toast.warning('Элементы не могут пересекаться')
 
 ## Режимы сцены
 
+Переключатель 2D/3D находится в `SceneRibbon` (лента над Canvas), а не в `SceneOverlay`.
+
 | | 3D | 2D |
 |--|----|----|
 | Камера | PerspectiveCamera | OrthographicCamera (вид сверху) |
@@ -219,6 +223,24 @@ toast.warning('Элементы не могут пересекаться')
 | Стены | видимы | скрыты |
 | Grid | скрыт | показан |
 | Размеры на элементах | нет | есть (`Html` из drei) |
+
+---
+
+## Лента (Ribbon)
+
+`SceneRibbon.tsx` — горизонтальная панель (~40 px) над Canvas. Всегда видима.
+
+**Группы кнопок:**
+- **Вид**: переключатель 2D/3D; toggle гизмо (`showGizmo` в uiStore → скрывает/показывает TransformProxy)
+- **Выравнивание**: 9 кнопок `alignItems(type: AlignmentType)` из sceneStore; активны только при `selectedItemIds.length ≥ 2`
+
+**Состояние в uiStore:** `showGizmo: boolean`, `toggleGizmo()`
+
+**Экшн в sceneStore:** `alignItems(alignment: AlignmentType)` — выравнивает выделенные элементы по грани/центру, пишет в историю.
+
+`AlignmentType`: `left | right | centerX | top | bottom | centerY | front | back | centerZ`
+
+⚠️ `alignItems` не клампит результат к границам комнаты — элементы могут выйти за стены. `centerX/Y/Z` вычисляют **среднее арифметическое центров** (не центр bounding box выделения). Оба поведения намеренны для MVP.
 
 ---
 

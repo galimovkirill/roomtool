@@ -6,6 +6,17 @@ import { DEFAULT_SCENE_GROUPS, DEFAULT_SCENE_ITEMS } from './defaultScene'
 
 type ItemPatch = Partial<Pick<SceneItem, 'position' | 'rotationY' | 'dimensions' | 'properties'>>
 
+export type AlignmentType =
+  | 'left'
+  | 'right'
+  | 'centerX'
+  | 'top'
+  | 'bottom'
+  | 'centerY'
+  | 'front'
+  | 'back'
+  | 'centerZ'
+
 type Vec3 = [number, number, number]
 
 type HistorySnapshot = { items: SceneItem[]; groups: SceneGroup[] }
@@ -45,6 +56,7 @@ interface SceneState {
   removeGroup: (groupId: string) => void
   renameGroup: (groupId: string, name: string) => void
   toggleGroupCollapse: (groupId: string) => void
+  alignItems: (alignment: AlignmentType) => void
   undo: () => void
   redo: () => void
 }
@@ -379,6 +391,86 @@ export const useSceneStore = create<SceneState>((set, get) => ({
     set((state) => ({
       groups: state.groups.map((g) => (g.id === groupId ? { ...g, collapsed: !g.collapsed } : g)),
     }))
+  },
+
+  alignItems(alignment) {
+    set((state) => {
+      const selected = state.selectedItemIds.flatMap((id) => {
+        const item = state.items.find((i) => i.id === id)
+        return item ? [item] : []
+      })
+      if (selected.length < 2) return {}
+      if (state.dragSession) return {}
+
+      let target = 0
+      switch (alignment) {
+        case 'left':
+          target = Math.min(...selected.map((i) => i.position[0] - i.dimensions.width / 2))
+          break
+        case 'right':
+          target = Math.max(...selected.map((i) => i.position[0] + i.dimensions.width / 2))
+          break
+        case 'centerX':
+          target = selected.reduce((sum, i) => sum + i.position[0], 0) / selected.length
+          break
+        case 'top':
+          target = Math.max(...selected.map((i) => i.position[1] + i.dimensions.height / 2))
+          break
+        case 'bottom':
+          target = Math.min(...selected.map((i) => i.position[1] - i.dimensions.height / 2))
+          break
+        case 'centerY':
+          target = selected.reduce((sum, i) => sum + i.position[1], 0) / selected.length
+          break
+        case 'front':
+          target = Math.min(...selected.map((i) => i.position[2] - i.dimensions.depth / 2))
+          break
+        case 'back':
+          target = Math.max(...selected.map((i) => i.position[2] + i.dimensions.depth / 2))
+          break
+        case 'centerZ':
+          target = selected.reduce((sum, i) => sum + i.position[2], 0) / selected.length
+          break
+      }
+
+      const selectedSet = new Set(state.selectedItemIds)
+      const items = state.items.map((item) => {
+        if (!selectedSet.has(item.id)) return item
+        let pos: Vec3
+        switch (alignment) {
+          case 'left':
+            pos = [target + item.dimensions.width / 2, item.position[1], item.position[2]]
+            break
+          case 'right':
+            pos = [target - item.dimensions.width / 2, item.position[1], item.position[2]]
+            break
+          case 'centerX':
+            pos = [target, item.position[1], item.position[2]]
+            break
+          case 'top':
+            pos = [item.position[0], target - item.dimensions.height / 2, item.position[2]]
+            break
+          case 'bottom':
+            pos = [item.position[0], target + item.dimensions.height / 2, item.position[2]]
+            break
+          case 'centerY':
+            pos = [item.position[0], target, item.position[2]]
+            break
+          case 'front':
+            pos = [item.position[0], item.position[1], target + item.dimensions.depth / 2]
+            break
+          case 'back':
+            pos = [item.position[0], item.position[1], target - item.dimensions.depth / 2]
+            break
+          case 'centerZ':
+            pos = [item.position[0], item.position[1], target]
+            break
+        }
+        return { ...item, position: pos }
+      })
+
+      return { ...pushHistory(state), items }
+    })
   },
 
   undo() {

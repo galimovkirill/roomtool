@@ -6,6 +6,7 @@ import { useSceneStore, useUIStore } from '@/store'
 import { Room } from './Room'
 import { SceneControls } from './SceneControls'
 import { SceneOverlay } from './SceneOverlay'
+import { SceneRibbon } from './SceneRibbon'
 import { SceneElement } from './SceneElement'
 import { TransformProxy } from './TransformProxy'
 
@@ -18,6 +19,7 @@ const perspPosition: [number, number, number] = [
 
 export function SceneCanvas() {
   const sceneMode = useUIStore((s) => s.sceneMode)
+  const showGizmo = useUIStore((s) => s.showGizmo)
   const items = useSceneStore((s) => s.items)
   const groups = useSceneStore((s) => s.groups)
   const selectedItemIds = useSceneStore((s) => s.selectedItemIds)
@@ -38,31 +40,40 @@ export function SceneCanvas() {
   const showTransformProxy = selectedItemIds.length === 1 || activeGroupId !== null
 
   return (
-    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-      <Canvas style={{ width: '100%', height: '100%' }} onPointerMissed={() => selectItem(null)}>
-        {sceneMode === '3d' ? (
-          <PerspectiveCamera makeDefault position={perspPosition} fov={fov} near={near} far={far} />
-        ) : (
-          // up={[0,0,-1]}: стабильная ориентация при взгляде строго вниз, +Z → верх экрана
-          <OrthographicCamera
-            makeDefault
-            position={[0, SCENE_CONFIG.room.height * 2, 0]}
-            up={[0, 0, -1]}
-            zoom={0.3}
-            near={near}
-            far={far}
-          />
-        )}
-        <ambientLight intensity={0.6} />
-        <directionalLight position={[5000, 8000, 5000]} />
-        <Room />
-        <SceneControls enableRotate={sceneMode === '3d'} />
-        {items.map((item) => (
-          <SceneElement key={item.id} item={item} />
-        ))}
-        {showTransformProxy && <TransformProxy targetIds={selectedItemIds} />}
-      </Canvas>
-      <SceneOverlay />
+    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <SceneRibbon />
+      <div style={{ flex: 1, position: 'relative' }}>
+        <Canvas style={{ width: '100%', height: '100%' }} onPointerMissed={() => selectItem(null)}>
+          {sceneMode === '3d' ? (
+            <PerspectiveCamera
+              makeDefault
+              position={perspPosition}
+              fov={fov}
+              near={near}
+              far={far}
+            />
+          ) : (
+            // up={[0,0,-1]}: стабильная ориентация при взгляде строго вниз, +Z → верх экрана
+            <OrthographicCamera
+              makeDefault
+              position={[0, SCENE_CONFIG.room.height * 2, 0]}
+              up={[0, 0, -1]}
+              zoom={0.3}
+              near={near}
+              far={far}
+            />
+          )}
+          <ambientLight intensity={0.6} />
+          <directionalLight position={[5000, 8000, 5000]} />
+          <Room />
+          <SceneControls enableRotate={sceneMode === '3d'} />
+          {items.map((item) => (
+            <SceneElement key={item.id} item={item} />
+          ))}
+          {showTransformProxy && showGizmo && <TransformProxy targetIds={selectedItemIds} />}
+        </Canvas>
+        <SceneOverlay />
+      </div>
     </div>
   )
 }

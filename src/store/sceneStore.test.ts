@@ -732,3 +732,238 @@ describe('editItem / closeEditing', () => {
     expect(useSceneStore.getState().editingItemId).toBeNull()
   })
 })
+
+describe('alignItems', () => {
+  const WIDE_ITEM: CatalogItem = {
+    id: 'back-panel',
+    name: 'Задняя панель',
+    category: 'Корпус',
+    defaultDimensions: { width: 100, height: 200, depth: 50 },
+    properties: [],
+  }
+
+  it('выравнивает левые грани (left): все items получают min X', () => {
+    useSceneStore.getState().addItem(WIDE_ITEM)
+    useSceneStore.getState().addItem(WIDE_ITEM)
+    useSceneStore.getState().addItem(WIDE_ITEM)
+    const [a, b, c] = useSceneStore.getState().items
+
+    // Place items at different X positions
+    useSceneStore.getState().updateItem(a.id, { position: [0, 100, 0] })
+    useSceneStore.getState().updateItem(b.id, { position: [200, 100, 0] })
+    useSceneStore.getState().updateItem(c.id, { position: [-150, 100, 0] })
+
+    useSceneStore.getState().selectItems([a.id, b.id, c.id])
+    useSceneStore.getState().alignItems('left')
+
+    const updated = useSceneStore.getState().items
+    const getItem = (id: string) => updated.find((i) => i.id === id)!
+
+    // minX = min(0 - 50, 200 - 50, -150 - 50) = min(-50, 150, -200) = -200
+    const expectedLeft = -200
+    expect(getItem(a.id).position[0] - a.dimensions.width / 2).toBeCloseTo(expectedLeft)
+    expect(getItem(b.id).position[0] - b.dimensions.width / 2).toBeCloseTo(expectedLeft)
+    expect(getItem(c.id).position[0] - c.dimensions.width / 2).toBeCloseTo(expectedLeft)
+  })
+
+  it('не меняет ничего если выделен 1 или 0 элементов', () => {
+    useSceneStore.getState().addItem(WIDE_ITEM)
+    const [a] = useSceneStore.getState().items
+    const positionBefore = [...a.position]
+
+    // 1 selected
+    useSceneStore.getState().selectItems([a.id])
+    useSceneStore.getState().alignItems('left')
+    expect(useSceneStore.getState().items[0].position).toEqual(positionBefore)
+
+    // 0 selected
+    useSceneStore.getState().selectItems([])
+    useSceneStore.getState().alignItems('left')
+    expect(useSceneStore.getState().items[0].position).toEqual(positionBefore)
+  })
+
+  it('записывает в историю (undo возвращает позиции)', () => {
+    useSceneStore.getState().addItem(WIDE_ITEM)
+    useSceneStore.getState().addItem(WIDE_ITEM)
+    const [a, b] = useSceneStore.getState().items
+
+    useSceneStore.getState().updateItem(a.id, { position: [0, 100, 0] })
+    useSceneStore.getState().updateItem(b.id, { position: [300, 100, 0] })
+
+    const posA = [...useSceneStore.getState().items.find((i) => i.id === a.id)!.position]
+    const posB = [...useSceneStore.getState().items.find((i) => i.id === b.id)!.position]
+
+    useSceneStore.getState().selectItems([a.id, b.id])
+    useSceneStore.getState().alignItems('left')
+
+    // After alignment positions changed
+    const afterA = useSceneStore.getState().items.find((i) => i.id === a.id)!
+    const afterB = useSceneStore.getState().items.find((i) => i.id === b.id)!
+    const minLeft = Math.min(posA[0] - 50, posB[0] - 50)
+    expect(afterA.position[0] - 50).toBeCloseTo(minLeft)
+    expect(afterB.position[0] - 50).toBeCloseTo(minLeft)
+
+    // Undo restores original positions
+    useSceneStore.getState().undo()
+    const restoredA = useSceneStore.getState().items.find((i) => i.id === a.id)!
+    const restoredB = useSceneStore.getState().items.find((i) => i.id === b.id)!
+    expect(restoredA.position).toEqual(posA)
+    expect(restoredB.position).toEqual(posB)
+  })
+
+  it('выравнивает по оси Z (back): все items получают max Z', () => {
+    useSceneStore.getState().addItem(WIDE_ITEM)
+    useSceneStore.getState().addItem(WIDE_ITEM)
+    const [a, b] = useSceneStore.getState().items
+
+    useSceneStore.getState().updateItem(a.id, { position: [0, 100, 0] })
+    useSceneStore.getState().updateItem(b.id, { position: [0, 100, 200] })
+
+    useSceneStore.getState().selectItems([a.id, b.id])
+    useSceneStore.getState().alignItems('back')
+
+    const updated = useSceneStore.getState().items
+    const ga = updated.find((i) => i.id === a.id)!
+    const gb = updated.find((i) => i.id === b.id)!
+
+    // maxZ = max(0 + 25, 200 + 25) = 225
+    expect(ga.position[2] + ga.dimensions.depth / 2).toBeCloseTo(225)
+    expect(gb.position[2] + gb.dimensions.depth / 2).toBeCloseTo(225)
+  })
+
+  it('right: выравнивает правые грани по max X', () => {
+    useSceneStore.getState().addItem(WIDE_ITEM)
+    useSceneStore.getState().addItem(WIDE_ITEM)
+    const [a, b] = useSceneStore.getState().items
+    useSceneStore.getState().updateItem(a.id, { position: [0, 100, 0] })
+    useSceneStore.getState().updateItem(b.id, { position: [200, 100, 0] })
+    useSceneStore.getState().selectItems([a.id, b.id])
+    useSceneStore.getState().alignItems('right')
+    const items = useSceneStore.getState().items
+    const ga = items.find((i) => i.id === a.id)!
+    const gb = items.find((i) => i.id === b.id)!
+    // maxX = max(0+50, 200+50) = 250
+    expect(ga.position[0] + ga.dimensions.width / 2).toBeCloseTo(250)
+    expect(gb.position[0] + gb.dimensions.width / 2).toBeCloseTo(250)
+  })
+
+  it('centerX: выравнивает центры по среднему X', () => {
+    useSceneStore.getState().addItem(WIDE_ITEM)
+    useSceneStore.getState().addItem(WIDE_ITEM)
+    const [a, b] = useSceneStore.getState().items
+    useSceneStore.getState().updateItem(a.id, { position: [0, 100, 0] })
+    useSceneStore.getState().updateItem(b.id, { position: [200, 100, 0] })
+    useSceneStore.getState().selectItems([a.id, b.id])
+    useSceneStore.getState().alignItems('centerX')
+    const items = useSceneStore.getState().items
+    const ga = items.find((i) => i.id === a.id)!
+    const gb = items.find((i) => i.id === b.id)!
+    // center = (0+200)/2 = 100
+    expect(ga.position[0]).toBeCloseTo(100)
+    expect(gb.position[0]).toBeCloseTo(100)
+  })
+
+  it('centerX с разноразмерными элементами: среднее арифметическое центров (не bounding box)', () => {
+    const NARROW: CatalogItem = {
+      id: 'top-panel',
+      name: 'Верхняя панель',
+      category: 'Корпус',
+      defaultDimensions: { width: 40, height: 200, depth: 50 },
+      properties: [],
+    }
+    useSceneStore.getState().addItem(WIDE_ITEM) // width=100
+    useSceneStore.getState().addItem(NARROW) // width=40
+    const [a, b] = useSceneStore.getState().items
+    // A at x=0 (w=100), B at x=300 (w=40)
+    useSceneStore.getState().updateItem(a.id, { position: [0, 100, 0] })
+    useSceneStore.getState().updateItem(b.id, { position: [300, 100, 0] })
+    useSceneStore.getState().selectItems([a.id, b.id])
+    useSceneStore.getState().alignItems('centerX')
+    const items = useSceneStore.getState().items
+    const ga = items.find((i) => i.id === a.id)!
+    const gb = items.find((i) => i.id === b.id)!
+    // среднее центров: (0 + 300) / 2 = 150 (не bounding-box центр)
+    expect(ga.position[0]).toBeCloseTo(150)
+    expect(gb.position[0]).toBeCloseTo(150)
+  })
+
+  it('top: выравнивает верхние грани по max Y', () => {
+    useSceneStore.getState().addItem(WIDE_ITEM)
+    useSceneStore.getState().addItem(WIDE_ITEM)
+    const [a, b] = useSceneStore.getState().items
+    useSceneStore.getState().updateItem(a.id, { position: [0, 100, 0] })
+    useSceneStore.getState().updateItem(b.id, { position: [0, 300, 0] })
+    useSceneStore.getState().selectItems([a.id, b.id])
+    useSceneStore.getState().alignItems('top')
+    const items = useSceneStore.getState().items
+    const ga = items.find((i) => i.id === a.id)!
+    const gb = items.find((i) => i.id === b.id)!
+    // maxY = max(100+100, 300+100) = 400
+    expect(ga.position[1] + ga.dimensions.height / 2).toBeCloseTo(400)
+    expect(gb.position[1] + gb.dimensions.height / 2).toBeCloseTo(400)
+  })
+
+  it('bottom: выравнивает нижние грани по min Y', () => {
+    useSceneStore.getState().addItem(WIDE_ITEM)
+    useSceneStore.getState().addItem(WIDE_ITEM)
+    const [a, b] = useSceneStore.getState().items
+    useSceneStore.getState().updateItem(a.id, { position: [0, 100, 0] })
+    useSceneStore.getState().updateItem(b.id, { position: [0, 300, 0] })
+    useSceneStore.getState().selectItems([a.id, b.id])
+    useSceneStore.getState().alignItems('bottom')
+    const items = useSceneStore.getState().items
+    const ga = items.find((i) => i.id === a.id)!
+    const gb = items.find((i) => i.id === b.id)!
+    // minY = min(100-100, 300-100) = 0
+    expect(ga.position[1] - ga.dimensions.height / 2).toBeCloseTo(0)
+    expect(gb.position[1] - gb.dimensions.height / 2).toBeCloseTo(0)
+  })
+
+  it('centerY: выравнивает центры по среднему Y', () => {
+    useSceneStore.getState().addItem(WIDE_ITEM)
+    useSceneStore.getState().addItem(WIDE_ITEM)
+    const [a, b] = useSceneStore.getState().items
+    useSceneStore.getState().updateItem(a.id, { position: [0, 100, 0] })
+    useSceneStore.getState().updateItem(b.id, { position: [0, 300, 0] })
+    useSceneStore.getState().selectItems([a.id, b.id])
+    useSceneStore.getState().alignItems('centerY')
+    const items = useSceneStore.getState().items
+    const ga = items.find((i) => i.id === a.id)!
+    const gb = items.find((i) => i.id === b.id)!
+    // center = (100+300)/2 = 200
+    expect(ga.position[1]).toBeCloseTo(200)
+    expect(gb.position[1]).toBeCloseTo(200)
+  })
+
+  it('front: выравнивает передние грани по min Z', () => {
+    useSceneStore.getState().addItem(WIDE_ITEM)
+    useSceneStore.getState().addItem(WIDE_ITEM)
+    const [a, b] = useSceneStore.getState().items
+    useSceneStore.getState().updateItem(a.id, { position: [0, 100, 0] })
+    useSceneStore.getState().updateItem(b.id, { position: [0, 100, 200] })
+    useSceneStore.getState().selectItems([a.id, b.id])
+    useSceneStore.getState().alignItems('front')
+    const items = useSceneStore.getState().items
+    const ga = items.find((i) => i.id === a.id)!
+    const gb = items.find((i) => i.id === b.id)!
+    // minZ = min(0-25, 200-25) = -25
+    expect(ga.position[2] - ga.dimensions.depth / 2).toBeCloseTo(-25)
+    expect(gb.position[2] - gb.dimensions.depth / 2).toBeCloseTo(-25)
+  })
+
+  it('centerZ: выравнивает центры по среднему Z', () => {
+    useSceneStore.getState().addItem(WIDE_ITEM)
+    useSceneStore.getState().addItem(WIDE_ITEM)
+    const [a, b] = useSceneStore.getState().items
+    useSceneStore.getState().updateItem(a.id, { position: [0, 100, 0] })
+    useSceneStore.getState().updateItem(b.id, { position: [0, 100, 200] })
+    useSceneStore.getState().selectItems([a.id, b.id])
+    useSceneStore.getState().alignItems('centerZ')
+    const items = useSceneStore.getState().items
+    const ga = items.find((i) => i.id === a.id)!
+    const gb = items.find((i) => i.id === b.id)!
+    // center = (0+200)/2 = 100
+    expect(ga.position[2]).toBeCloseTo(100)
+    expect(gb.position[2]).toBeCloseTo(100)
+  })
+})
