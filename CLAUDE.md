@@ -183,7 +183,7 @@ window.dispatchEvent(new CustomEvent('transform-end'))
 ### Undo/Redo
 Реализован в `sceneStore` через два стека (`history`, `future`, лимит 50).
 Снимок истории хранит и `items`, и `groups`. Каждая мутирующая операция
-(add/remove/update/rotate + групповые: createGroup/ungroup/moveGroup/removeGroup)
+(add/remove/removeItems/update/rotate + групповые: createGroup/ungroup/moveGroup/removeGroup)
 вызывает `pushHistory` перед изменением. Интерактивный drag — особый случай: `beginDrag`
 снимает снапшот, `endDrag(true)` кладёт его в историю **одним** шагом (см. «Drag-сессия»),
 а `dragSelectionBy` в историю не пишет.

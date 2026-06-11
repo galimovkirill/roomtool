@@ -52,7 +52,7 @@ export function LayersPanel() {
   const editItem = useSceneStore((s) => s.editItem)
   const createGroup = useSceneStore((s) => s.createGroup)
   const ungroupItems = useSceneStore((s) => s.ungroupItems)
-  const removeItem = useSceneStore((s) => s.removeItem)
+  const removeItems = useSceneStore((s) => s.removeItems)
   const removeGroup = useSceneStore((s) => s.removeGroup)
   const renameGroup = useSceneStore((s) => s.renameGroup)
   const toggleGroupCollapse = useSceneStore((s) => s.toggleGroupCollapse)
@@ -303,10 +303,14 @@ export function LayersPanel() {
                 </ContextMenu.Item>
               )}
               <ContextMenu.Item
-                className="px-3 py-1.5 text-sm cursor-pointer rounded hover:bg-gray-100 outline-none"
-                onSelect={() => ctxTarget && removeItem(ctxTarget.id)}
+                className="px-3 py-1.5 text-sm cursor-pointer rounded hover:bg-red-50 text-red-600 outline-none"
+                onSelect={() => {
+                  const ids =
+                    selectedItemIds.length >= 1 ? selectedItemIds : ctxTarget ? [ctxTarget.id] : []
+                  removeItems(ids)
+                }}
               >
-                Удалить
+                {selectedItemIds.length > 1 ? `Удалить (${selectedItemIds.length})` : 'Удалить'}
               </ContextMenu.Item>
               {ctxItem?.groupId && (
                 <>

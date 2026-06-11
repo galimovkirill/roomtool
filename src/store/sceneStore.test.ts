@@ -243,6 +243,67 @@ describe('removeItem', () => {
   })
 })
 
+describe('removeItems', () => {
+  it('removes multiple items in one history step', () => {
+    useSceneStore.getState().addItem(TEST_ITEM)
+    useSceneStore.getState().addItem(TEST_ITEM)
+    useSceneStore.getState().addItem(TEST_ITEM)
+    const [a, b] = useSceneStore.getState().items
+    const historyBefore = useSceneStore.getState().history.length
+    useSceneStore.getState().removeItems([a.id, b.id])
+    const { items, history } = useSceneStore.getState()
+    expect(items).toHaveLength(1)
+    expect(history).toHaveLength(historyBefore + 1)
+  })
+
+  it('removes items from different groups and auto-dissolves groups with ≤1 survivor', () => {
+    useSceneStore.getState().addItem(TEST_ITEM)
+    useSceneStore.getState().addItem(TEST_ITEM)
+    useSceneStore.getState().addItem(TEST_ITEM)
+    const [a, b, c] = useSceneStore.getState().items
+    useSceneStore.getState().selectItems([a.id, b.id])
+    useSceneStore.getState().createGroup()
+    // remove a — group dissolves (b survives ungrouped), c untouched
+    useSceneStore.getState().removeItems([a.id])
+    const { groups, items } = useSceneStore.getState()
+    expect(groups).toHaveLength(0)
+    expect(items.find((i) => i.id === b.id)?.groupId).toBeNull()
+    expect(items.find((i) => i.id === c.id)).toBeDefined()
+  })
+
+  it('keeps group intact when enough members survive', () => {
+    useSceneStore.getState().addItem(TEST_ITEM)
+    useSceneStore.getState().addItem(TEST_ITEM)
+    useSceneStore.getState().addItem(TEST_ITEM)
+    const [a, b, c] = useSceneStore.getState().items
+    useSceneStore.getState().selectItems([a.id, b.id, c.id])
+    useSceneStore.getState().createGroup()
+    const groupId = useSceneStore.getState().groups[0].id
+    useSceneStore.getState().removeItems([a.id])
+    const { groups } = useSceneStore.getState()
+    expect(groups).toHaveLength(1)
+    expect(groups[0].id).toBe(groupId)
+    expect(groups[0].itemIds).not.toContain(a.id)
+  })
+
+  it('clears editingItemId when the edited item is among removed', () => {
+    useSceneStore.getState().addItem(TEST_ITEM)
+    useSceneStore.getState().addItem(TEST_ITEM)
+    const [a, b] = useSceneStore.getState().items
+    useSceneStore.getState().editItem(a.id)
+    useSceneStore.getState().removeItems([a.id, b.id])
+    expect(useSceneStore.getState().editingItemId).toBeNull()
+  })
+
+  it('does not push history for empty ids array', () => {
+    useSceneStore.getState().addItem(TEST_ITEM)
+    const historyBefore = useSceneStore.getState().history.length
+    useSceneStore.getState().removeItems([])
+    expect(useSceneStore.getState().history).toHaveLength(historyBefore)
+    expect(useSceneStore.getState().items).toHaveLength(1)
+  })
+})
+
 describe('rotateItem', () => {
   it('rotates right by PI/2', () => {
     useSceneStore.getState().addItem(TEST_ITEM)

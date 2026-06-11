@@ -40,6 +40,7 @@ interface SceneState {
   dragSession: DragSession | null
   addItem: (catalogItem: CatalogItem) => void
   removeItem: (id: string) => void
+  removeItems: (ids: string[]) => void
   updateItem: (id: string, patch: ItemPatch) => void
   selectItem: (id: string | null) => void
   selectItems: (ids: string[]) => void
@@ -158,6 +159,46 @@ export const useSceneStore = create<SceneState>((set, get) => ({
         selectedItemId: state.selectedItemId === id ? null : state.selectedItemId,
         selectedItemIds: state.selectedItemIds.filter((sid) => sid !== id),
         editingItemId: state.editingItemId === id ? null : state.editingItemId,
+      }
+    })
+  },
+
+  removeItems(ids) {
+    if (ids.length === 0) return
+    set((state) => {
+      const idSet = new Set(ids)
+      const affectedGroupIds = new Set<string>()
+      for (const item of state.items) {
+        if (idSet.has(item.id) && item.groupId) affectedGroupIds.add(item.groupId)
+      }
+
+      const dissolvedGroupIds = new Set<string>()
+      let groups = state.groups
+      for (const groupId of affectedGroupIds) {
+        const group = groups.find((g) => g.id === groupId)
+        if (!group) continue
+        const remaining = group.itemIds.filter((iid) => !idSet.has(iid))
+        if (remaining.length <= 1) {
+          dissolvedGroupIds.add(groupId)
+          groups = groups.filter((g) => g.id !== groupId)
+        } else {
+          groups = groups.map((g) => (g.id === groupId ? { ...g, itemIds: remaining } : g))
+        }
+      }
+
+      const items = state.items
+        .filter((i) => !idSet.has(i.id))
+        .map((i) => (i.groupId && dissolvedGroupIds.has(i.groupId) ? { ...i, groupId: null } : i))
+
+      return {
+        ...pushHistory(state),
+        items,
+        groups,
+        selectedItemId:
+          state.selectedItemId && idSet.has(state.selectedItemId) ? null : state.selectedItemId,
+        selectedItemIds: state.selectedItemIds.filter((sid) => !idSet.has(sid)),
+        editingItemId:
+          state.editingItemId && idSet.has(state.editingItemId) ? null : state.editingItemId,
       }
     })
   },
