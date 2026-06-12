@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import * as THREE from 'three'
 import { Edges, useGLTF } from '@react-three/drei'
+import type { ThreeEvent } from '@react-three/fiber'
 import type { SceneItem } from '@/types'
 import { useSceneStore } from '@/store'
 import { getCatalogItemById } from '@/catalog/items'
 import { ResizeHandles } from './ResizeHandles'
+import { useMeshDrag } from './useMeshDrag'
 
 const DEFAULT_COLOR = '#cccccc'
 
@@ -50,6 +52,8 @@ export function SceneElement({ item }: Props) {
   const isSelected = selectedItemIds.includes(item.id)
   const isSingleSelected = selectedItemIds.length === 1 && selectedItemIds[0] === item.id
 
+  const { onPointerDown, onDragClick, isDraggingRef } = useMeshDrag(item.id)
+
   const propColor = item.properties?.color as string | undefined
   const color = propColor?.startsWith('#') ? propColor : DEFAULT_COLOR
   const isGlass = item.properties?.material === 'Стекло'
@@ -67,16 +71,18 @@ export function SceneElement({ item }: Props) {
     <group position={item.position} rotation={[0, item.rotationY, 0]}>
       {catalogItem?.render?.type === 'gltf' ? (
         <group
+          onPointerDown={onPointerDown}
           onPointerOver={() => {
             setHovered(true)
-            document.body.style.cursor = 'pointer'
+            document.body.style.cursor = isSelected ? 'grab' : 'pointer'
           }}
           onPointerOut={() => {
             setHovered(false)
-            document.body.style.cursor = 'auto'
+            if (!isDraggingRef.current) document.body.style.cursor = 'auto'
           }}
-          onClick={(e) => {
+          onClick={(e: ThreeEvent<MouseEvent>) => {
             e.stopPropagation()
+            if (onDragClick(e)) return
             selectItem(item.id)
           }}
           onDoubleClick={(e) => {
@@ -90,16 +96,18 @@ export function SceneElement({ item }: Props) {
         <mesh
           castShadow
           receiveShadow
+          onPointerDown={onPointerDown}
           onPointerOver={() => {
             setHovered(true)
-            document.body.style.cursor = 'pointer'
+            document.body.style.cursor = isSelected ? 'grab' : 'pointer'
           }}
           onPointerOut={() => {
             setHovered(false)
-            document.body.style.cursor = 'auto'
+            if (!isDraggingRef.current) document.body.style.cursor = 'auto'
           }}
-          onClick={(e) => {
+          onClick={(e: ThreeEvent<MouseEvent>) => {
             e.stopPropagation()
+            if (onDragClick(e)) return
             selectItem(item.id)
           }}
           onDoubleClick={(e) => {

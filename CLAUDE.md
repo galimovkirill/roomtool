@@ -101,9 +101,10 @@ src/
 │   │   ├── SceneCanvas.tsx          # R3F Canvas (только 3D) + монтирует Scene2DView в 2D
 │   │   ├── Scene2DView.tsx          # Чистый SVG-план (2D): pan/zoom, сетка, линейки, размерные линии
 │   │   ├── Room.tsx                 # Пол + стены (размеры из config; только в 3D-Canvas)
-│   │   ├── SceneElement.tsx         # Один элемент: mesh/GLTF + монтирует ResizeHandles при одиночном выделении
+│   │   ├── SceneElement.tsx         # Один элемент: mesh/GLTF + ResizeHandles + drag через useMeshDrag
+│   │   ├── useMeshDrag.ts           # Хук: drag выделенного элемента мышью (без гизмо), тот же store API
 │   │   ├── ResizeHandles.tsx        # 6 ручек изменения размера по граням AABB (drag-plane механика)
-│   │   ├── TransformProxy.tsx       # Единый gizmo перемещения для 1..N выделенных (pivot + drag-сессия)
+│   │   ├── TransformProxy.tsx       # Gizmo перемещения для 1..N выделенных (pivot + drag-сессия)
 │   │   ├── SceneControls.tsx        # OrbitControls (forwardRef)
 │   │   ├── SceneRibbon.tsx          # Лента (Ribbon): layout-обёртка, компонует ribbon/
 │   │   ├── ribbon/
@@ -170,21 +171,27 @@ Three.js-объекты рендерятся из стора (`<group position={
 мутируются императивно. Это убирает класс багов «стор разошёлся с визуалом» (элемент
 снапится назад / теряет индивидуальное перемещение).
 
-- Один механизм для одиночного элемента и группы — `TransformProxy`. Gizmo прицеплен к
-  **невидимому pivot**, а не к мешам. Pivot отдаёт дельту → `dragSelectionBy()` пишет позиции
-  в стор → элементы перерисовываются. Одиночный элемент = «группа из одного».
-- Gizmo показывается, когда выделен ровно один элемент **или** выделение точно совпадает с
-  группой (см. `showTransformProxy` в `SceneCanvas`). Произвольный мультивыбор не двигается.
+Два способа запустить drag-сессию — оба пишут через одни и те же store-примитивы:
+
+1. **Гизмо (`TransformProxy`)** — стрелки TransformControls. Pivot прицеплен к невидимому
+   мешу в центре выделения; отдаёт дельту → `dragSelectionBy()` → перерисовка.
+   Показывается при одиночном выделении или когда выделение точно совпадает с группой.
+
+2. **Прямой drag меша (`useMeshDrag`)** — клик+перетаскивание прямо по телу элемента.
+   Активируется, если элемент уже выбран в момент `pointerdown`. Drag plane горизонтальная
+   (Y = Y-координата точки клика), поэтому элемент движется только по XZ. Если
+   TransformProxy уже взял сессию (`dragSession !== null`), хук отступает.
+
 - **Не добавляй второй TransformControls на сам элемент** и не возвращай теневые ref-копии
-  позиции (`lastFramePos` и т.п.) — это и есть источник прошлых регрессий.
+  позиции (`lastFramePos` и т.п.) — это источник прошлых регрессий.
 
 ### Drag-сессия в сторе
 Интерактивное перемещение — это `beginDrag(ids)` → `dragSelectionBy(delta)` (каждый кадр,
 **без** истории) → `endDrag(commit)`. `beginDrag` снимает полный pre-drag снапшот; `dragSelectionBy`
 применяет дельту относительно стартовых позиций; `endDrag(true)` коммитит **один** undo-шаг на
 весь жест, `endDrag(false)` откатывает только при нулевом смещении. Дельта клампится по стенам
-(`clampGroupDelta`) и затем по другим элементам (`clampGroupDeltaAgainstItems`) на стороне
-`TransformProxy` — see «Проверка коллизий». `moveGroup()` остаётся отдельным one-shot
+(`clampGroupDelta`) и затем по другим элементам (`clampGroupDeltaAgainstItems`) — и в
+`TransformProxy`, и в `useMeshDrag` (оба вызывают `groupDragDelta`) — see «Проверка коллизий». `moveGroup()` остаётся отдельным one-shot
 delta+история примитивом (тесты, потенциальные хоткеи).
 
 ### Конфликт TransformControls и OrbitControls
