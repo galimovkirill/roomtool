@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from 'react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useSceneStore } from '@/store/sceneStore'
 import type { AlignmentType } from '@/store/sceneStore'
 
@@ -210,41 +210,17 @@ const ALIGN_GROUPS: { label: string; buttons: AlignButton[] }[] = [
 export function AlignmentPopover() {
   const selectedCount = useSceneStore((s) => s.selectedItemIds.length)
   const alignItems = useSceneStore((s) => s.alignItems)
-  const [alignOpen, setAlignOpen] = useState(false)
-  const alignRef = useRef<HTMLDivElement>(null)
-  const effectiveAlignOpen = alignOpen && selectedCount >= 2
-
-  useEffect(() => {
-    if (!effectiveAlignOpen) return
-    function handleMouseDown(e: MouseEvent) {
-      if (alignRef.current && !alignRef.current.contains(e.target as Node)) {
-        setAlignOpen(false)
-      }
-    }
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') setAlignOpen(false)
-    }
-    document.addEventListener('mousedown', handleMouseDown)
-    document.addEventListener('keydown', handleKeyDown)
-    return () => {
-      document.removeEventListener('mousedown', handleMouseDown)
-      document.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [effectiveAlignOpen])
+  const disabled = selectedCount < 2
 
   return (
-    <div className="relative" ref={alignRef}>
+    <Popover>
       <Tooltip>
         <TooltipTrigger
           render={
-            <button
-              type="button"
-              disabled={selectedCount < 2}
-              onClick={() => setAlignOpen((o) => !o)}
+            <PopoverTrigger
+              disabled={disabled}
               aria-label="Выровнять элементы"
-              aria-expanded={effectiveAlignOpen}
-              aria-haspopup="true"
-              className="px-2 py-1 rounded text-sm transition-colors cursor-pointer text-gray-500 border border-transparent hover:bg-gray-100 hover:text-gray-700 disabled:opacity-30 disabled:cursor-not-allowed aria-[expanded=true]:bg-blue-100 aria-[expanded=true]:text-blue-600 aria-[expanded=true]:border-blue-300"
+              className="px-2 py-1 rounded text-sm transition-colors cursor-pointer text-gray-500 border border-transparent hover:bg-gray-100 hover:text-gray-700 disabled:opacity-30 disabled:cursor-not-allowed data-[popup-open]:bg-blue-100 data-[popup-open]:text-blue-600 data-[popup-open]:border-blue-300"
             />
           }
         >
@@ -255,45 +231,40 @@ export function AlignmentPopover() {
         </TooltipContent>
       </Tooltip>
 
-      {effectiveAlignOpen && (
-        <div className="absolute top-full left-0 mt-1 z-50 bg-white rounded-lg border border-gray-200 shadow-lg p-2 min-w-max">
-          <div className="flex flex-col">
-            {ALIGN_GROUPS.map(({ label, buttons }, i) => (
-              <div key={label}>
-                {i > 0 && <div className="h-px bg-gray-200 my-1.5" />}
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-semibold text-gray-400 select-none w-3 text-center">
-                    {label}
-                  </span>
-                  <div className="flex gap-0.5">
-                    {buttons.map(({ type, title, icon }) => (
-                      <Tooltip key={type}>
-                        <TooltipTrigger
-                          render={
-                            <button
-                              type="button"
-                              onClick={() => {
-                                alignItems(type)
-                                setAlignOpen(false)
-                              }}
-                              className="w-8 h-8 flex items-center justify-center rounded text-gray-500 hover:bg-gray-100 hover:text-gray-900 transition-colors"
-                            />
-                          }
-                        >
-                          {icon}
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom" sideOffset={6}>
-                          {title}
-                        </TooltipContent>
-                      </Tooltip>
-                    ))}
-                  </div>
+      <PopoverContent side="bottom" align="start" sideOffset={4} className="w-auto p-2">
+        <div className="flex flex-col">
+          {ALIGN_GROUPS.map(({ label, buttons }, i) => (
+            <div key={label}>
+              {i > 0 && <div className="h-px bg-gray-200 my-1.5" />}
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-semibold text-gray-400 select-none w-3 text-center">
+                  {label}
+                </span>
+                <div className="flex gap-0.5">
+                  {buttons.map(({ type, title, icon }) => (
+                    <Tooltip key={type}>
+                      <TooltipTrigger
+                        render={
+                          <button
+                            type="button"
+                            onClick={() => alignItems(type)}
+                            className="w-8 h-8 flex items-center justify-center rounded text-gray-500 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+                          />
+                        }
+                      >
+                        {icon}
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" sideOffset={6}>
+                        {title}
+                      </TooltipContent>
+                    </Tooltip>
+                  ))}
                 </div>
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
-      )}
-    </div>
+      </PopoverContent>
+    </Popover>
   )
 }

@@ -49,6 +49,7 @@ shadcn/ui — единственный источник готовых комп�
 |--------|-----------------|--------|
 | Выпадающий список | Select | `@/components/ui/select` |
 | Тултип | Tooltip | `@/components/ui/tooltip` |
+| Поповер (DOM) | Popover | `@/components/ui/popover` |
 | Контекстное меню | ContextMenu | `@/components/ui/context-menu` |
 | Переключатель (toggle) | Toggle | `@/components/ui/toggle` |
 | Группа переключателей | ToggleGroup | `@/components/ui/toggle-group` |
@@ -299,7 +300,7 @@ toast.warning('Элементы не могут пересекаться')
 
 **Группы кнопок:**
 - **Вид**: переключатель 2D/3D; toggle гизмо (`showGizmo`); toggle потолочного освещения (`showCeilingLight`)
-- **Выравнивание**: одна кнопка-триггер (disabled при `selectedItemIds.length < 2`) → открывает кастомный поповер с 9 иконками, сгруппированными по осям X / Y / Z (по 3 кнопки в каждой группе); поповер закрывается по клику снаружи, Escape или после выбора выравнивания
+- **Выравнивание**: одна кнопка-триггер (disabled при `selectedItemIds.length < 2`) → открывает shadcn Popover с 9 иконками, сгруппированными по осям X / Y / Z (по 3 кнопки в каждой группе); закрытие по клику снаружи и Escape — нативное поведение Base UI
 
 **Состояние в uiStore:** `showGizmo: boolean`, `toggleGizmo()`, `showCeilingLight: boolean`, `toggleCeilingLight()`
 
