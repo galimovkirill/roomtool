@@ -103,7 +103,12 @@ src/
 │   │   ├── SceneElement.tsx         # Один элемент: mesh/GLTF + Popover (презентационный, без gizmo)
 │   │   ├── TransformProxy.tsx       # Единый gizmo перемещения для 1..N выделенных (pivot + drag-сессия)
 │   │   ├── SceneControls.tsx        # OrbitControls (forwardRef)
-│   │   ├── SceneRibbon.tsx          # Лента (Ribbon): 2D/3D, toggle гизмо, выравнивание
+│   │   ├── SceneRibbon.tsx          # Лента (Ribbon): layout-обёртка, компонует ribbon/
+│   │   ├── ribbon/
+│   │   │   ├── ViewModeToggle.tsx   # Переключатель 2D / 3D
+│   │   │   ├── GizmoToggle.tsx      # Toggle гизмо
+│   │   │   ├── CeilingLightToggle.tsx  # Toggle потолочного света
+│   │   │   └── AlignmentPopover.tsx # Кнопка + поповер выравнивания (иконки внутри)
 │   │   └── SceneOverlay.tsx         # Оверлей поверх canvas: координаты и размеры выделенного
 │   ├── panels/
 │   │   ├── RightPanel.tsx        # Вкладки Каталог/Слои; при выделении — PropertiesPanel
@@ -290,7 +295,7 @@ toast.warning('Элементы не могут пересекаться')
 
 ## Лента (Ribbon)
 
-`SceneRibbon.tsx` — горизонтальная панель (~40 px) над Canvas. Всегда видима.
+`SceneRibbon.tsx` — горизонтальная панель (~40 px) над Canvas. Всегда видима. Является тонкой layout-обёрткой; логика и состояние вынесены в `src/components/scene/ribbon/`.
 
 **Группы кнопок:**
 - **Вид**: переключатель 2D/3D; toggle гизмо (`showGizmo`); toggle потолочного освещения (`showCeilingLight`)
