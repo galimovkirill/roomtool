@@ -5,11 +5,12 @@ const btnCls =
   'p-1.5 rounded transition-colors text-gray-600 disabled:opacity-40 disabled:cursor-not-allowed enabled:hover:bg-gray-100'
 
 export function ItemActionsGroup() {
-  const selectedItemId = useSceneStore((s) => s.selectedItemId)
+  const selectedItemIds = useSceneStore((s) => s.selectedItemIds)
   const rotateItem = useSceneStore((s) => s.rotateItem)
   const removeItem = useSceneStore((s) => s.removeItem)
 
-  const disabled = selectedItemId === null
+  const disabled = selectedItemIds.length !== 1
+  const activeId = selectedItemIds[0]
 
   return (
     <div className="flex items-center gap-0.5">
@@ -21,7 +22,7 @@ export function ItemActionsGroup() {
               aria-label="Повернуть влево"
               disabled={disabled}
               className={btnCls}
-              onClick={() => selectedItemId && rotateItem(selectedItemId, 'left')}
+              onClick={() => activeId && rotateItem(activeId, 'left')}
             >
               <svg
                 width="16"
@@ -60,7 +61,7 @@ export function ItemActionsGroup() {
               aria-label="Повернуть вправо"
               disabled={disabled}
               className={btnCls}
-              onClick={() => selectedItemId && rotateItem(selectedItemId, 'right')}
+              onClick={() => activeId && rotateItem(activeId, 'right')}
             >
               <svg
                 width="16"
@@ -99,7 +100,7 @@ export function ItemActionsGroup() {
               aria-label="Удалить элемент"
               disabled={disabled}
               className={`${btnCls} enabled:hover:bg-red-50 enabled:hover:text-red-600`}
-              onClick={() => selectedItemId && removeItem(selectedItemId)}
+              onClick={() => activeId && removeItem(activeId)}
             >
               <svg
                 width="16"

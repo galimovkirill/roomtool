@@ -301,7 +301,7 @@ toast.warning('Элементы не могут пересекаться')
 **Группы кнопок:**
 - **Вид**: переключатель 2D/3D; toggle гизмо (`showGizmo`); toggle потолочного освещения (`showCeilingLight`)
 - **Выравнивание**: одна кнопка-триггер (disabled при `selectedItemIds.length < 2`) → открывает shadcn Popover с 9 иконками, сгруппированными по осям X / Y / Z (по 3 кнопки в каждой группе); закрытие по клику снаружи и Escape — нативное поведение Base UI
-- **Действия над элементом** (`ItemActionsGroup`): поворот влево / вправо / удаление — три кнопки, disabled при `selectedItemId === null` (нет одиночного выделения); вызывают `rotateItem(id, direction)` и `removeItem(id)` из sceneStore
+- **Действия над элементом** (`ItemActionsGroup`): поворот влево / вправо / удаление — три кнопки, disabled при `selectedItemIds.length !== 1`; вызывают `rotateItem(id, direction)` и `removeItem(id)` из sceneStore
 
 **Состояние в uiStore:** `showGizmo: boolean`, `toggleGizmo()`, `showCeilingLight: boolean`, `toggleCeilingLight()`
 
