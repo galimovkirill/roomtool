@@ -22,8 +22,6 @@ beforeEach(() => {
     history: [],
     future: [],
     dragSession: null,
-    resizeItemId: null,
-    resizeStartSnapshot: null,
   })
 })
 
@@ -1167,86 +1165,5 @@ describe('toggleItemVisibility / toggleGroupVisibility', () => {
     const groupId = useSceneStore.getState().groups[0].id
     useSceneStore.getState().toggleGroupVisibility(groupId)
     expect(useSceneStore.getState().history).toHaveLength(historyBefore)
-  })
-})
-
-describe('resize session', () => {
-  it('beginResize сохраняет снапшот и устанавливает resizeItemId', () => {
-    useSceneStore.getState().addItem(TEST_ITEM)
-    const item = useSceneStore.getState().items[0]
-    useSceneStore.getState().beginResize(item.id)
-    const state = useSceneStore.getState()
-    expect(state.resizeItemId).toBe(item.id)
-    expect(state.resizeStartSnapshot).not.toBeNull()
-    expect(state.resizeStartSnapshot!.items).toHaveLength(1)
-  })
-
-  it('resizeItemLive обновляет dimensions и position без записи в историю', () => {
-    useSceneStore.getState().addItem(TEST_ITEM)
-    const item = useSceneStore.getState().items[0]
-    useSceneStore.getState().beginResize(item.id)
-    const historyBefore = useSceneStore.getState().history.length
-
-    const newDims = { width: 100, height: 500, depth: 300 }
-    const newPos: [number, number, number] = [10, 250, 5]
-    useSceneStore.getState().resizeItemLive(item.id, newDims, newPos)
-
-    const updated = useSceneStore.getState().items[0]
-    expect(updated.dimensions).toEqual(newDims)
-    expect(updated.position).toEqual(newPos)
-    expect(useSceneStore.getState().history).toHaveLength(historyBefore)
-  })
-
-  it('endResize кладёт снапшот в историю, undo возвращает исходные dims/pos', () => {
-    useSceneStore.getState().addItem(TEST_ITEM)
-    const item = useSceneStore.getState().items[0]
-    const originalDims = { ...item.dimensions }
-    const originalPos: [number, number, number] = [...item.position] as [number, number, number]
-    const historyBefore = useSceneStore.getState().history.length
-
-    useSceneStore.getState().beginResize(item.id)
-    useSceneStore
-      .getState()
-      .resizeItemLive(item.id, { width: 999, height: 999, depth: 999 }, [0, 499.5, 0])
-    useSceneStore.getState().endResize()
-
-    expect(useSceneStore.getState().history).toHaveLength(historyBefore + 1)
-    expect(useSceneStore.getState().resizeItemId).toBeNull()
-    expect(useSceneStore.getState().resizeStartSnapshot).toBeNull()
-
-    useSceneStore.getState().undo()
-    const restored = useSceneStore.getState().items[0]
-    expect(restored.dimensions).toEqual(originalDims)
-    expect(restored.position).toEqual(originalPos)
-  })
-
-  it('двойной вызов beginResize не перезаписывает первый снапшот', () => {
-    useSceneStore.getState().addItem(TEST_ITEM)
-    const item = useSceneStore.getState().items[0]
-    useSceneStore.getState().beginResize(item.id)
-    const snapshot1 = useSceneStore.getState().resizeStartSnapshot
-
-    // Изменить и попробовать снова
-    useSceneStore
-      .getState()
-      .resizeItemLive(item.id, { width: 999, height: 999, depth: 999 }, [0, 499.5, 0])
-    useSceneStore.getState().beginResize(item.id)
-    const snapshot2 = useSceneStore.getState().resizeStartSnapshot
-
-    // Снапшот не обновился — второй beginResize игнорируется
-    expect(snapshot2).toBe(snapshot1)
-  })
-
-  it('resizeItemLive с чужим id игнорируется', () => {
-    useSceneStore.getState().addItem(TEST_ITEM)
-    useSceneStore.getState().addItem(TEST_ITEM)
-    const [a, b] = useSceneStore.getState().items
-    useSceneStore.getState().beginResize(a.id)
-    const dimsBefore = { ...b.dimensions }
-
-    useSceneStore
-      .getState()
-      .resizeItemLive(b.id, { width: 999, height: 999, depth: 999 }, [0, 499.5, 0])
-    expect(useSceneStore.getState().items[1].dimensions).toEqual(dimsBefore)
   })
 })

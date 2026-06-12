@@ -101,9 +101,8 @@ src/
 │   │   ├── SceneCanvas.tsx          # R3F Canvas (только 3D) + монтирует Scene2DView в 2D
 │   │   ├── Scene2DView.tsx          # Чистый SVG-план (2D): pan/zoom, сетка, линейки, размерные линии
 │   │   ├── Room.tsx                 # Пол + стены (размеры из config; только в 3D-Canvas)
-│   │   ├── SceneElement.tsx         # Один элемент: mesh/GLTF + ResizeHandles + drag через useMeshDrag
+│   │   ├── SceneElement.tsx         # Один элемент: mesh/GLTF + drag через useMeshDrag
 │   │   ├── useMeshDrag.ts           # Хук: drag выделенного элемента мышью (без гизмо), тот же store API
-│   │   ├── ResizeHandles.tsx        # 6 ручек изменения размера по граням AABB (drag-plane механика)
 │   │   ├── TransformProxy.tsx       # Gizmo перемещения для 1..N выделенных (pivot + drag-сессия)
 │   │   ├── SceneControls.tsx        # OrbitControls (forwardRef)
 │   │   ├── SceneRibbon.tsx          # Лента (Ribbon): layout-обёртка, компонует ribbon/
@@ -133,8 +132,7 @@ src/
 │   ├── collision.ts      # totalOverlapVolume / hasGroupCollision / clampGroupDelta / clampGroupDeltaAgainstItems (AABB)
 │   ├── clampToRoom.ts    # Удержание элемента в границах комнаты (чистая функция)
 │   ├── groupTransform.ts # computeGroupCenter / groupDragDelta / pivotPositionOnChange
-│   ├── layerTree.ts      # buildLayerTree / flattenLayerTree / getAllItemIdsInGroup — дерево для LayersPanel
-│   └── roomCoords.ts     # worldToRoomX/Z / roomToWorldX/Z — перевод мировых координат в «от угла»
+│   └── layerTree.ts      # buildLayerTree / flattenLayerTree / getAllItemIdsInGroup — дерево для LayersPanel
 ├── test/
 │   └── setup.ts          # @testing-library/jest-dom
 └── main.tsx              # Рендер: ScreenGuard > AppLayout (SceneCanvas + RightPanel) + Toaster
@@ -212,21 +210,13 @@ window.dispatchEvent(new CustomEvent('transform-end'))
 
 ⚠️ `undo`/`redo` реализованы в сторе, но **сейчас ни к чему не привязаны** (нет ни кнопки, ни хоткея). Если добавляешь привязку — делай её здесь.
 
-### Resize-сессия в сторе
-Изменение размера через ручки — `beginResize(id)` → `resizeItemLive(id, dims, pos)` (каждый кадр,
-**без** истории) → `endResize()`. По аналогии с drag-сессией: `beginResize` снимает снапшот,
-`resizeItemLive` обновляет `dimensions` и `position` напрямую, `endResize` всегда коммитит один
-undo-шаг. Если компонент размонтируется во время активного resize — cleanup effect вызывает
-`endResize()` автоматически.
-`resizeItemLive` с чужим `id` игнорируется. Двойной `beginResize` не перезаписывает снапшот.
-
 ### Undo/Redo
 Реализован в `sceneStore` через два стека (`history`, `future`, лимит 50).
 Снимок истории хранит и `items`, и `groups`. Каждая мутирующая операция
 (add/remove/removeItems/update/rotate + групповые: createGroup/ungroup/moveGroup/removeGroup)
 вызывает `pushHistory` перед изменением. Интерактивный drag — особый случай: `beginDrag`
 снимает снапшот, `endDrag(true)` кладёт его в историю **одним** шагом (см. «Drag-сессия»),
-а `dragSelectionBy` в историю не пишет. Resize работает аналогично (см. «Resize-сессия»).
+а `dragSelectionBy` в историю не пишет.
 `selectItem`/`selectItems`/`editItem`/`closeEditing`/`renameGroup`/`toggleGroupCollapse`/`toggleItemVisibility`/`toggleGroupVisibility` — **не** попадают в историю.
 `alignItems(alignment)` — **попадает** в историю (один undo-шаг на всё выравнивание).
 
@@ -400,11 +390,10 @@ GLB-файлы хранятся в `public/models/`.
 ## Тесты
 
 Юнит-тесты (Vitest + @testing-library/react). Файлы рядом с источником: `*.test.ts(x)`.
-Покрыто: `sceneStore` (мутации, группы, вложенные группы, undo/redo, drag-сессия, resize-сессия, инициализация material/color),
+Покрыто: `sceneStore` (мутации, группы, вложенные группы, undo/redo, drag-сессия, инициализация material/color),
 `uiStore`, `catalog/items`, `collision`, `clampToRoom`, `groupTransform`, `layerTree`
-(`buildLayerTree`, `flattenLayerTree`, `getAllItemIdsInGroup`), `roomCoords` (`worldToRoomX/Z`),
-`Scene2DView` (pan, zoom, выбор элемента), `PropertiesPanel` (форма, сброс цвета, GLTF-scale,
-поведенческие тесты в отдельном файле), `PropertyField`, `ScreenGuard`.
+(`buildLayerTree`, `flattenLayerTree`, `getAllItemIdsInGroup`), `PropertiesPanel`
+(форма, сброс цвета, GLTF-scale), `PropertyField`, `ScreenGuard`.
 
 **Компоненты 3D-сцены (R3F) не тестируются** — Three.js не работает в jsdom (нет WebGL).
 Поэтому чистую логику выноси из R3F-компонентов в `utils/` и покрывай там — как сделано с
@@ -425,6 +414,7 @@ GLB-файлы хранятся в `public/models/`.
 
 - Бэкенд, API, авторизация
 - Сохранение сцены (перезагрузка = сброс)
+- Скрытие элементов (только удаление)
 - Импорт/экспорт 3D-моделей
 - Мобильные устройства (< 1024px → заглушка)
 

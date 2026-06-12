@@ -5,7 +5,6 @@ import type { ThreeEvent } from '@react-three/fiber'
 import type { SceneItem } from '@/types'
 import { useSceneStore } from '@/store'
 import { getCatalogItemById } from '@/catalog/items'
-import { ResizeHandles } from './ResizeHandles'
 import { useMeshDrag } from './useMeshDrag'
 
 const DEFAULT_COLOR = '#cccccc'
@@ -50,7 +49,6 @@ export function SceneElement({ item }: Props) {
   const editItem = useSceneStore((s) => s.editItem)
 
   const isSelected = selectedItemIds.includes(item.id)
-  const isSingleSelected = selectedItemIds.length === 1 && selectedItemIds[0] === item.id
 
   const { onPointerDown, onDragClick, isDraggingRef } = useMeshDrag(item.id)
 
@@ -58,7 +56,6 @@ export function SceneElement({ item }: Props) {
   const color = propColor?.startsWith('#') ? propColor : DEFAULT_COLOR
   const isGlass = item.properties?.material === 'Стекло'
   const catalogItem = getCatalogItemById(item.catalogId)
-  const isGltf = catalogItem?.render?.type === 'gltf'
 
   useEffect(
     () => () => {
@@ -126,7 +123,6 @@ export function SceneElement({ item }: Props) {
           <Edges lineWidth={2} color={isSelected ? '#2563eb' : '#000000'} />
         </mesh>
       )}
-      {isSingleSelected && !isGltf && <ResizeHandles item={item} />}
     </group>
   )
 }
