@@ -103,7 +103,6 @@ src/
 │   │   └── PropertyField.tsx      # Поле ввода одного свойства
 │   └── ui/
 │       ├── AppLayout.tsx          # Корневой layout
-│       ├── ElementPopover.tsx     # Действия над выбранным элементом
 │       └── ScreenGuard.tsx        # Заглушка для экранов < 1024px
 ├── store/
 │   ├── sceneStore.ts              # Элементы на сцене, история, выбор
