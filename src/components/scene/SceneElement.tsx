@@ -3,7 +3,6 @@ import * as THREE from 'three'
 import { Edges, useGLTF } from '@react-three/drei'
 import type { SceneItem } from '@/types'
 import { useSceneStore } from '@/store'
-import { ElementPopover } from '@/components/ui/ElementPopover'
 import { getCatalogItemById } from '@/catalog/items'
 
 const DEFAULT_COLOR = '#cccccc'
@@ -116,7 +115,6 @@ export function SceneElement({ item }: Props) {
           <Edges lineWidth={2} color={isSelected ? '#2563eb' : '#000000'} />
         </mesh>
       )}
-      {selectedItemIds.length === 1 && isSelected && <ElementPopover item={item} />}
     </group>
   )
 }

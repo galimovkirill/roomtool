@@ -2,6 +2,7 @@ import { ViewModeToggle } from './ribbon/ViewModeToggle'
 import { GizmoToggle } from './ribbon/GizmoToggle'
 import { CeilingLightToggle } from './ribbon/CeilingLightToggle'
 import { AlignmentPopover } from './ribbon/AlignmentPopover'
+import { ItemActionsGroup } from './ribbon/ItemActionsGroup'
 
 export function SceneRibbon() {
   return (
@@ -12,6 +13,8 @@ export function SceneRibbon() {
       <CeilingLightToggle />
       <div className="w-px h-5 bg-gray-200 mx-1" />
       <AlignmentPopover />
+      <div className="w-px h-5 bg-gray-200 mx-1" />
+      <ItemActionsGroup />
     </div>
   )
 }
