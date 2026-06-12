@@ -53,6 +53,8 @@ interface SceneState {
   history: HistorySnapshot[]
   future: HistorySnapshot[]
   dragSession: DragSession | null
+  resizeItemId: string | null
+  resizeStartSnapshot: HistorySnapshot | null
   addItem: (catalogItem: CatalogItem) => void
   removeItem: (id: string) => void
   removeItems: (ids: string[]) => void
@@ -69,6 +71,13 @@ interface SceneState {
   beginDrag: (ids: string[]) => void
   dragSelectionBy: (delta: [number, number, number]) => void
   endDrag: (commit: boolean) => void
+  beginResize: (id: string) => void
+  resizeItemLive: (
+    id: string,
+    dims: { width: number; height: number; depth: number },
+    position: [number, number, number]
+  ) => void
+  endResize: () => void
   removeGroup: (groupId: string) => void
   renameGroup: (groupId: string, name: string) => void
   toggleGroupCollapse: (groupId: string) => void
@@ -102,6 +111,8 @@ export const useSceneStore = create<SceneState>((set, get) => ({
   history: [],
   future: [],
   dragSession: null,
+  resizeItemId: null,
+  resizeStartSnapshot: null,
 
   addItem(catalogItem) {
     set((state) => {
@@ -459,6 +470,44 @@ export const useSceneStore = create<SceneState>((set, get) => ({
         groups: dragSession.snapshot.groups,
         dragSession: null,
       })
+    }
+  },
+
+  // ── Interactive resize (handles) ─────────────────────────────────────────────
+  // Analogue of the drag session: beginResize snapshots state, resizeItemLive
+  // updates dims+pos without writing history, endResize commits one undo step.
+
+  beginResize(id) {
+    const { resizeItemId } = get()
+    if (resizeItemId !== null) return
+    set((state) => ({
+      resizeItemId: id,
+      resizeStartSnapshot: {
+        items: [...state.items],
+        groups: state.groups.map((g) => ({ ...g, itemIds: [...g.itemIds] })),
+      },
+    }))
+  },
+
+  resizeItemLive(id, dims, position) {
+    const { resizeItemId } = get()
+    if (resizeItemId !== id) return
+    set((state) => ({
+      items: state.items.map((item) =>
+        item.id === id ? { ...item, dimensions: { ...dims }, position } : item
+      ),
+    }))
+  },
+
+  endResize() {
+    const { resizeItemId, resizeStartSnapshot, history } = get()
+    if (resizeItemId === null) return
+    if (resizeStartSnapshot) {
+      const nextHistory = [...history, resizeStartSnapshot]
+      if (nextHistory.length > 50) nextHistory.shift()
+      set({ history: nextHistory, future: [], resizeItemId: null, resizeStartSnapshot: null })
+    } else {
+      set({ resizeItemId: null, resizeStartSnapshot: null })
     }
   },
 
