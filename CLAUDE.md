@@ -294,7 +294,7 @@ toast.warning('Элементы не могут пересекаться')
 
 **Группы кнопок:**
 - **Вид**: переключатель 2D/3D; toggle гизмо (`showGizmo`); toggle потолочного освещения (`showCeilingLight`)
-- **Выравнивание**: 9 кнопок `alignItems(type: AlignmentType)` из sceneStore; активны только при `selectedItemIds.length ≥ 2`
+- **Выравнивание**: одна кнопка-триггер (disabled при `selectedItemIds.length < 2`) → открывает кастомный поповер с 9 иконками, сгруппированными по осям X / Y / Z (по 3 кнопки в каждой группе); поповер закрывается по клику снаружи, Escape или после выбора выравнивания
 
 **Состояние в uiStore:** `showGizmo: boolean`, `toggleGizmo()`, `showCeilingLight: boolean`, `toggleCeilingLight()`
 
