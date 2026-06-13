@@ -9,7 +9,7 @@ import type { SceneItem } from '@/types'
 
 const MIN_SIZE = 10
 const MAX_SIZE = 10000
-const HANDLE_PX = 12
+const HANDLE_PX = 8
 
 type HandleAxis = '+x' | '-x' | '+y' | '-y' | '+z' | '-z'
 
