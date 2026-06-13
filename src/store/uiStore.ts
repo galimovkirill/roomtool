@@ -16,7 +16,7 @@ export const useUIStore = create<UIState>((set) => ({
   setSceneMode: (mode) => set({ sceneMode: mode }),
   activeRightPanelTab: 'catalog',
   setActiveRightPanelTab: (tab) => set({ activeRightPanelTab: tab }),
-  showGizmo: true,
+  showGizmo: false,
   toggleGizmo: () => set((s) => ({ showGizmo: !s.showGizmo })),
   showCeilingLight: true,
   toggleCeilingLight: () => set((s) => ({ showCeilingLight: !s.showCeilingLight })),
