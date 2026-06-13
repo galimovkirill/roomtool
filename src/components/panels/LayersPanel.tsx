@@ -289,7 +289,6 @@ export function LayersPanel() {
               {group.name}
             </span>
           )}
-          <span className="text-xs text-gray-400 flex-shrink-0">{allIds.length}</span>
           <button
             className={`flex-shrink-0 rounded p-0.5 transition-opacity ${
               group.hidden
