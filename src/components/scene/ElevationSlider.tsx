@@ -3,7 +3,7 @@ import { useShallow } from 'zustand/shallow'
 import { useSceneStore, useUIStore } from '@/store'
 import { SCENE_CONFIG } from '@/config/scene'
 import { isItemEffectivelyLocked } from '@/utils/locked'
-import { groupDragDelta } from '@/utils/groupTransform'
+import { computeGroupCenter, groupDragDelta } from '@/utils/groupTransform'
 import type { SceneItem } from '@/types'
 
 type Vec3 = [number, number, number]
@@ -13,69 +13,76 @@ const TRACK_PX = 200
 export function ElevationSlider() {
   const showGizmo = useUIStore((s) => s.showGizmo)
 
-  const { item, groups } = useSceneStore(
-    useShallow((s) => {
-      const id = s.selectedItemIds.length === 1 ? s.selectedItemIds[0] : null
-      return {
-        item: id ? s.items.find((i) => i.id === id) : undefined,
-        groups: s.groups,
-      }
-    })
+  const { selectedIds, items, groups } = useSceneStore(
+    useShallow((s) => ({
+      selectedIds: s.selectedItemIds,
+      items: s.items,
+      groups: s.groups,
+    }))
   )
+
+  const selectedItems = items.filter((i) => selectedIds.includes(i.id))
 
   const beginDrag = useSceneStore((s) => s.beginDrag)
   const dragSelectionBy = useSceneStore((s) => s.dragSelectionBy)
   const endDrag = useSceneStore((s) => s.endDrag)
 
   // Snapshot captured once at drag start — same pattern as TransformProxy/useMeshDrag.
-  const startPositionRef = useRef<Vec3 | null>(null)
+  const startCenterRef = useRef<Vec3 | null>(null)
   const startItemsRef = useRef<SceneItem[]>([])
+  const groupHeightRef = useRef<number>(0)
   const hasMoved = useRef(false)
 
-  if (showGizmo || !item || isItemEffectivelyLocked(item, groups)) return null
+  if (showGizmo || selectedItems.length === 0) return null
 
-  const itemHeight = item.dimensions.height
+  const allLocked = selectedItems.every((item) => isItemEffectivelyLocked(item, groups))
+  if (allLocked) return null
+
+  let minY = Infinity
+  let maxY = -Infinity
+  for (const item of selectedItems) {
+    minY = Math.min(minY, item.position[1] - item.dimensions.height / 2)
+    maxY = Math.max(maxY, item.position[1] + item.dimensions.height / 2)
+  }
+  const groupHeight = maxY - minY
   const roomHeight = SCENE_CONFIG.room.height
-  const maxOffset = roomHeight - itemHeight
+  const maxOffset = roomHeight - groupHeight
   if (maxOffset <= 0) return null
 
-  const currentOffset = Math.max(
-    0,
-    Math.min(maxOffset, Math.round(item.position[1] - itemHeight / 2))
-  )
-
-  const itemId = item.id
-  const itemPos = item.position
+  const currentOffset = Math.max(0, Math.min(maxOffset, Math.round(minY)))
 
   function handlePointerDown() {
     const snap = useSceneStore.getState()
-    startPositionRef.current = [...itemPos] as Vec3
+    const snapSelected = snap.items.filter((i) => selectedIds.includes(i.id))
+    startCenterRef.current = computeGroupCenter(snapSelected)
+    let snapMinY = Infinity
+    let snapMaxY = -Infinity
+    for (const it of snapSelected) {
+      snapMinY = Math.min(snapMinY, it.position[1] - it.dimensions.height / 2)
+      snapMaxY = Math.max(snapMaxY, it.position[1] + it.dimensions.height / 2)
+    }
+    groupHeightRef.current = snapMaxY - snapMinY
     startItemsRef.current = snap.items
     hasMoved.current = false
-    beginDrag([itemId])
+    beginDrag(selectedIds)
   }
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
-    if (!startPositionRef.current) return
-    const [startX, startY, startZ] = startPositionRef.current
+    if (!startCenterRef.current) return
     const newOffset = Number(e.target.value)
-    const newY = newOffset + itemHeight / 2
-    // groupDragDelta applies clampGroupDelta (walls) + clampGroupDeltaAgainstItems (other elements),
-    // exactly as TransformProxy does. X and Z stay fixed; only Y moves.
-    const delta = groupDragDelta(
-      [startX, newY, startZ],
-      [startX, startY, startZ],
-      [itemId],
-      startItemsRef.current
-    )
+    // Pivot (group center) shifts so that the group bottom lands at newOffset.
+    const newCenterY = newOffset + groupHeightRef.current / 2
+    const pivot: Vec3 = [startCenterRef.current[0], newCenterY, startCenterRef.current[2]]
+    const delta = groupDragDelta(pivot, startCenterRef.current, selectedIds, startItemsRef.current)
     dragSelectionBy(delta)
     hasMoved.current = true
   }
 
   function handlePointerUp() {
     endDrag(hasMoved.current)
-    startPositionRef.current = null
+    startCenterRef.current = null
     startItemsRef.current = []
+    groupHeightRef.current = 0
     hasMoved.current = false
   }
 

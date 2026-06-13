@@ -114,8 +114,8 @@ src/
 │   │   │   ├── AlignmentPopover.tsx # Кнопка + поповер выравнивания (иконки внутри)
 │   │   │   ├── ItemActionsGroup.tsx # Поворот влево/вправо + удаление выделенного элемента
 │   │   │   └── ResetSceneButton.tsx # Кнопка сброса сцены с confirm-диалогом
-│   │   ├── SceneOverlay.tsx         # Оверлей поверх canvas: координаты и размеры выделенного
-│   │   └── ElevationSlider.tsx      # Вертикальный ползунок высоты (Y) выделенного элемента; скрыт при showGizmo
+│   │   ├── SceneOverlay.tsx         # Оверлей поверх canvas: W/H/D выделенного элемента; при мультивыборе — bounding box всего выделения
+│   │   └── ElevationSlider.tsx      # Вертикальный ползунок высоты (Y) выделения (одного или нескольких); скрыт при showGizmo
 │   ├── panels/
 │   │   ├── RightPanel.tsx        # Вкладки Каталог/Слои; при выделении — PropertiesPanel
 │   │   ├── CatalogPanel.tsx      # Каталог с поиском и аккордеоном
