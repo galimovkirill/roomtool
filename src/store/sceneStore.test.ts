@@ -1170,6 +1170,64 @@ describe('toggleItemVisibility / toggleGroupVisibility', () => {
   })
 })
 
+describe('toggleItemLocked / toggleGroupLocked', () => {
+  it('toggleItemLocked блокирует и разблокирует элемент', () => {
+    useSceneStore.getState().addItem(TEST_ITEM)
+    const id = useSceneStore.getState().items[0].id
+    expect(useSceneStore.getState().items[0].locked).toBeFalsy()
+    useSceneStore.getState().toggleItemLocked(id)
+    expect(useSceneStore.getState().items[0].locked).toBe(true)
+    useSceneStore.getState().toggleItemLocked(id)
+    expect(useSceneStore.getState().items[0].locked).toBe(false)
+  })
+
+  it('toggleItemLocked не пишет в историю', () => {
+    useSceneStore.getState().addItem(TEST_ITEM)
+    const id = useSceneStore.getState().items[0].id
+    useSceneStore.getState().toggleItemLocked(id)
+    expect(useSceneStore.getState().history).toHaveLength(1) // только addItem
+  })
+
+  it('toggleGroupLocked блокирует и разблокирует группу', () => {
+    useSceneStore.getState().addItem(TEST_ITEM)
+    useSceneStore.getState().addItem(TEST_ITEM)
+    const [a, b] = useSceneStore.getState().items
+    useSceneStore.getState().selectItems([a.id, b.id])
+    useSceneStore.getState().createGroup()
+    const groupId = useSceneStore.getState().groups[0].id
+    expect(useSceneStore.getState().groups[0].locked).toBeFalsy()
+    useSceneStore.getState().toggleGroupLocked(groupId)
+    expect(useSceneStore.getState().groups[0].locked).toBe(true)
+    useSceneStore.getState().toggleGroupLocked(groupId)
+    expect(useSceneStore.getState().groups[0].locked).toBe(false)
+  })
+
+  it('toggleGroupLocked не трогает locked у элементов группы', () => {
+    useSceneStore.getState().addItem(TEST_ITEM)
+    useSceneStore.getState().addItem(TEST_ITEM)
+    const [a, b] = useSceneStore.getState().items
+    useSceneStore.getState().selectItems([a.id, b.id])
+    useSceneStore.getState().createGroup()
+    const groupId = useSceneStore.getState().groups[0].id
+    useSceneStore.getState().toggleGroupLocked(groupId)
+    const items = useSceneStore.getState().items
+    expect(items.find((i) => i.id === a.id)!.locked).toBeFalsy()
+    expect(items.find((i) => i.id === b.id)!.locked).toBeFalsy()
+  })
+
+  it('toggleGroupLocked не пишет в историю', () => {
+    useSceneStore.getState().addItem(TEST_ITEM)
+    useSceneStore.getState().addItem(TEST_ITEM)
+    const [a, b] = useSceneStore.getState().items
+    useSceneStore.getState().selectItems([a.id, b.id])
+    useSceneStore.getState().createGroup()
+    const historyBefore = useSceneStore.getState().history.length
+    const groupId = useSceneStore.getState().groups[0].id
+    useSceneStore.getState().toggleGroupLocked(groupId)
+    expect(useSceneStore.getState().history).toHaveLength(historyBefore)
+  })
+})
+
 describe('resize session', () => {
   function makeItem(id: string): SceneItem {
     return {

@@ -133,7 +133,8 @@ src/
 │   ├── collision.ts      # totalOverlapVolume / hasGroupCollision / clampGroupDelta / clampGroupDeltaAgainstItems (AABB)
 │   ├── clampToRoom.ts    # Удержание элемента в границах комнаты (чистая функция)
 │   ├── groupTransform.ts # computeGroupCenter / groupDragDelta / pivotPositionOnChange
-│   └── layerTree.ts      # buildLayerTree / flattenLayerTree / getAllItemIdsInGroup — дерево для LayersPanel
+│   ├── layerTree.ts      # buildLayerTree / flattenLayerTree / getAllItemIdsInGroup — дерево для LayersPanel
+│   └── locked.ts         # isItemEffectivelyLocked — проверка блокировки элемента (прямой флаг + родительские группы)
 ├── test/
 │   └── setup.ts          # @testing-library/jest-dom
 └── main.tsx              # Рендер: ScreenGuard > AppLayout (SceneCanvas + RightPanel) + Toaster
@@ -229,7 +230,7 @@ window.dispatchEvent(new CustomEvent('transform-end'))
 снимает снапшот, `endDrag(true)` кладёт его в историю **одним** шагом (см. «Drag-сессия»),
 а `dragSelectionBy` в историю не пишет. Аналогично: `beginResize()` снимает снапшот,
 `endResize(true)` кладёт в историю **одним** шагом, а `resizeLive` в историю не пишет.
-`selectItem`/`selectItems`/`editItem`/`closeEditing`/`renameGroup`/`toggleGroupCollapse`/`toggleItemVisibility`/`toggleGroupVisibility` — **не** попадают в историю.
+`selectItem`/`selectItems`/`editItem`/`closeEditing`/`renameGroup`/`toggleGroupCollapse`/`toggleItemVisibility`/`toggleGroupVisibility`/`toggleItemLocked`/`toggleGroupLocked` — **не** попадают в историю.
 `alignItems(alignment)` — **попадает** в историю (один undo-шаг на всё выравнивание).
 
 ### Группы, выделение и слои
@@ -245,6 +246,15 @@ window.dispatchEvent(new CustomEvent('transform-end'))
   `undo`/`redo`) либо выделение уходит на другой элемент (`selectItem` другого id /
   `selectItems` / `toggleItemSelection`) — панель и gizmo всегда согласованы.
 - 3D-клик по элементу → `selectItem()`. Клик в LayersPanel → `selectItems()`/`toggleItemSelection()`.
+- **Блокировка элементов.** `SceneItem.locked` и `SceneGroup.locked` — независимые флаги (не каскадируют
+  на уровне стора). Фактическая блокировка: `isItemEffectivelyLocked(item, groups)` из `utils/locked.ts`
+  — возвращает `true` если `item.locked` или любая родительская группа `locked`. Заблокированный элемент
+  можно выделить, но нельзя: перетащить (useMeshDrag, TransformProxy), изменить размер (ResizeHandles не
+  монтируется), открыть PropertiesPanel двойным кликом или через контекстное меню. Гизмо скрывается.
+  `SceneElement` получает `locked` как проп от `SceneCanvas` — не подписывается на `groups` самостоятельно,
+  чтобы не вызывать лишние re-render всех элементов при любом изменении групп.
+  В LayersPanel элементы в заблокированной группе показывают иконку замка (серую, `cursor-not-allowed`) —
+  клик по ней не переключает `item.locked` (нужно разблокировать группу).
 - `createGroup()` требует ≥2 выделенных; элемент состоит максимум в одной группе.
   Если все выделенные элементы имеют **одинаковый** прямой `groupId`, новая группа создаётся
   вложенной (`parentGroupId = общий родитель`). Иначе — на корневом уровне.

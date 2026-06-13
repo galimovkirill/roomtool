@@ -29,6 +29,7 @@ export interface SceneItem {
   properties: Record<string, number | string>
   groupId: string | null
   hidden?: boolean
+  locked?: boolean
 }
 
 export interface SceneGroup {
@@ -37,5 +38,6 @@ export interface SceneGroup {
   itemIds: string[]
   collapsed: boolean
   hidden?: boolean
+  locked?: boolean
   parentGroupId?: string | null
 }

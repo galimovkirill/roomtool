@@ -5,6 +5,7 @@ import type { SceneItem } from '@/types'
 import { useSceneStore } from '@/store'
 import { useUIStore } from '@/store/uiStore'
 import { computeGroupCenter, groupDragDelta } from '@/utils/groupTransform'
+import { isItemEffectivelyLocked } from '@/utils/locked'
 
 type Vec3 = [number, number, number]
 
@@ -68,9 +69,17 @@ export function TransformProxy({ targetIds }: Props) {
           mode="translate"
           showY={sceneMode === '3d'}
           onMouseDown={() => {
+            const snap = useSceneStore.getState()
+            if (
+              targetIds.some((id) => {
+                const it = snap.items.find((x) => x.id === id)
+                return it ? isItemEffectivelyLocked(it, snap.groups) : false
+              })
+            )
+              return
             draggingRef.current = true
             initialCenterRef.current = [...center] as Vec3
-            startItemsRef.current = useSceneStore.getState().items
+            startItemsRef.current = snap.items
             lastDeltaRef.current = [0, 0, 0]
             beginDrag(targetIds)
             window.dispatchEvent(new CustomEvent('transform-start'))

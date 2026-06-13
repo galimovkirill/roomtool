@@ -16,8 +16,45 @@ import {
 } from '@/utils/layerTree'
 import type { LayerNode } from '@/utils/layerTree'
 import type { SceneGroup, SceneItem } from '@/types'
+import { isItemEffectivelyLocked } from '@/utils/locked'
 
 type CtxTarget = { kind: 'item'; id: string } | { kind: 'group'; id: string } | null
+
+function LockClosedIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="3" y="7" width="10" height="8" rx="1.5" />
+      <path d="M5 7V5a3 3 0 0 1 6 0v2" />
+    </svg>
+  )
+}
+
+function LockOpenIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="3" y="7" width="10" height="8" rx="1.5" />
+      <path d="M5 7V5a3 3 0 0 1 6 0V2" />
+    </svg>
+  )
+}
 
 function EyeIcon() {
   return (
@@ -71,6 +108,8 @@ export function LayersPanel() {
   const toggleGroupCollapse = useSceneStore((s) => s.toggleGroupCollapse)
   const toggleItemVisibility = useSceneStore((s) => s.toggleItemVisibility)
   const toggleGroupVisibility = useSceneStore((s) => s.toggleGroupVisibility)
+  const toggleItemLocked = useSceneStore((s) => s.toggleItemLocked)
+  const toggleGroupLocked = useSceneStore((s) => s.toggleGroupLocked)
 
   const [ctxTarget, setCtxTarget] = useState<CtxTarget>(null)
   const [renamingGroupId, setRenamingGroupId] = useState<string | null>(null)
@@ -166,6 +205,32 @@ export function LayersPanel() {
         >
           {item.hidden ? <EyeOffIcon /> : <EyeIcon />}
         </button>
+        {(() => {
+          const effectivelyLocked = isItemEffectivelyLocked(item, groups)
+          const inheritedLock = !item.locked && effectivelyLocked
+          return (
+            <button
+              className={`flex-shrink-0 rounded p-0.5 transition-opacity text-gray-400 ${
+                effectivelyLocked
+                  ? 'opacity-60 hover:opacity-100'
+                  : 'opacity-0 group-hover/row:opacity-60 hover:!opacity-100'
+              } ${inheritedLock ? 'cursor-not-allowed' : ''}`}
+              aria-label={
+                item.locked
+                  ? 'Разблокировать элемент'
+                  : inheritedLock
+                    ? 'Заблокировано через группу'
+                    : 'Заблокировать элемент'
+              }
+              onClick={(e) => {
+                e.stopPropagation()
+                if (!inheritedLock) toggleItemLocked(item.id)
+              }}
+            >
+              {effectivelyLocked ? <LockClosedIcon /> : <LockOpenIcon />}
+            </button>
+          )
+        })()}
       </div>
     )
   }
@@ -239,6 +304,20 @@ export function LayersPanel() {
           >
             {group.hidden ? <EyeOffIcon /> : <EyeIcon />}
           </button>
+          <button
+            className={`flex-shrink-0 rounded p-0.5 transition-opacity ${
+              group.locked
+                ? 'opacity-60 hover:opacity-100 text-gray-400'
+                : 'opacity-0 group-hover/row:opacity-60 hover:!opacity-100 text-gray-400'
+            }`}
+            aria-label={group.locked ? 'Разблокировать группу' : 'Заблокировать группу'}
+            onClick={(e) => {
+              e.stopPropagation()
+              toggleGroupLocked(group.id)
+            }}
+          >
+            {group.locked ? <LockClosedIcon /> : <LockOpenIcon />}
+          </button>
         </div>
 
         {!group.collapsed && (
@@ -265,8 +344,16 @@ export function LayersPanel() {
         {ctxTarget?.kind === 'item' && (
           <>
             <ContextMenuItem
-              className="px-3 py-1.5 text-sm cursor-pointer rounded hover:bg-gray-100 outline-none"
-              onClick={() => ctxTarget && editItem(ctxTarget.id)}
+              className={`px-3 py-1.5 text-sm rounded outline-none ${
+                ctxItem && isItemEffectivelyLocked(ctxItem, groups)
+                  ? 'opacity-40 cursor-default'
+                  : 'cursor-pointer hover:bg-gray-100'
+              }`}
+              onClick={() => {
+                if (!ctxTarget) return
+                if (ctxItem && isItemEffectivelyLocked(ctxItem, groups)) return
+                editItem(ctxTarget.id)
+              }}
             >
               Редактировать
             </ContextMenuItem>

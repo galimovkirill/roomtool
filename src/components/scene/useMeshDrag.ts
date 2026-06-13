@@ -5,6 +5,7 @@ import { useThree } from '@react-three/fiber'
 import type { ThreeEvent } from '@react-three/fiber'
 import { useSceneStore } from '@/store'
 import { groupDragDelta } from '@/utils/groupTransform'
+import { isItemEffectivelyLocked } from '@/utils/locked'
 import type { SceneItem } from '@/types'
 
 const DRAG_THRESHOLD_SQ = 25 // 5px squared
@@ -93,8 +94,19 @@ export function useMeshDrag(itemId: string): MeshDragHandlers {
           if (dx * dx + dy * dy < DRAG_THRESHOLD_SQ) return
 
           // If TransformProxy already owns a drag session (gizmo arrow was clicked),
-          // back off and let the gizmo handle it.
-          if (useSceneStore.getState().dragSession !== null) return
+          // back off and let the gizmo handle it. Also abort if any target is locked.
+          const snap = useSceneStore.getState()
+          if (snap.dragSession !== null) return
+
+          // Abort drag if any target item is locked (directly or via a locked parent group).
+
+          if (
+            targetIdsRef.current.some((id) => {
+              const it = snap.items.find((x) => x.id === id)
+              return it ? isItemEffectivelyLocked(it, snap.groups) : false
+            })
+          )
+            return
 
           isDraggingRef.current = true
           wasDraggedRef.current = true

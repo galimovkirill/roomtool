@@ -36,13 +36,14 @@ function GltfMesh({ src, dimensions }: { src: string; dimensions: SceneItem['dim
 
 interface Props {
   item: SceneItem
+  locked: boolean
 }
 
 // Presentational only: renders the element from the store and reports clicks for
 // selection. Movement is handled entirely by TransformProxy via the store, so the
 // element position is never mutated imperatively here — there is no second source
 // of truth to drift out of sync.
-export function SceneElement({ item }: Props) {
+export function SceneElement({ item, locked }: Props) {
   const [hovered, setHovered] = useState(false)
   const selectedItemIds = useSceneStore((s) => s.selectedItemIds)
   const selectItem = useSceneStore((s) => s.selectItem)
@@ -84,7 +85,7 @@ export function SceneElement({ item }: Props) {
           }}
           onDoubleClick={(e) => {
             e.stopPropagation()
-            editItem(item.id)
+            if (!locked) editItem(item.id)
           }}
         >
           <GltfMesh src={catalogItem.render.src} dimensions={item.dimensions} />
@@ -109,7 +110,7 @@ export function SceneElement({ item }: Props) {
           }}
           onDoubleClick={(e) => {
             e.stopPropagation()
-            editItem(item.id)
+            if (!locked) editItem(item.id)
           }}
         >
           <boxGeometry

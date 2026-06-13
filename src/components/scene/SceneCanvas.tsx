@@ -14,6 +14,7 @@ import { TransformProxy } from './TransformProxy'
 import { ResizeHandles } from './ResizeHandles'
 import { Scene2DView } from './Scene2DView'
 import { getCatalogItemById } from '@/catalog/items'
+import { isItemEffectivelyLocked } from '@/utils/locked'
 
 const { initialPosition, fov, near, far } = SCENE_CONFIG.camera
 
@@ -72,18 +73,27 @@ export function SceneCanvas() {
     return item ? isItemVisibleInHierarchy(item, groups) : false
   })
 
+  const allSelectedNotLocked = selectedItemIds.every((id) => {
+    const item = items.find((i) => i.id === id)
+    return item ? !isItemEffectivelyLocked(item, groups) : true
+  })
+
   // Show the gizmo for a single element or a fully-selected group. An arbitrary
   // multi-selection that is not a saved group cannot be moved (no gizmo).
   const showTransformProxy =
-    (selectedItemIds.length === 1 || activeGroupId !== null) && allSelectedVisible
+    (selectedItemIds.length === 1 || activeGroupId !== null) &&
+    allSelectedVisible &&
+    allSelectedNotLocked
 
-  // Show resize handles for a single visible non-GLTF selection only
+  // Show resize handles for a single visible non-GLTF unlocked selection only
   const singleSelectedItem =
     selectedItemIds.length === 1 && allSelectedVisible
       ? items.find((i) => i.id === selectedItemIds[0])
       : undefined
   const showResizeHandles =
-    singleSelectedItem !== undefined && !getCatalogItemById(singleSelectedItem.catalogId)?.render
+    singleSelectedItem !== undefined &&
+    !getCatalogItemById(singleSelectedItem.catalogId)?.render &&
+    !isItemEffectivelyLocked(singleSelectedItem, groups)
 
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -121,7 +131,11 @@ export function SceneCanvas() {
               {items
                 .filter((item) => isItemVisibleInHierarchy(item, groups))
                 .map((item) => (
-                  <SceneElement key={item.id} item={item} />
+                  <SceneElement
+                    key={item.id}
+                    item={item}
+                    locked={isItemEffectivelyLocked(item, groups)}
+                  />
                 ))}
               {showTransformProxy && showGizmo && <TransformProxy targetIds={selectedItemIds} />}
               {showResizeHandles && singleSelectedItem && (

@@ -79,6 +79,8 @@ interface SceneState {
   toggleGroupCollapse: (groupId: string) => void
   toggleItemVisibility: (id: string) => void
   toggleGroupVisibility: (id: string) => void
+  toggleItemLocked: (id: string) => void
+  toggleGroupLocked: (id: string) => void
   alignItems: (alignment: AlignmentType) => void
   undo: () => void
   redo: () => void
@@ -544,6 +546,18 @@ export const useSceneStore = create<SceneState>((set, get) => ({
   toggleGroupVisibility(id) {
     set((state) => ({
       groups: state.groups.map((g) => (g.id === id ? { ...g, hidden: !g.hidden } : g)),
+    }))
+  },
+
+  toggleItemLocked(id) {
+    set((state) => ({
+      items: state.items.map((item) => (item.id === id ? { ...item, locked: !item.locked } : item)),
+    }))
+  },
+
+  toggleGroupLocked(id) {
+    set((state) => ({
+      groups: state.groups.map((g) => (g.id === id ? { ...g, locked: !g.locked } : g)),
     }))
   },
 
