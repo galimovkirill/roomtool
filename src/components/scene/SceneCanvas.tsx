@@ -13,6 +13,7 @@ import { SceneElement } from './SceneElement'
 import { TransformProxy } from './TransformProxy'
 import { ResizeHandles } from './ResizeHandles'
 import { Scene2DView } from './Scene2DView'
+import { ElevationSlider } from './ElevationSlider'
 import { getCatalogItemById } from '@/catalog/items'
 import { isItemEffectivelyLocked } from '@/utils/locked'
 
@@ -99,6 +100,7 @@ export function SceneCanvas() {
     <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
       <SceneRibbon />
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+        <ElevationSlider />
         {sceneMode === '2d' ? (
           <Scene2DView />
         ) : (
