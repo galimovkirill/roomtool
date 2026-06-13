@@ -1,7 +1,7 @@
 # Техническая архитектура MVP — RoomTool
 
 > Роль: CTO стартапа  
-> Дата: 2026-05-31  
+> Дата обновления: 2026-06-13  
 > Контекст: Frontend-only приложение для проектирования шкафов
 
 ---
@@ -26,7 +26,7 @@
 | Хелперы R3F | **@react-three/drei** | OrbitControls, TransformControls, Html, Grid — всё готовое |
 | Стейт | **Zustand** | Минималистичный, нет бойлерплейта, перфект для 3D-апп |
 | Стили | **Tailwind CSS v4** | Утилитарный CSS, быстрая разработка UI |
-| UI-примитивы | **Radix UI** | Доступные Popover, Tooltip без стилей |
+| UI-примитивы | **shadcn/ui (Base UI)** | Копируемые компоненты поверх @base-ui/react |
 | Уведомления | **Sonner** | Лёгкий toast-менеджер, нужен для коллизий и ошибок |
 
 ### Качество кода
@@ -44,7 +44,8 @@
 - **R3F вместо Babylon.js** — нативная интеграция с React, хуки, стейт не ломает 3D-рендер.
 - **Zustand вместо Redux** — 3D-сцена требует частых обновлений (drag, resize). Zustand: `set()` → рендер только подписанных компонентов.
 - **Tailwind v4 вместо CSS Modules** — правая панель с формами — чисто утилитарный UI, Tailwind быстрее.
-- **Sonner вместо самописного** — нотификации о коллизиях нужны вне React-дерева (из store). Sonner вызывается напрямую через `toast()`.
+- **shadcn/ui вместо Radix напрямую** — копируемые компоненты в `src/components/ui/`, стилизуются через Tailwind и Base UI атрибуты состояния.
+- **Sonner вместо самописного** — нотификации нужны вне React-дерева (из store). Sonner вызывается напрямую через `toast()`.
 
 ---
 
@@ -87,47 +88,71 @@ export const SCENE_CONFIG = {
 ```
 src/
 ├── config/
-│   └── scene.ts                   # Параметры комнаты, камеры
+│   └── scene.ts                     # Параметры комнаты и камеры — менять только здесь
+├── types/
+│   └── index.ts                     # CatalogItem, SceneItem, SceneGroup, PropertyDef
+├── catalog/
+│   ├── items.ts                     # Хардкод каталога (~19 деталей, 6 категорий)
+│   └── materials.ts                 # MATERIAL_OPTIONS, MATERIAL_COLORS (материал → цвета)
+├── store/
+│   ├── sceneStore.ts                # items, groups, выделение, drag/resize сессии, history/future
+│   ├── uiStore.ts                   # sceneMode, activeRightPanelTab, showGizmo, showCeilingLight
+│   ├── defaultScene.ts              # DEFAULT_SCENE_ITEMS / DEFAULT_SCENE_GROUPS — стартовая сцена
+│   └── index.ts                     # Реэкспорт
 ├── components/
 │   ├── scene/
-│   │   ├── SceneCanvas.tsx        # R3F Canvas обёртка
-│   │   ├── Room.tsx               # Комната: пол + 2 стены
-│   │   ├── SceneElement.tsx       # Один элемент мебели на сцене
-│   │   ├── SceneControls.tsx      # OrbitControls
-│   │   └── SceneOverlay.tsx       # Кнопки 2D/3D поверх canvas
+│   │   ├── SceneCanvas.tsx          # R3F Canvas (3D) + монтирует Scene2DView в 2D
+│   │   ├── Scene2DView.tsx          # Чистый SVG-план (2D): pan/zoom, сетка, линейки
+│   │   ├── Room.tsx                 # Пол + стены (только в 3D)
+│   │   ├── SceneElement.tsx         # Один элемент: mesh/GLTF + drag через useMeshDrag
+│   │   ├── useMeshDrag.ts           # Хук: прямой drag элемента мышью (без гизмо)
+│   │   ├── TransformProxy.tsx       # Gizmo перемещения для 1..N выделенных
+│   │   ├── ResizeHandles.tsx        # 6 ручек по граням для resize одиночного элемента
+│   │   ├── SceneControls.tsx        # OrbitControls (forwardRef)
+│   │   ├── SceneRibbon.tsx          # Горизонтальная лента над canvas
+│   │   ├── ribbon/
+│   │   │   ├── ViewModeToggle.tsx   # Переключатель 2D / 3D
+│   │   │   ├── GizmoToggle.tsx      # Toggle гизмо
+│   │   │   ├── CeilingLightToggle.tsx
+│   │   │   ├── AlignmentPopover.tsx # 9 кнопок выравнивания
+│   │   │   └── ItemActionsGroup.tsx # Поворот + удаление
+│   │   └── SceneOverlay.tsx         # Координаты и размеры выделенного элемента
 │   ├── panels/
-│   │   ├── RightPanel.tsx         # Контейнер: каталог или свойства
-│   │   ├── CatalogPanel.tsx       # Список элементов каталога
-│   │   ├── CatalogCategory.tsx    # Категория (accordion)
-│   │   ├── PropertiesPanel.tsx    # Свойства выбранного элемента
-│   │   └── PropertyField.tsx      # Поле ввода одного свойства
+│   │   ├── RightPanel.tsx           # Вкладки Каталог/Слои; при редактировании — PropertiesPanel
+│   │   ├── CatalogPanel.tsx         # Каталог с поиском и аккордеоном
+│   │   ├── LayersPanel.tsx          # Дерево слоёв, мультивыбор, группы, контекст-меню
+│   │   ├── PropertiesPanel.tsx      # Форма свойств редактируемого элемента
+│   │   └── PropertyField.tsx        # Поле (number / select / material / color)
 │   └── ui/
-│       ├── AppLayout.tsx          # Корневой layout
-│       └── ScreenGuard.tsx        # Заглушка для экранов < 1024px
-├── store/
-│   ├── sceneStore.ts              # Элементы на сцене, история, выбор
-│   ├── uiStore.ts                 # Режим (2D/3D)
-│   └── index.ts                   # Реэкспорт
-├── catalog/
-│   └── items.ts                   # Каталог мебельных элементов
-├── types/
-│   └── index.ts                   # Общие типы
-├── hooks/
-│   └── useKeyboard.ts             # Подписка на keydown
+│       ├── AppLayout.tsx            # Корневой flex layout + TooltipProvider
+│       ├── ScreenGuard.tsx          # Заглушка для экранов < 1024px
+│       ├── ToolbarToggleButton.tsx  # Toggle-кнопка с тултипом для Ribbon
+│       └── (shadcn-компоненты: button, select, tooltip, toggle, context-menu, …)
+├── utils/
+│   ├── collision.ts                 # totalOverlapVolume / hasGroupCollision / clampGroupDelta / clampGroupDeltaAgainstItems
+│   ├── clampToRoom.ts               # Удержание элемента в границах комнаты
+│   ├── groupTransform.ts            # computeGroupCenter / groupDragDelta / pivotPositionOnChange
+│   ├── layerTree.ts                 # buildLayerTree / flattenLayerTree / getAllItemIdsInGroup / buildFlatOrder / rangeSelection
+│   ├── locked.ts                    # isItemEffectivelyLocked (прямой флаг + родительские группы)
+│   └── roomCoords.ts                # worldToRoomX/Z / roomToWorldX/Z — координаты от угла комнаты
+├── lib/
+│   └── utils.ts                     # cn() helper (clsx + tailwind-merge)
+├── test/
+│   └── setup.ts                     # @testing-library/jest-dom
 └── main.tsx
 ```
 
 ### Модели данных
 
 ```typescript
-// Элемент в каталоге (тип мебели)
+// Элемент в каталоге (тип детали)
 interface CatalogItem {
   id: string
   name: string
   category: string
   defaultDimensions: { width: number; height: number; depth: number }  // мм
   properties: PropertyDef[]
-  render?: { type: 'gltf'; src: string }  // если задан — рендерится GLTF-моделью (src относительно /public)
+  render?: { type: 'gltf'; src: string }  // GLTF-модель из /public/models/
 }
 
 interface PropertyDef {
@@ -144,49 +169,91 @@ interface PropertyDef {
 
 // Экземпляр элемента на сцене
 interface SceneItem {
-  id: string                                  // uuid
-  catalogId: string                           // ссылка на CatalogItem
+  id: string                                   // uuid
+  catalogId: string                            // ссылка на CatalogItem
   name: string
-  position: [number, number, number]          // x, y, z в мм
-  rotationY: number                           // поворот по оси Y (рад)
+  position: [number, number, number]           // x, y, z в мм (мировые координаты, центр объекта)
+  rotationY: number                            // поворот по оси Y (рад)
   dimensions: { width: number; height: number; depth: number }  // мм
   properties: Record<string, number | string>
-  groupId: string | null                      // null = не в группе (TASK-021)
+  groupId: string | null                       // null = не в группе
+  hidden?: boolean                             // скрыт в сцене (всё ещё участвует в коллизиях)
+  locked?: boolean                             // нельзя перемещать/редактировать
 }
 
-// Группа элементов (Photoshop-style layers) — TASK-021
+// Группа элементов (Photoshop-style layers)
 interface SceneGroup {
-  id: string           // uuid
-  name: string         // 'Группа 1', 'Шкаф' и т.д.
-  itemIds: string[]    // упорядоченный список id элементов в группе
-  collapsed: boolean   // свёрнута ли в панели слоёв
+  id: string                 // uuid
+  name: string               // 'Группа 1', 'Шкаф' и т.д.
+  itemIds: string[]          // прямые участники (не рекурсивно)
+  collapsed: boolean         // свёрнута ли в панели слоёв
+  hidden?: boolean           // скрыта ли группа и все вложенные элементы
+  locked?: boolean           // заблокирована ли группа
+  parentGroupId?: string | null  // id родительской группы; null/undefined = корневой уровень
 }
 
-// Снимок для Undo/Redo (с поддержкой групп)
+// Снимок для Undo/Redo
 type HistorySnapshot = { items: SceneItem[]; groups: SceneGroup[] }
 
-// Zustand store — сцена (с поддержкой Undo/Redo)
+// Drag-сессия (начинается в beginDrag, заканчивается в endDrag)
+interface DragSession {
+  snapshot: HistorySnapshot          // состояние до начала drag
+  startPositions: Record<string, [number, number, number]>  // позиции до drag
+}
+
+// Resize-сессия (начинается в beginResize, заканчивается в endResize)
+interface ResizeSession {
+  snapshot: HistorySnapshot
+}
+
+// Zustand store — сцена
 interface SceneStore {
   items: SceneItem[]
-  groups: SceneGroup[]                        // список групп (TASK-021)
-  selectedItemId: string | null              // первый из selectedItemIds (для PropertiesPanel)
-  selectedItemIds: string[]                  // мультиселект (TASK-021)
-  groupCounter: number                       // автоинкремент для имён групп
-  history: HistorySnapshot[]                 // стек прошлых состояний (до 50)
-  future: HistorySnapshot[]                  // стек для Redo
+  groups: SceneGroup[]
+  selectedItemId: string | null        // = selectedItemIds[0] ?? null
+  selectedItemIds: string[]            // мультивыбор
+  editingItemId: string | null         // кто открыт в PropertiesPanel
+  groupCounter: number                 // автоинкремент для имён групп
+  history: HistorySnapshot[]           // стек прошлых состояний (до 50)
+  future: HistorySnapshot[]
+  dragSession: DragSession | null
+  resizeSession: ResizeSession | null
+
+  // Мутации (пишут в историю)
   addItem: (catalogItem: CatalogItem) => void
   removeItem: (id: string) => void
-  updateItem: (id: string, patch: ItemPatch) => void
-  selectItem: (id: string | null) => void
-  selectItems: (ids: string[]) => void        // TASK-021
-  toggleItemSelection: (id: string, add: boolean) => void  // TASK-021
+  removeItems: (ids: string[]) => void
+  updateItem: (id: string, patch: Partial<Pick<SceneItem, 'position'|'rotationY'|'dimensions'|'properties'>>) => void
   rotateItem: (id: string, direction: 'left' | 'right') => void
-  createGroup: (name: string) => void         // TASK-021 — из selectedItemIds
-  ungroupItems: (groupId: string) => void     // TASK-021
-  moveGroup: (groupId: string, delta: [number, number, number]) => void  // TASK-021
-  removeGroup: (groupId: string) => void      // TASK-021 — удаляет группу и все её элементы
-  renameGroup: (groupId: string, name: string) => void  // TASK-021
-  toggleGroupCollapse: (groupId: string) => void  // TASK-021 (не в историю)
+  createGroup: () => void                  // из selectedItemIds, требует ≥ 2
+  ungroupItems: (groupId: string) => void
+  moveGroup: (groupId: string, delta: [number, number, number]) => void
+  removeGroup: (groupId: string) => void
+  alignItems: (alignment: AlignmentType) => void
+
+  // Drag-сессия (начало → каждый кадр → конец)
+  beginDrag: (ids: string[]) => void
+  dragSelectionBy: (delta: [number, number, number]) => void  // без истории
+  endDrag: (commit: boolean) => void
+
+  // Resize-сессия
+  beginResize: () => void
+  resizeLive: (id: string, dimensions: Dimensions, position: Vec3) => void  // без истории
+  endResize: (commit: boolean) => void
+
+  // UI-состояние (не пишут в историю)
+  selectItem: (id: string | null) => void
+  selectItems: (ids: string[]) => void
+  toggleItemSelection: (id: string, add: boolean) => void
+  editItem: (id: string) => void
+  closeEditing: () => void
+  renameGroup: (groupId: string, name: string) => void
+  toggleGroupCollapse: (groupId: string) => void
+  toggleItemVisibility: (id: string) => void
+  toggleGroupVisibility: (groupId: string) => void
+  toggleItemLocked: (id: string) => void
+  toggleGroupLocked: (groupId: string) => void
+
   undo: () => void
   redo: () => void
 }
@@ -194,102 +261,145 @@ interface SceneStore {
 // Zustand store — UI
 interface UIStore {
   sceneMode: '2d' | '3d'
+  activeRightPanelTab: 'catalog' | 'layers'
+  showGizmo: boolean
+  showCeilingLight: boolean
   setSceneMode: (mode: '2d' | '3d') => void
-  activeRightPanelTab: 'catalog' | 'layers'  // TASK-021
-  setActiveRightPanelTab: (tab: 'catalog' | 'layers') => void  // TASK-021
+  setActiveRightPanelTab: (tab: 'catalog' | 'layers') => void
+  toggleGizmo: () => void
+  toggleCeilingLight: () => void
 }
+
+type AlignmentType = 'left' | 'right' | 'centerX' | 'top' | 'bottom' | 'centerY' | 'front' | 'back' | 'centerZ'
 ```
 
 ### Схема взаимодействия компонентов
 
 ```
 main.tsx
-└── ScreenGuard (проверяет window.innerWidth, рендерит заглушку если < 1024px)
-    └── AppLayout
-        ├── SceneCanvas (R3F Canvas)
-        │   ├── Room (пол + стены, из SCENE_CONFIG)
-        │   ├── SceneControls (OrbitControls)
-        │   ├── SceneItem[] (из sceneStore.items)
-        │   │   └── TransformControls (при одиночном выборе + onDragEnd → collision check)
-        │   └── GroupTransformProxy (TASK-021, если выбрана группа → TransformControls на центре AABB)
-        ├── SceneOverlay (кнопки 2D/3D, абс. позиция)
+└── ScreenGuard (проверяет window.innerWidth; < 1024px → заглушка)
+    └── AppLayout (flex layout, TooltipProvider)
+        ├── [area: сцена]
+        │   ├── SceneRibbon (горизонтальная лента ~40px над canvas)
+        │   │   ├── ViewModeToggle (2D / 3D)
+        │   │   ├── GizmoToggle
+        │   │   ├── CeilingLightToggle
+        │   │   ├── AlignmentPopover (disabled при < 2 выделенных)
+        │   │   └── ItemActionsGroup (поворот + удаление; disabled при ≠ 1 выделенном)
+        │   ├── SceneCanvas (3D-режим: R3F Canvas + PerspectiveCamera)
+        │   │   ├── Room (пол + стены, из SCENE_CONFIG)
+        │   │   ├── SceneControls (OrbitControls)
+        │   │   ├── SceneElement[] (из sceneStore.items)
+        │   │   │   └── useMeshDrag — прямой drag по телу элемента (XZ)
+        │   │   ├── TransformProxy (гизмо; при одиночном выделении или полной группе)
+        │   │   └── ResizeHandles (6 ручек; при одиночном выборе не-GLTF элемента)
+        │   ├── Scene2DView (2D-режим: чистый SVG, без R3F)
+        │   │   ├── SVG-сетка с адаптивным шагом
+        │   │   ├── Линейки (горизонтальная + вертикальная)
+        │   │   └── SceneItem[] → клик → selectItem
+        │   └── SceneOverlay (abs поверх canvas: координаты выбранного элемента)
         └── RightPanel
             ├── TabBar: [Каталог] [Слои]
-            ├── CatalogPanel (если !selectedItemId && tab === 'catalog')
+            ├── CatalogPanel (если tab === 'catalog' && !editingItemId)
             │   └── CatalogCategory[] → клик → sceneStore.addItem()
-            ├── LayersPanel (TASK-021, если tab === 'layers')
+            ├── LayersPanel (если tab === 'layers' && !editingItemId)
             │   ├── SceneGroup[] → коллапсируемые группы + ПКМ-меню
-            │   └── SceneItem[] → строки слоёв, click/Ctrl+click/Shift+click
-            └── PropertiesPanel (если selectedItemId — перекрывает всё)
+            │   │   (Ctrl+клик, Shift+клик — мультивыбор)
+            │   └── SceneItem[] → строки слоёв
+            └── PropertiesPanel (если editingItemId !== null — перекрывает вкладки)
                 └── PropertyField[] → onChange → sceneStore.updateItem()
 ```
 
-### Панель слоёв (Photoshop-style, TASK-021)
+### Панель слоёв (Photoshop-style)
 
 Логика выделения в LayersPanel:
 - Клик → `selectItems([id])` (снимает предыдущий выбор)
 - Ctrl/Cmd+клик → `toggleItemSelection(id, true)` (добавить/убрать из выбора)
-- Shift+клик → range-select от `lastClickedId` до текущего в видимом порядке списка
-- Клик по заголовку группы → `selectItems(group.itemIds)` (выбрать все элементы группы)
+- Shift+клик → range-select через `rangeSelection()` из `utils/layerTree.ts`
+- Клик по заголовку группы → `selectItems(getAllItemIdsInGroup(groupId, ...))` (рекурсивно)
 
 Правила контекстного меню (ПКМ):
-- "Создать группу" → доступно если `selectedItemIds.length >= 2` → `createGroup('Группа N')`
-- "Разгруппировать" → доступно если кликнули на группу или элемент с `groupId !== null`
+- "Редактировать" → `editItem(id)` (открывает PropertiesPanel)
+- "Создать группу" → доступно если `selectedItemIds.length >= 2` → `createGroup()`
+- "Разгруппировать" → `ungroupItems(groupId)`
 - "Переименовать" → только для заголовка группы, inline-редактирование
 - "Удалить" → `removeItem()` для элемента или `removeGroup()` для группы
 
-### Перемещение группы в 3D (GroupTransformProxy, TASK-021)
+### Вложенные группы
 
-`GroupTransformProxy` рендерится в SceneCanvas когда все `selectedItemIds` принадлежат одной группе.
-
-Алгоритм:
-1. Вычисляет AABB центр всех элементов группы
-2. Крепит невидимый pivot-mesh в центре AABB
-3. TransformControls на pivot
-4. `onMouseDown`: запоминает `initialCenter` в ref
-5. `onChange`: только запоминает текущую позицию пивота (live preview не делает — слишком дорого с историей)
-6. `onMouseUp`: `delta = finalPos - initialCenter` → `hasGroupCollision()` → если OK → `moveGroup(groupId, delta)`, если нет → `toast.warning()` + пивот возвращается на initialCenter
-
-⚠️ AABB для групп не учитывает поворот отдельных элементов (как и для одиночных элементов).
+`SceneGroup.parentGroupId` определяет иерархию. Вложенность неограничена.
+`LayersPanel` рендерит дерево рекурсивно через `buildLayerTree()` из `utils/layerTree.ts`.
+`createGroup()`: если все выделенные элементы имеют одинаковый прямой `groupId` — создаёт вложенную группу.
+`moveGroup()` / `removeGroup()` работают рекурсивно по всему поддереву.
 
 ---
 
 ## 5. Каталог элементов
 
-Хардкод в `src/catalog/items.ts`. Четыре категории, 8 элементов.
+Хардкод в `src/catalog/items.ts`. Шесть категорий, ~19 деталей. Каталог материалов и цветов — в `src/catalog/materials.ts`.
 
-### Категория «Корпуса»
+**Все размеры редактируемы** — нет фиксированных значений. Числа ниже — умолчания при добавлении детали.
 
-| Элемент | Размеры по умолчанию (ш × в × г, мм) | Параметры |
-|---------|--------------------------------------|-----------|
-| Корпус шкафа | 900 × 2200 × 600 | материал (ДСП / МДФ), цвет |
-| Корпус-пенал | 450 × 2200 × 600 | материал, цвет |
+### Категория «Корпус»
+
+| id | Деталь | Размеры по умолчанию (мм) |
+|----|--------|--------------------------|
+| `side-panel` | Боковая панель | 16 × 2200 × 600 |
+| `top-panel` | Верхняя панель | 868 × 16 × 600 |
+| `bottom-panel` | Нижняя панель | 868 × 16 × 600 |
+| `back-panel` | Задняя стенка | 900 × 2200 × 8 |
 
 ### Категория «Наполнение»
 
-| Элемент | Размеры по умолчанию (мм) | Параметры |
-|---------|---------------------------|-----------|
-| Полка | 878 × 25 × 560 | толщина 16–36 мм |
-| Ящик выдвижной | 878 × 150 × 500 | высота 100–300 мм |
-| Штанга для одежды | 878 × 30 × 30 | материал (Хром / Золото / Матовый никель) |
+| id | Деталь | Размеры по умолчанию (мм) |
+|----|--------|--------------------------|
+| `shelf` | Полка | 860 × 16 × 560 |
+| `divider-vertical` | Вертикальный разделитель | 16 × 2168 × 560 |
+| `hanging-rod` | Штанга | 860 × 25 × 25 |
+| `drawer-box` | Корпус ящика | 860 × 180 × 500 |
+| `trouser-rack` | Брючница | 860 × 50 × 300 |
 
-### Категория «Двери»
+### Категория «Двери и фасады»
 
-| Элемент | Размеры по умолчанию (мм) | Параметры |
-|---------|---------------------------|-----------|
-| Дверь распашная | 450 × 2200 × 22 | открывание (Влево / Вправо) |
-| Дверь-купе | 900 × 2200 × 60 | количество панелей 2–4 |
+| id | Деталь | Размеры по умолчанию (мм) |
+|----|--------|--------------------------|
+| `door-hinged` | Дверь распашная | 450 × 2200 × 18 |
+| `door-sliding` | Дверь раздвижная | 900 × 2200 × 22 |
+| `drawer-front` | Фасад ящика | 860 × 196 × 18 |
+
+### Категория «Основание»
+
+| id | Деталь | Размеры по умолчанию (мм) |
+|----|--------|--------------------------|
+| `plinth` | Цоколь | 900 × 100 × 16 |
+| `cornice` | Карниз | 900 × 60 × 60 |
+| `leg` | Ножка | 30 × 100 × 30 |
+
+### Категория «Фурнитура»
+
+| id | Деталь | Размеры по умолчанию (мм) |
+|----|--------|--------------------------|
+| `handle-bar` | Ручка-скоба | 128 × 12 × 30 |
+| `handle-knob` | Ручка-кнопка | 30 × 30 × 25 |
+| `hinge` | Петля | 35 × 13 × 50 |
 
 ### Категория «Декорации»
 
-| Элемент | Размеры bounding box по умолчанию (мм) | Параметры |
-|---------|----------------------------------------|-----------|
-| Комнатный цветок | 600 × 1200 × 600 | scale 10–200%, default 100% |
+| id | Деталь | Размеры bounding box (мм) |
+|----|--------|--------------------------|
+| `house-plant-1` | Комнатный цветок | 600 × 1200 × 600 (100%) |
 
-Элементы этой категории рендерятся через GLTF-модели (поле `render.type === 'gltf'`).
+Элементы этой категории рендерятся через GLTF-модели (`render.type === 'gltf'`).
 GLB-файлы хранятся в `public/models/`. В PropertiesPanel вместо W/H/D — единый ползунок **Размер (%)**.
 
-Цвета мебельных элементов в 3D (BoxGeometry): корпуса — `#d4a853`, наполнение — `#c49a3c`, двери — `#87CEEB`.
+### Система материалов и цветов
+
+Материал → набор цветов хранится в `MATERIAL_COLORS` в `src/catalog/materials.ts`.
+`PropertyDef.type === 'material'` рендерится как select; `type === 'color'` — как палитра кружков,
+зависящая от выбранного материала (`dependsOnMaterial`).
+При смене материала цвет автоматически сбрасывается на первый цвет нового материала.
+Для материала «Стекло» в `SceneElement` применяется `opacity={0.4} transparent`.
+Цвет детали в 3D: `item.properties.color` — hex-строка, используется как `meshStandardMaterial color`.
 
 ---
 
@@ -297,56 +407,40 @@ GLB-файлы хранятся в `public/models/`. В PropertiesPanel вмес
 
 ### Перемещение элементов
 
-`TransformControls` из `@react-three/drei`, режим `translate`. Конфликт с `OrbitControls` решается через события:
+Два способа перемещения; оба пишут через одни и те же store-примитивы (`beginDrag` / `dragSelectionBy` / `endDrag`):
 
-```tsx
-<TransformControls
-  onMouseDown={() => { orbitRef.current.enabled = false }}
-  onMouseUp={() => {
-    orbitRef.current.enabled = true
-    checkCollision(item.id)  // проверка только при отпускании
-  }}
-  onChange={() => updateItem(id, { position: getPosition() })}
-/>
+1. **Гизмо (`TransformProxy`)** — стрелки `TransformControls` на невидимом pivot-меше в центре выделения. Отдаёт дельту в стор через `dragSelectionBy`. Показывается при одиночном выделении или когда выделение точно совпадает с группой.
+2. **Прямой drag меша (`useMeshDrag`)** — клик+перетаскивание прямо по телу элемента. Активируется, если элемент уже выбран в момент `pointerdown`. Drag plane горизонтальная (Y фиксирован).
+
+Конфликт с `OrbitControls` решается через `window.dispatchEvent`:
+
+```typescript
+window.dispatchEvent(new CustomEvent('transform-start'))  // в TransformProxy при начале
+window.dispatchEvent(new CustomEvent('transform-end'))    // в TransformProxy при отпускании
+// SceneControls подписывается и отключает/включает OrbitControls
 ```
+
+**Позиция живёт только в сторе** — Three.js-объекты рендерятся из стора и никогда не мутируются императивно.
 
 ### Undo / Redo
 
-Простой паттерн с двумя стеками в Zustand. Каждое мутирующее действие (add, remove, update, rotate) перед изменением:
-1. Кладёт текущий `items` в `history` (ограничение: 50 записей, самые старые вытесняются)
-2. Очищает `future`
+Два стека в Zustand. Снимок хранит и `items`, и `groups` (`HistorySnapshot`). Каждая мутирующая операция вызывает `pushHistory` перед изменением (лимит 50). Интерактивный drag — особый случай: `beginDrag` снимает снапшот, `endDrag(true)` кладёт его в историю одним undo-шагом, а `dragSelectionBy` в историю не пишет. Аналогично для resize-сессии.
 
-`undo()`: перемещает текущий `items` в `future`, восстанавливает последний из `history`.  
-`redo()`: обратная операция.
+Операции, которые **не** попадают в историю: `selectItem`/`selectItems`/`editItem`/`closeEditing`/`renameGroup`/`toggleGroupCollapse`/`toggleItemVisibility`/`toggleGroupVisibility`/`toggleItemLocked`/`toggleGroupLocked`.
 
-Хоткеи `Ctrl+Z` / `Ctrl+Y` подключены через `useKeyboard` в корне приложения.
+⚠️ `undo`/`redo` реализованы в сторе, но **сейчас ни к чему не привязаны** (нет хоткея). При добавлении привязки — использовать `useSceneStore.getState().undo()`.
 
 ### Проверка коллизий (AABB)
 
-Все элементы — прямоугольные параллелепипеды, поэтому достаточно **Axis-Aligned Bounding Box** проверки.
+Все элементы — прямоугольные параллелепипеды, используется **Axis-Aligned Bounding Box**.
 
-Проверка запускается при отпускании TransformControls (`onMouseUp`). Алгоритм:
+Клампинг происходит **во время drag** (per-frame, в `TransformProxy` и `useMeshDrag`):
+1. `clampGroupDelta()` — ограничивает дельту по стенам комнаты
+2. `clampGroupDeltaAgainstItems()` — скользящий клампинг по другим элементам (ось блокируется только если на двух других осях уже есть перекрытие)
 
-```typescript
-function hasCollision(movedItem: SceneItem, allItems: SceneItem[]): boolean {
-  return allItems
-    .filter(item => item.id !== movedItem.id)
-    .some(other => {
-      const dx = Math.abs(movedItem.position[0] - other.position[0])
-      const dy = Math.abs(movedItem.position[1] - other.position[1])
-      const dz = Math.abs(movedItem.position[2] - other.position[2])
-      return (
-        dx < (movedItem.dimensions.width + other.dimensions.width) / 2 &&
-        dy < (movedItem.dimensions.height + other.dimensions.height) / 2 &&
-        dz < (movedItem.dimensions.depth + other.dimensions.depth) / 2
-      )
-    })
-}
-```
+Пары с пред-существующим полным 3D-перекрытием пропускаются — иначе конструктивно примыкающие элементы залипали бы при drag.
 
-Если коллизия обнаружена:
-- Позиция откатывается на `lastValidPosition` (хранится локально в компоненте до начала drag)
-- Вызывается `toast.warning('Элементы не могут пересекаться')` через Sonner
+⚠️ AABB-проверка не учитывает поворот элементов. Скрытые элементы (`hidden: true`) участвуют в коллизии.
 
 ### Экранная заглушка
 
@@ -360,11 +454,12 @@ function hasCollision(movedItem: SceneItem, allItems: SceneItem[]): boolean {
 
 ### Режим 2D
 
-При переключении в 2D:
-- `OrthographicCamera`: позиция `[0, ROOM_HEIGHT * 2, 0]`, `lookAt(0, 0, 0)`
-- `OrbitControls`: `enableRotate={false}`, только pan и zoom
-- `<Grid />` из drei поверх пола (чертёжная сетка)
-- Элементы рендерят `<Html>` с размерами `{width} × {depth}` мм
+В 2D-режиме R3F Canvas не монтируется — вместо него рендерится `Scene2DView`, чистый SVG:
+- Pan мышью + zoom колёсиком (нативные события)
+- Адаптивная SVG-сетка (шаг 100/500/1000 мм в зависимости от масштаба)
+- Горизонтальная и вертикальная линейки (мм от угла комнаты)
+- Элементы — SVG-прямоугольники, клик → `selectItem`
+- При выделении одного элемента — архитектурные размерные выноски
 
 ---
 

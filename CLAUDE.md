@@ -133,8 +133,9 @@ src/
 │   ├── collision.ts      # totalOverlapVolume / hasGroupCollision / clampGroupDelta / clampGroupDeltaAgainstItems (AABB)
 │   ├── clampToRoom.ts    # Удержание элемента в границах комнаты (чистая функция)
 │   ├── groupTransform.ts # computeGroupCenter / groupDragDelta / pivotPositionOnChange
-│   ├── layerTree.ts      # buildLayerTree / flattenLayerTree / getAllItemIdsInGroup — дерево для LayersPanel
-│   └── locked.ts         # isItemEffectivelyLocked — проверка блокировки элемента (прямой флаг + родительские группы)
+│   ├── layerTree.ts      # buildLayerTree / flattenLayerTree / getAllItemIdsInGroup / buildFlatOrder / rangeSelection — дерево для LayersPanel
+│   ├── locked.ts         # isItemEffectivelyLocked — проверка блокировки элемента (прямой флаг + родительские группы)
+│   └── roomCoords.ts     # worldToRoomX/Z / roomToWorldX/Z — перевод мировых координат в систему «от угла комнаты»
 ├── test/
 │   └── setup.ts          # @testing-library/jest-dom
 └── main.tsx              # Рендер: ScreenGuard > AppLayout (SceneCanvas + RightPanel) + Toaster
