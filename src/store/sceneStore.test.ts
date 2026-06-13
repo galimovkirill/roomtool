@@ -1321,3 +1321,50 @@ describe('resize session', () => {
     expect(s.history).toHaveLength(0)
   })
 })
+
+describe('resetScene', () => {
+  function makeResetItem(id: string): SceneItem {
+    return {
+      id,
+      catalogId: 'side-panel',
+      name: id,
+      position: [0, 1100, 0],
+      rotationY: 0,
+      dimensions: { width: 900, height: 2200, depth: 600 },
+      properties: {},
+      groupId: null,
+    }
+  }
+
+  it('replaces items and groups with defaults', () => {
+    useSceneStore.setState({ items: [makeResetItem('a')], groups: [] })
+    useSceneStore.getState().resetScene()
+    const s = useSceneStore.getState()
+    expect(s.items.every((i) => i.id !== 'a')).toBe(true)
+    expect(s.items.length).toBeGreaterThan(0)
+  })
+
+  it('clears selection and editing', () => {
+    useSceneStore.setState({
+      items: [makeResetItem('a')],
+      groups: [],
+      selectedItemId: 'a',
+      selectedItemIds: ['a'],
+      editingItemId: 'a',
+    })
+    useSceneStore.getState().resetScene()
+    const s = useSceneStore.getState()
+    expect(s.selectedItemId).toBeNull()
+    expect(s.selectedItemIds).toHaveLength(0)
+    expect(s.editingItemId).toBeNull()
+  })
+
+  it('pushes a history snapshot so undo can restore the previous state', () => {
+    useSceneStore.setState({ items: [makeResetItem('a')], groups: [], history: [], future: [] })
+    useSceneStore.getState().resetScene()
+    const s = useSceneStore.getState()
+    expect(s.history.length).toBeGreaterThan(0)
+    useSceneStore.getState().undo()
+    expect(useSceneStore.getState().items.some((i) => i.id === 'a')).toBe(true)
+  })
+})

@@ -112,7 +112,8 @@ src/
 │   │   │   ├── GizmoToggle.tsx      # Toggle гизмо
 │   │   │   ├── CeilingLightToggle.tsx  # Toggle потолочного света
 │   │   │   ├── AlignmentPopover.tsx # Кнопка + поповер выравнивания (иконки внутри)
-│   │   │   └── ItemActionsGroup.tsx # Поворот влево/вправо + удаление выделенного элемента
+│   │   │   ├── ItemActionsGroup.tsx # Поворот влево/вправо + удаление выделенного элемента
+│   │   │   └── ResetSceneButton.tsx # Кнопка сброса сцены с confirm-диалогом
 │   │   └── SceneOverlay.tsx         # Оверлей поверх canvas: координаты и размеры выделенного
 │   ├── panels/
 │   │   ├── RightPanel.tsx        # Вкладки Каталог/Слои; при выделении — PropertiesPanel
@@ -138,6 +139,8 @@ src/
 │   └── roomCoords.ts     # worldToRoomX/Z / roomToWorldX/Z — перевод мировых координат в систему «от угла комнаты»
 ├── test/
 │   └── setup.ts          # @testing-library/jest-dom
+├── store/
+│   └── persistence.ts    # LocalStorage-адаптер: saveScene / loadScene / clearScene (SceneSnapshot v1)
 └── main.tsx              # Рендер: ScreenGuard > AppLayout (SceneCanvas + RightPanel) + Toaster
 ```
 
@@ -332,6 +335,7 @@ toast.warning('Элементы не могут пересекаться')
 - **Вид**: переключатель 2D/3D; toggle гизмо (`showGizmo`); toggle потолочного освещения (`showCeilingLight`)
 - **Выравнивание**: одна кнопка-триггер (disabled при `selectedItemIds.length < 2`) → открывает shadcn Popover с 9 иконками, сгруппированными по осям X / Y / Z (по 3 кнопки в каждой группе); закрытие по клику снаружи и Escape — нативное поведение Base UI
 - **Действия над элементом** (`ItemActionsGroup`): поворот влево / вправо / удаление — три кнопки, disabled при `selectedItemIds.length !== 1`; вызывают `rotateItem(id, direction)` и `removeItem(id)` из sceneStore
+- **Сброс сцены** (`ResetSceneButton`): всегда активна; показывает `window.confirm`, затем вызывает `resetScene()` из sceneStore
 
 **Состояние в uiStore:** `showGizmo: boolean`, `toggleGizmo()`, `showCeilingLight: boolean`, `toggleCeilingLight()`
 
@@ -413,10 +417,13 @@ GLB-файлы хранятся в `public/models/`.
 ## Тесты
 
 Юнит-тесты (Vitest + @testing-library/react). Файлы рядом с источником: `*.test.ts(x)`.
-Покрыто: `sceneStore` (мутации, группы, вложенные группы, undo/redo, drag-сессия, resize-сессия, инициализация material/color),
+Покрыто: `sceneStore` (мутации, группы, вложенные группы, undo/redo, drag-сессия, resize-сессия, инициализация material/color, resetScene, инициализация из localStorage),
+`persistence` (saveScene, loadScene, clearScene — все edge cases),
 `uiStore`, `catalog/items`, `collision`, `clampToRoom`, `groupTransform`, `layerTree`
 (`buildLayerTree`, `flattenLayerTree`, `getAllItemIdsInGroup`), `PropertiesPanel`
 (форма, сброс цвета, GLTF-scale), `PropertyField`, `ScreenGuard`.
+
+**Тест инициализации стора из localStorage** (`sceneStore.persistence-init.test.ts`) — отдельный файл с `vi.mock('./persistence')`, т.к. `loadScene()` вызывается на уровне модуля при первом импорте. `vi.resetModules()` + динамический `import('./sceneStore')` внутри теста.
 
 **Компоненты 3D-сцены (R3F) не тестируются** — Three.js не работает в jsdom (нет WebGL).
 Поэтому чистую логику выноси из R3F-компонентов в `utils/` и покрывай там — как сделано с
@@ -433,10 +440,23 @@ GLB-файлы хранятся в `public/models/`.
 
 ---
 
+## Персистентность сцены
+
+`src/store/persistence.ts` — адаптер хранилища. Ключ `roomtool_scene_v1` в localStorage. Формат: `SceneSnapshot { version: 1, items, groups }`.
+
+**Не сохраняется:** `history`/`future` (бессмысленны между сессиями), `selectedItemId*`, `editingItemId`, `groupCounter`, `uiStore`.
+
+**Автосохранение:** `useSceneStore.subscribe(...)` с debounce 500 мс — пишет при любом изменении стора. Первый вызов не происходит при инициализации (subscribe Zustand не реагирует на начальное состояние).
+
+**Инициализация:** `loadScene()` вызывается один раз на уровне модуля (`const _saved = loadScene()`). Если снапшот невалиден или отсутствует — используется `DEFAULT_SCENE_ITEMS/GROUPS`.
+
+**`resetScene()`** — пишет в историю (undo работает), очищает localStorage, сбрасывает `dragSession`/`resizeSession`. Вызов `clearScene()` — **снаружи** `set()`, не внутри updater (side effect в updater нарушает idempotency).
+
+---
+
 ## Что не делаем (скоуп MVP)
 
 - Бэкенд, API, авторизация
-- Сохранение сцены (перезагрузка = сброс)
 - Скрытие элементов (только удаление)
 - Импорт/экспорт 3D-моделей
 - Мобильные устройства (< 1024px → заглушка)

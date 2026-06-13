@@ -3,6 +3,7 @@ import { v4 as uuid } from 'uuid'
 import type { CatalogItem, SceneGroup, SceneItem } from '@/types'
 import { MATERIAL_COLORS, MATERIAL_OPTIONS, type MaterialType } from '@/catalog/materials'
 import { DEFAULT_SCENE_GROUPS, DEFAULT_SCENE_ITEMS } from './defaultScene'
+import { clearScene, loadScene, saveScene } from './persistence'
 
 type ItemPatch = Partial<Pick<SceneItem, 'position' | 'rotationY' | 'dimensions' | 'properties'>>
 
@@ -82,6 +83,7 @@ interface SceneState {
   toggleItemLocked: (id: string) => void
   toggleGroupLocked: (id: string) => void
   alignItems: (alignment: AlignmentType) => void
+  resetScene: () => void
   undo: () => void
   redo: () => void
 }
@@ -99,9 +101,13 @@ function pushHistory(state: Pick<SceneState, 'items' | 'groups' | 'history' | 'f
   return { history, future: [] }
 }
 
+const _saved = loadScene()
+const _initialItems = _saved?.items ?? DEFAULT_SCENE_ITEMS
+const _initialGroups = _saved?.groups ?? DEFAULT_SCENE_GROUPS
+
 export const useSceneStore = create<SceneState>((set, get) => ({
-  items: DEFAULT_SCENE_ITEMS,
-  groups: DEFAULT_SCENE_GROUPS,
+  items: _initialItems,
+  groups: _initialGroups,
   selectedItemId: null,
   selectedItemIds: [],
   editingItemId: null,
@@ -641,6 +647,20 @@ export const useSceneStore = create<SceneState>((set, get) => ({
     })
   },
 
+  resetScene() {
+    clearScene()
+    set((state) => ({
+      ...pushHistory(state),
+      items: DEFAULT_SCENE_ITEMS,
+      groups: DEFAULT_SCENE_GROUPS,
+      selectedItemId: null,
+      selectedItemIds: [],
+      editingItemId: null,
+      dragSession: null,
+      resizeSession: null,
+    }))
+  },
+
   undo() {
     const { history, items, groups, future } = get()
     if (history.length === 0) return
@@ -671,3 +691,12 @@ export const useSceneStore = create<SceneState>((set, get) => ({
     })
   },
 }))
+
+let _saveTimer: ReturnType<typeof setTimeout> | null = null
+
+useSceneStore.subscribe((state) => {
+  if (_saveTimer) clearTimeout(_saveTimer)
+  _saveTimer = setTimeout(() => {
+    saveScene({ version: 1, items: state.items, groups: state.groups })
+  }, 500)
+})

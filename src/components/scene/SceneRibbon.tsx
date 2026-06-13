@@ -3,6 +3,7 @@ import { GizmoToggle } from './ribbon/GizmoToggle'
 import { CeilingLightToggle } from './ribbon/CeilingLightToggle'
 import { AlignmentPopover } from './ribbon/AlignmentPopover'
 import { ItemActionsGroup } from './ribbon/ItemActionsGroup'
+import { ResetSceneButton } from './ribbon/ResetSceneButton'
 
 export function SceneRibbon() {
   return (
@@ -15,6 +16,8 @@ export function SceneRibbon() {
       <AlignmentPopover />
       <div className="w-px h-5 bg-gray-200 mx-1" />
       <ItemActionsGroup />
+      <div className="w-px h-5 bg-gray-200 mx-1" />
+      <ResetSceneButton />
     </div>
   )
 }
