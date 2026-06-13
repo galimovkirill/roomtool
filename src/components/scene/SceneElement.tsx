@@ -93,7 +93,6 @@ export function SceneElement({ item, locked }: Props) {
       ) : (
         <mesh
           castShadow
-          receiveShadow
           onPointerDown={onPointerDown}
           onPointerOver={() => {
             setHovered(true)
