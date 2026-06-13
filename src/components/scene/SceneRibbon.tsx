@@ -16,6 +16,7 @@ export function SceneRibbon() {
       <AlignmentPopover />
       <div className="w-px h-5 bg-gray-200 mx-1" />
       <ItemActionsGroup />
+      <div className="ml-auto" />
       <div className="w-px h-5 bg-gray-200 mx-1" />
       <ResetSceneButton />
     </div>
