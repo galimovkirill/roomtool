@@ -3556,6 +3556,193 @@ Radix UI — единственный источник готовых компо
 
 ---
 
+---
+
+## ФАЗА 13 — Персистентность сцены
+
+### TASK-032 — Сохранение и загрузка сцены через LocalStorage
+
+**Промпт для Claude Code:**
+```
+Реализуй автосохранение состояния сцены в LocalStorage и загрузку при старте приложения.
+Архитектура должна быть готова к замене LocalStorage на API-вызов в будущем.
+
+---
+
+## 1. Создай src/store/persistence.ts
+
+Адаптер хранилища — тонкая обёртка над конкретным механизмом сохранения.
+Весь остальной код работает только с этим модулем, не зная о LocalStorage напрямую.
+
+```typescript
+const STORAGE_KEY = 'roomtool_scene_v1'
+
+export interface SceneSnapshot {
+  version: 1
+  items: SceneItem[]
+  groups: SceneGroup[]
+}
+
+export function saveScene(snapshot: SceneSnapshot): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot))
+  } catch {
+    // localStorage может быть недоступен (приватный режим, квота)
+  }
+}
+
+export function loadScene(): SceneSnapshot | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    // Базовая проверка схемы: ожидаем version === 1, items — массив, groups — массив
+    if (
+      parsed?.version !== 1 ||
+      !Array.isArray(parsed?.items) ||
+      !Array.isArray(parsed?.groups)
+    ) {
+      console.warn('[roomtool] Incompatible scene snapshot, starting fresh')
+      return null
+    }
+    return parsed as SceneSnapshot
+  } catch {
+    return null
+  }
+}
+
+export function clearScene(): void {
+  localStorage.removeItem(STORAGE_KEY)
+}
+```
+
+---
+
+## 2. Обнови src/store/defaultScene.ts
+
+Убедись, что файл экспортирует `DEFAULT_SCENE_ITEMS: SceneItem[]` и `DEFAULT_SCENE_GROUPS: SceneGroup[]`
+(они уже должны быть — это стартовая сцена). Ничего не менять, просто проверить.
+
+---
+
+## 3. Обнови src/store/sceneStore.ts
+
+### 3a. Инициализация из LocalStorage
+
+В начале `create(...)` попробуй загрузить сохранённый снапшот:
+
+```typescript
+import { loadScene } from './persistence'
+import { DEFAULT_SCENE_ITEMS, DEFAULT_SCENE_GROUPS } from './defaultScene'
+
+const saved = loadScene()
+
+// Начальное состояние берётся из снапшота, если он есть; иначе — дефолтная сцена
+const initialItems = saved?.items ?? DEFAULT_SCENE_ITEMS
+const initialGroups = saved?.groups ?? DEFAULT_SCENE_GROUPS
+```
+
+Используй `initialItems` и `initialGroups` как начальные значения полей `items` и `groups`.
+
+### 3b. Автосохранение через subscribe
+
+После `create(...)` подпишись на изменения стора и сохраняй при каждом изменении `items` или `groups`.
+Debounce 500 мс — чтобы не писать в localStorage на каждый кадр drag-сессии.
+
+```typescript
+import { saveScene } from './persistence'
+
+let saveTimer: ReturnType<typeof setTimeout> | null = null
+
+useSceneStore.subscribe((state) => {
+  if (saveTimer) clearTimeout(saveTimer)
+  saveTimer = setTimeout(() => {
+    saveScene({ version: 1, items: state.items, groups: state.groups })
+  }, 500)
+})
+```
+
+Важно: `subscribe` следует вызывать **снаружи** `create`, после того как `useSceneStore` уже определён.
+Помести этот код в конец файла `sceneStore.ts`, после объявления стора.
+
+### 3c. Добавь метод resetScene()
+
+```typescript
+resetScene(): void
+  // pushHistory (чтобы сброс можно было отменить через Undo)
+  // items = DEFAULT_SCENE_ITEMS
+  // groups = DEFAULT_SCENE_GROUPS
+  // selectedItemId = null, selectedItemIds = [], editingItemId = null
+  // clearScene() из './persistence'
+```
+
+---
+
+## 4. Добавь кнопку «Сбросить сцену» в SceneRibbon
+
+В `src/components/scene/ribbon/` создай компонент `ResetSceneButton.tsx`:
+
+```tsx
+// Кнопка показывает confirm-диалог перед сбросом (window.confirm)
+// После подтверждения вызывает useSceneStore(s => s.resetScene)()
+// Тултип: 'Сбросить сцену'
+// Иконка: используй ToolbarToggleButton или обычную кнопку с иконкой ↺ / 🗑 на выбор
+// Disabled: нет (кнопка всегда активна)
+```
+
+Добавь `<ResetSceneButton />` в `SceneRibbon.tsx` — в конец правой части ленты,
+отделив `<Separator orientation="vertical" className="h-5" />` от группы действий над элементом.
+
+---
+
+## 5. Напиши тесты src/store/persistence.test.ts
+
+Мокай `localStorage` через `vi.stubGlobal` или через `Object.defineProperty`.
+
+- `saveScene` сохраняет валидный JSON в localStorage по ключу `roomtool_scene_v1`
+- `loadScene` возвращает корректный снапшот если ключ есть
+- `loadScene` возвращает `null` если ключа нет
+- `loadScene` возвращает `null` при невалидном JSON (simulate JSON.parse throw)
+- `loadScene` возвращает `null` если `version !== 1` (forward compatibility)
+- `loadScene` возвращает `null` если `items` не массив
+- `clearScene` удаляет ключ из localStorage
+
+---
+
+## 6. Обнови тесты sceneStore.test.ts
+
+- После инициализации стора с валидным снапшотом в localStorage — `items` совпадают со снапшотом.
+  Для мока: перед `import` стора установить значение через `localStorage.setItem(...)`.
+  (Сделай это в отдельном test-файле или через `vi.mock('./persistence')` с фейковым `loadScene`.)
+
+- `resetScene` очищает `items` до `DEFAULT_SCENE_ITEMS`, `groups` до `DEFAULT_SCENE_GROUPS`,
+  кладёт снапшот в историю (undo работает).
+
+---
+
+## 7. Что НЕ сохранять
+
+- `history`, `future` — стеки undo/redo не персистируем (они бессмысленны между сессиями).
+- `selectedItemId`, `selectedItemIds`, `editingItemId` — UI-состояние выделения.
+- `groupCounter` — пересчитается при загрузке по `groups.length`.
+- `uiStore` (режим 2D/3D, видимость гизмо) — не персистируем (MVP).
+
+---
+
+## 8. Проверь в браузере (Playwright, скриншоты в tmp/)
+
+1. Открыть приложение → видна дефолтная сцена.
+2. Добавить несколько деталей из каталога, переместить одну.
+3. Перезагрузить страницу (F5) → все детали на своих местах, сцена восстановлена.
+4. Добавить деталь, нажать «Сбросить сцену» → confirm-диалог, подтвердить → сцена сбрасывается к дефолтной.
+5. Перезагрузить страницу после сброса → дефолтная сцена (не та что была до сброса).
+6. Undo после resetScene → возвращает состояние до сброса (на этот раз без перезагрузки).
+7. Открыть DevTools → Application → LocalStorage → проверить, что ключ `roomtool_scene_v1` есть и содержит валидный JSON.
+8. Скриншоты: tmp/task032-restored.png (сцена после перезагрузки), tmp/task032-reset.png (после сброса).
+```
+
+---
+
 ## Сводная таблица задач
 
 | ID | Фаза | Задача | Сложность | Статус |
@@ -3591,6 +3778,7 @@ Radix UI — единственный источник готовых компо
 | TASK-029 | UX | Лента (Ribbon): панель действий над сценой | L | ✅ |
 | TASK-030 | 2D-режим | Полная переработка 2D-вида: SVG-план с линейками и размерными линиями | XL | ✅ |
 | TASK-031 | Дизайн-система | Миграция UI-примитивов на Radix UI + дизайн-соглашения | L | ✅ |
+| TASK-032 | Персистентность | Сохранение и загрузка сцены через LocalStorage | M | ⬜ |
 
 **S** = ~30–60 мин · **M** = ~1–2 ч · **L** = ~2–4 ч · **XL** = ~4–8 ч  
 Общая оценка: **~2.5–3 недели** при разработке через Claude Code.
