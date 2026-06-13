@@ -42,6 +42,7 @@ function collectDescendantGroupIds(rootId: string, groups: SceneGroup[]): Set<st
 // `base` holds the start position of each dragged item so live deltas are
 // always applied relative to where the drag began, never accumulated.
 type DragSession = { snapshot: HistorySnapshot; base: Record<string, Vec3> }
+type ResizeSession = { snapshot: HistorySnapshot }
 
 interface SceneState {
   items: SceneItem[]
@@ -53,6 +54,7 @@ interface SceneState {
   history: HistorySnapshot[]
   future: HistorySnapshot[]
   dragSession: DragSession | null
+  resizeSession: ResizeSession | null
   addItem: (catalogItem: CatalogItem) => void
   removeItem: (id: string) => void
   removeItems: (ids: string[]) => void
@@ -69,6 +71,9 @@ interface SceneState {
   beginDrag: (ids: string[]) => void
   dragSelectionBy: (delta: [number, number, number]) => void
   endDrag: (commit: boolean) => void
+  beginResize: () => void
+  resizeLive: (id: string, dimensions: SceneItem['dimensions'], position: Vec3) => void
+  endResize: (commit: boolean) => void
   removeGroup: (groupId: string) => void
   renameGroup: (groupId: string, name: string) => void
   toggleGroupCollapse: (groupId: string) => void
@@ -102,6 +107,7 @@ export const useSceneStore = create<SceneState>((set, get) => ({
   history: [],
   future: [],
   dragSession: null,
+  resizeSession: null,
 
   addItem(catalogItem) {
     set((state) => {
@@ -458,6 +464,39 @@ export const useSceneStore = create<SceneState>((set, get) => ({
         items: dragSession.snapshot.items,
         groups: dragSession.snapshot.groups,
         dragSession: null,
+      })
+    }
+  },
+
+  beginResize() {
+    set((state) => ({
+      resizeSession: {
+        snapshot: {
+          items: [...state.items],
+          groups: state.groups.map((g) => ({ ...g, itemIds: [...g.itemIds] })),
+        },
+      },
+    }))
+  },
+
+  resizeLive(id, dimensions, position) {
+    set((state) => ({
+      items: state.items.map((item) => (item.id === id ? { ...item, dimensions, position } : item)),
+    }))
+  },
+
+  endResize(commit) {
+    const { resizeSession, history } = get()
+    if (!resizeSession) return
+    if (commit) {
+      const nextHistory = [...history, resizeSession.snapshot]
+      if (nextHistory.length > 50) nextHistory.shift()
+      set({ history: nextHistory, future: [], resizeSession: null })
+    } else {
+      set({
+        items: resizeSession.snapshot.items,
+        groups: resizeSession.snapshot.groups,
+        resizeSession: null,
       })
     }
   },

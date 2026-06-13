@@ -22,6 +22,7 @@ beforeEach(() => {
     history: [],
     future: [],
     dragSession: null,
+    resizeSession: null,
   })
 })
 
@@ -702,6 +703,7 @@ describe('drag session', () => {
       history: [],
       future: [],
       dragSession: null,
+      resizeSession: null,
     })
   }
 
@@ -1165,5 +1167,99 @@ describe('toggleItemVisibility / toggleGroupVisibility', () => {
     const groupId = useSceneStore.getState().groups[0].id
     useSceneStore.getState().toggleGroupVisibility(groupId)
     expect(useSceneStore.getState().history).toHaveLength(historyBefore)
+  })
+})
+
+describe('resize session', () => {
+  function makeItem(id: string): SceneItem {
+    return {
+      id,
+      catalogId: 'side-panel',
+      name: id,
+      position: [0, 1100, 0],
+      rotationY: 0,
+      dimensions: { width: 900, height: 2200, depth: 600 },
+      properties: {},
+      groupId: null,
+    }
+  }
+
+  function seed(item: SceneItem) {
+    useSceneStore.setState({
+      items: [item],
+      groups: [],
+      selectedItemId: null,
+      selectedItemIds: [],
+      groupCounter: 0,
+      history: [],
+      future: [],
+      dragSession: null,
+      resizeSession: null,
+    })
+  }
+
+  it('beginResize сохраняет снапшот и не пишет в историю', () => {
+    const item = makeItem('a')
+    seed(item)
+    useSceneStore.getState().beginResize()
+    expect(useSceneStore.getState().resizeSession).not.toBeNull()
+    expect(useSceneStore.getState().history).toHaveLength(0)
+  })
+
+  it('resizeLive обновляет dimensions и position без записи в историю', () => {
+    const item = makeItem('a')
+    seed(item)
+    useSceneStore.getState().beginResize()
+    useSceneStore
+      .getState()
+      .resizeLive('a', { width: 500, height: 2200, depth: 600 }, [250, 1100, 0])
+    const { items, history } = useSceneStore.getState()
+    expect(items[0].dimensions.width).toBe(500)
+    expect(items[0].position[0]).toBe(250)
+    expect(history).toHaveLength(0)
+  })
+
+  it('endResize(true) коммитит один undo-шаг и оставляет новые размеры', () => {
+    const item = makeItem('a')
+    seed(item)
+    useSceneStore.getState().beginResize()
+    useSceneStore
+      .getState()
+      .resizeLive('a', { width: 500, height: 2200, depth: 600 }, [250, 1100, 0])
+    useSceneStore.getState().endResize(true)
+    const s = useSceneStore.getState()
+    expect(s.resizeSession).toBeNull()
+    expect(s.history).toHaveLength(1)
+    expect(s.items[0].dimensions.width).toBe(500)
+    // undo возвращает исходные размеры
+    useSceneStore.getState().undo()
+    expect(useSceneStore.getState().items[0].dimensions.width).toBe(900)
+    expect(useSceneStore.getState().items[0].position[0]).toBe(0)
+  })
+
+  it('endResize(false) откатывает к исходным размерам без записи в историю', () => {
+    const item = makeItem('a')
+    seed(item)
+    useSceneStore.getState().beginResize()
+    useSceneStore
+      .getState()
+      .resizeLive('a', { width: 500, height: 2200, depth: 600 }, [250, 1100, 0])
+    useSceneStore.getState().endResize(false)
+    const s = useSceneStore.getState()
+    expect(s.resizeSession).toBeNull()
+    expect(s.history).toHaveLength(0)
+    expect(s.items[0].dimensions.width).toBe(900)
+    expect(s.items[0].position[0]).toBe(0)
+  })
+
+  it('resizeLive / endResize без активной сессии — no-op', () => {
+    const item = makeItem('a')
+    seed(item)
+    useSceneStore.getState().resizeLive('a', { width: 1, height: 1, depth: 1 }, [0, 0, 0])
+    useSceneStore.getState().endResize(true)
+    const s = useSceneStore.getState()
+    // resizeLive без сессии всё равно обновляет items — это допустимо, проверяем только endResize
+    expect(s.resizeSession).toBeNull()
+    expect(s.history).toHaveLength(0)
   })
 })

@@ -104,6 +104,7 @@ src/
 │   │   ├── SceneElement.tsx         # Один элемент: mesh/GLTF + drag через useMeshDrag
 │   │   ├── useMeshDrag.ts           # Хук: drag выделенного элемента мышью (без гизмо), тот же store API
 │   │   ├── TransformProxy.tsx       # Gizmo перемещения для 1..N выделенных (pivot + drag-сессия)
+│   │   ├── ResizeHandles.tsx        # 6 ручек по центрам граней для одиночного выделения (resize-сессия)
 │   │   ├── SceneControls.tsx        # OrbitControls (forwardRef)
 │   │   ├── SceneRibbon.tsx          # Лента (Ribbon): layout-обёртка, компонует ribbon/
 │   │   ├── ribbon/
@@ -192,6 +193,16 @@ Three.js-объекты рендерятся из стора (`<group position={
 `TransformProxy`, и в `useMeshDrag` (оба вызывают `groupDragDelta`) — see «Проверка коллизий». `moveGroup()` остаётся отдельным one-shot
 delta+история примитивом (тесты, потенциальные хоткеи).
 
+### Resize-сессия в сторе
+Интерактивное изменение размеров — `beginResize()` → `resizeLive(id, dimensions, position)` (каждый
+кадр, **без** истории) → `endResize(commit)`. Точно зеркалит паттерн drag-сессии. `ResizeHandles`
+монтируется в SceneCanvas при одиночном выделении видимого не-GLTF элемента; показывает 6 ручек
+по центрам граней (±X красные, ±Y зелёные, ±Z синие). Противоположная грань зафиксирована как
+якорь — при перетаскивании ручки изменяется размер **и** центр объекта. Ограничения: мин 10 мм,
+макс 10 000 мм; нижняя грань не уходит ниже пола, верхняя — выше потолка. ESC откатывает.
+Resize-сессия несовместима с активной drag-сессией: `onHandleDown` проверяет `dragSession !== null`.
+При unmount компонента (снятие выделения во время drag) `useEffect`-cleanup откатывает сессию.
+
 ### Конфликт TransformControls и OrbitControls
 Решается через `window.dispatchEvent`:
 ```typescript
@@ -216,7 +227,8 @@ window.dispatchEvent(new CustomEvent('transform-end'))
 (add/remove/removeItems/update/rotate + групповые: createGroup/ungroup/moveGroup/removeGroup)
 вызывает `pushHistory` перед изменением. Интерактивный drag — особый случай: `beginDrag`
 снимает снапшот, `endDrag(true)` кладёт его в историю **одним** шагом (см. «Drag-сессия»),
-а `dragSelectionBy` в историю не пишет.
+а `dragSelectionBy` в историю не пишет. Аналогично: `beginResize()` снимает снапшот,
+`endResize(true)` кладёт в историю **одним** шагом, а `resizeLive` в историю не пишет.
 `selectItem`/`selectItems`/`editItem`/`closeEditing`/`renameGroup`/`toggleGroupCollapse`/`toggleItemVisibility`/`toggleGroupVisibility` — **не** попадают в историю.
 `alignItems(alignment)` — **попадает** в историю (один undo-шаг на всё выравнивание).
 
@@ -390,7 +402,7 @@ GLB-файлы хранятся в `public/models/`.
 ## Тесты
 
 Юнит-тесты (Vitest + @testing-library/react). Файлы рядом с источником: `*.test.ts(x)`.
-Покрыто: `sceneStore` (мутации, группы, вложенные группы, undo/redo, drag-сессия, инициализация material/color),
+Покрыто: `sceneStore` (мутации, группы, вложенные группы, undo/redo, drag-сессия, resize-сессия, инициализация material/color),
 `uiStore`, `catalog/items`, `collision`, `clampToRoom`, `groupTransform`, `layerTree`
 (`buildLayerTree`, `flattenLayerTree`, `getAllItemIdsInGroup`), `PropertiesPanel`
 (форма, сброс цвета, GLTF-scale), `PropertyField`, `ScreenGuard`.

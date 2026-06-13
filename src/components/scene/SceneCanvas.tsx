@@ -11,7 +11,9 @@ import { SceneOverlay } from './SceneOverlay'
 import { SceneRibbon } from './SceneRibbon'
 import { SceneElement } from './SceneElement'
 import { TransformProxy } from './TransformProxy'
+import { ResizeHandles } from './ResizeHandles'
 import { Scene2DView } from './Scene2DView'
+import { getCatalogItemById } from '@/catalog/items'
 
 const { initialPosition, fov, near, far } = SCENE_CONFIG.camera
 
@@ -75,6 +77,14 @@ export function SceneCanvas() {
   const showTransformProxy =
     (selectedItemIds.length === 1 || activeGroupId !== null) && allSelectedVisible
 
+  // Show resize handles for a single visible non-GLTF selection only
+  const singleSelectedItem =
+    selectedItemIds.length === 1 && allSelectedVisible
+      ? items.find((i) => i.id === selectedItemIds[0])
+      : undefined
+  const showResizeHandles =
+    singleSelectedItem !== undefined && !getCatalogItemById(singleSelectedItem.catalogId)?.render
+
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
       <SceneRibbon />
@@ -114,6 +124,9 @@ export function SceneCanvas() {
                   <SceneElement key={item.id} item={item} />
                 ))}
               {showTransformProxy && showGizmo && <TransformProxy targetIds={selectedItemIds} />}
+              {showResizeHandles && singleSelectedItem && (
+                <ResizeHandles item={singleSelectedItem} />
+              )}
             </Canvas>
             <SceneOverlay />
           </>
