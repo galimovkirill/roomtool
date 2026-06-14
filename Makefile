@@ -1,4 +1,4 @@
-.PHONY: dev dev-build down logs db test build help
+.PHONY: dev dev-build down logs db test build gen help
 
 dev: ## Запустить весь стек для разработки (с hot-reload)
 	docker compose -f docker-compose.dev.yml up
@@ -14,6 +14,11 @@ logs: ## Показать логи (все сервисы)
 
 db: ## Запустить только PostgreSQL (для локального запуска без Docker)
 	docker compose -f docker-compose.dev.yml up db -d
+
+gen: ## Регенерировать типы из docs/api/openapi.yaml (Go + TypeScript)
+	cd apps/backend && go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen \
+		--config .oapi-codegen.yaml ../../docs/api/openapi.yaml
+	pnpm gen:types
 
 test: ## Запустить тесты frontend
 	pnpm test:run

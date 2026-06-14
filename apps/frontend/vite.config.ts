@@ -11,6 +11,12 @@ export default defineConfig({
     watch: process.env.CHOKIDAR_USEPOLLING
       ? { usePolling: true, interval: 1000 }
       : undefined,
+    // BACKEND_URL задаётся в docker-compose.dev.yml; для локального запуска без Docker
+    // бэкенд доступен на localhost:8080 по умолчанию
+    proxy: {
+      '/health': process.env.BACKEND_URL ?? 'http://localhost:8080',
+      '/api': process.env.BACKEND_URL ?? 'http://localhost:8080',
+    },
   },
   resolve: {
     alias: {

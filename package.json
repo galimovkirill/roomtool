@@ -13,10 +13,12 @@
     "lint": "pnpm --filter frontend lint",
     "lint:fix": "pnpm --filter frontend lint:fix",
     "format": "pnpm --filter frontend format",
+    "gen:types": "openapi-typescript docs/api/openapi.yaml -o apps/frontend/src/api/types.gen.ts",
     "prepare": "husky"
   },
   "devDependencies": {
     "husky": "^9.1.7",
-    "lint-staged": "^17.0.7"
+    "lint-staged": "^17.0.7",
+    "openapi-typescript": "^7.13.0"
   }
 }

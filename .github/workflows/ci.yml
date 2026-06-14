@@ -64,6 +64,38 @@ jobs:
       - name: Build
         run: go build ./cmd/server
 
+  spec-check:
+    name: OpenAPI spec drift check
+    runs-on: ubuntu-latest
+    needs: [frontend, backend]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/backend/go.mod
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Regenerate types
+        run: |
+          cd apps/backend && go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen \
+            --config .oapi-codegen.yaml ../../docs/api/openapi.yaml
+          pnpm gen:types
+
+      - name: Check for drift
+        run: git diff --exit-code -- apps/backend/internal/api/types.gen.go apps/frontend/src/api/types.gen.ts
+
   docker:
     name: Docker build check
     runs-on: ubuntu-latest

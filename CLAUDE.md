@@ -87,6 +87,63 @@ docker compose up --build     # пересобрать образы
 | База данных | PostgreSQL 17 |
 | Hot-reload | air |
 | Конфиг | env vars (`.env.example` в `apps/backend/`) |
+| API-контракт | oapi-codegen (генерирует Go-типы из OpenAPI spec) |
+
+---
+
+## API-контракт (OpenAPI)
+
+Единственный источник истины — **`docs/api/openapi.yaml`** (OpenAPI 3.0.3).
+Из него генерируются типы для обеих сторон; ручное редактирование сгенерированных файлов запрещено.
+
+### Сгенерированные файлы
+
+| Файл | Генератор | Назначение |
+|------|-----------|-----------|
+| `apps/backend/internal/api/types.gen.go` | `oapi-codegen v2` | Go-структуры (модели + request body aliases) |
+| `apps/frontend/src/api/types.gen.ts` | `openapi-typescript v7` | TypeScript-интерфейсы (`paths`, `components`, `operations`) |
+
+### Регенерация
+
+```bash
+make gen          # Go-типы + TS-типы из docs/api/openapi.yaml
+# или отдельно:
+pnpm gen:types    # только TypeScript
+```
+
+**Workflow:** изменить `docs/api/openapi.yaml` → `make gen` → зафиксировать все три файла в одном коммите.
+
+### HTTP-клиент на фронтенде
+
+```typescript
+import { apiClient } from '@/api/client'
+
+// Полный autocomplete по путям, методам, телу и ответу:
+const { data, error } = await apiClient.GET('/api/v1/scenes')
+const { data: scene } = await apiClient.GET('/api/v1/scenes/{id}', {
+  params: { path: { id: '...' } },
+})
+```
+
+Клиент (`src/api/client.ts`) — тонкая обёртка над [`openapi-fetch`](https://openapi-ts.dev/openapi-fetch/).
+`baseUrl: ''` — запросы идут на тот же origin; Vite proxy перенаправляет `/health` и `/api` на бэкенд.
+
+### Vite proxy
+
+`vite.config.ts` проксирует `/health` и `/api` на `BACKEND_URL` (по умолчанию `http://localhost:8080`).
+В Docker Compose dev `BACKEND_URL=http://backend:8080` прописан в `docker-compose.dev.yml`.
+
+### CI: spec-check
+
+Job `spec-check` регенерирует оба файла и проверяет `git diff --exit-code`. Если типы и spec разошлись — CI падает.
+
+### Инструменты: как добавить новый эндпоинт
+
+1. Добавить path + schemas в `docs/api/openapi.yaml`
+2. `make gen` — регенерировать типы
+3. Добавить handler в `apps/backend/internal/api/handlers.go`
+4. Зарегистрировать route в `apps/backend/cmd/server/main.go`
+5. Использовать на фронте через `apiClient`
 
 ---
 
