@@ -83,6 +83,7 @@ interface SceneState {
   toggleItemLocked: (id: string) => void
   toggleGroupLocked: (id: string) => void
   alignItems: (alignment: AlignmentType) => void
+  loadScene: (items: SceneItem[], groups: SceneGroup[]) => void
   resetScene: () => void
   undo: () => void
   redo: () => void
@@ -644,6 +645,18 @@ export const useSceneStore = create<SceneState>((set, get) => ({
       })
 
       return { ...pushHistory(state), items }
+    })
+  },
+
+  loadScene(items, groups) {
+    set({
+      items,
+      groups,
+      selectedItemId: null,
+      selectedItemIds: [],
+      editingItemId: null,
+      dragSession: null,
+      resizeSession: null,
     })
   },
 
