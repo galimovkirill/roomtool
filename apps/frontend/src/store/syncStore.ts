@@ -9,6 +9,7 @@ interface SyncState {
   sceneId: string | null
   setSyncStatus: (status: SyncStatus) => void
   setSceneId: (id: string) => void
+  clearSceneId: () => void
 }
 
 export const useSyncStore = create<SyncState>((set) => ({
@@ -18,5 +19,9 @@ export const useSyncStore = create<SyncState>((set) => ({
   setSceneId: (id) => {
     localStorage.setItem(SCENE_ID_KEY, id)
     set({ sceneId: id })
+  },
+  clearSceneId: () => {
+    localStorage.removeItem(SCENE_ID_KEY)
+    set({ sceneId: null, status: 'idle' })
   },
 }))

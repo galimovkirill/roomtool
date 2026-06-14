@@ -77,6 +77,13 @@ export async function initScene(): Promise<void> {
   }
 }
 
+export function cancelSync(): void {
+  if (_syncTimer) {
+    clearTimeout(_syncTimer)
+    _syncTimer = null
+  }
+}
+
 export function scheduleSync(items: SceneItem[], groups: SceneGroup[]): void {
   if (_syncTimer) clearTimeout(_syncTimer)
   _syncTimer = setTimeout(() => {

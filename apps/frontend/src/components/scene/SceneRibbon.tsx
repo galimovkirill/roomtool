@@ -5,6 +5,7 @@ import { AlignmentPopover } from './ribbon/AlignmentPopover'
 import { ItemActionsGroup } from './ribbon/ItemActionsGroup'
 import { ResetSceneButton } from './ribbon/ResetSceneButton'
 import { SaveStatusIndicator } from './ribbon/SaveStatusIndicator'
+import { UserButton } from './ribbon/UserButton'
 
 export function SceneRibbon() {
   return (
@@ -21,6 +22,8 @@ export function SceneRibbon() {
       <SaveStatusIndicator />
       <div className="w-px h-5 bg-gray-200 mx-1" />
       <ResetSceneButton />
+      <div className="w-px h-5 bg-gray-200 mx-1" />
+      <UserButton />
     </div>
   )
 }
