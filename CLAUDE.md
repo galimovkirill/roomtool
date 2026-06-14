@@ -1,33 +1,74 @@
 # RoomTool — Project Guide for Claude Code
 
-Frontend-only 3D-редактор для проектирования шкафов. Пользователь собирает шкаф из отдельных деталей: корпусных панелей, полок, штанг, дверей, фурнитуры и других компонентов. Каждая деталь имеет полностью редактируемые размеры, материал и цвет. Бэкенд, авторизация и сохранение сцены — вне скоупа.
+Монорепозиторий: 3D-редактор для проектирования шкафов (frontend) + REST API (backend).
+
+```
+apps/
+├── frontend/   React + Three.js
+└── backend/    Go + PostgreSQL
+```
+
+---
+
+## Структура монорепозитория
+
+| Слой | Путь | Стек |
+|------|------|------|
+| Frontend | `apps/frontend/` | React 19, TypeScript, Vite, Three.js, Zustand |
+| Backend | `apps/backend/` | Go 1.23, PostgreSQL |
+| Оркестрация | `docker-compose.yml` | frontend + backend + postgres |
+| CI | `.github/workflows/ci.yml` | GitHub Actions |
 
 ---
 
 ## Команды
 
+### Из корня (проксируют во frontend)
+
 ```bash
-pnpm dev           # запуск dev-сервера
-pnpm build         # production сборка (tsc -b + vite build)
-pnpm test          # тесты в watch-режиме (Vitest)
+pnpm dev           # запуск frontend dev-сервера (Vite)
+pnpm build         # production сборка frontend
+pnpm test          # тесты frontend в watch-режиме (Vitest)
 pnpm test:run      # одиночный прогон тестов
 pnpm test:coverage # прогон с отчётом покрытия + проверка порогов
-pnpm typecheck     # проверка типов без сборки (tsc -b, noEmit)
-pnpm lint          # ESLint проверка
+pnpm typecheck     # TypeScript без сборки
+pnpm lint          # ESLint
 pnpm lint:fix      # ESLint автоисправление
-pnpm format        # Prettier форматирование
+pnpm format        # Prettier
 ```
 
-> **Pre-commit гейт.** На каждый `git commit` husky запускает `lint-staged → typecheck → test:run`.
-> Коммит с падающим линтом, типами или тестами не пройдёт. Хук — в `.husky/pre-commit`.
+### Backend (из `apps/backend/`)
+
+```bash
+go run ./cmd/server           # запуск сервера
+air                           # hot-reload (требует: go install github.com/air-verse/air@latest)
+go test ./...                 # тесты
+go vet ./...                  # линт
+go build -o ./dist/server ./cmd/server  # production сборка
+```
+
+### Docker Compose (полный стек)
+
+```bash
+docker compose up             # поднять всё (frontend + backend + postgres)
+docker compose up db -d       # только postgres (для локального dev бэкенда)
+docker compose up --build     # пересобрать образы
+```
+
+> **Pre-commit гейт.** На каждый `git commit` husky запускает:
+> frontend: `lint-staged → typecheck → test:run`;
+> backend (только если staged .go файлы): `go vet → go test`.
+> Хук — в `.husky/pre-commit`.
 
 ---
 
 ## Стек
 
+### Frontend (`apps/frontend/`)
+
 | Слой | Инструмент |
 |------|-----------|
-| Фреймворк | React 18 + TypeScript (strict) |
+| Фреймворк | React 19 + TypeScript (strict) |
 | Сборка | Vite 6 |
 | 3D | Three.js + @react-three/fiber + @react-three/drei |
 | Стейт | Zustand |
@@ -35,7 +76,17 @@ pnpm format        # Prettier форматирование
 | UI-примитивы | shadcn/ui (Base UI) |
 | Уведомления | Sonner (`toast()`) |
 | Тесты | Vitest + @testing-library/react |
-| Пакеты | pnpm |
+| Пакеты | pnpm workspaces |
+
+### Backend (`apps/backend/`)
+
+| Слой | Инструмент |
+|------|-----------|
+| Язык | Go 1.23 |
+| HTTP | `net/http` (stdlib) |
+| База данных | PostgreSQL 17 |
+| Hot-reload | air |
+| Конфиг | env vars (`.env.example` в `apps/backend/`) |
 
 ---
 
@@ -76,11 +127,40 @@ shadcn/ui — единственный источник готовых комп�
 `getByRole('option')` и `fireEvent.change`.
 
 **Добавить новый компонент:** `npx shadcn@latest add <name>` — файл появится в `src/components/ui/`.
-Конфиг shadcn — `components.json` в корне проекта.
+Конфиг shadcn — `components.json` в `apps/frontend/`.
 
 ---
 
 ## Структура проекта
+
+### Монорепозиторий (корень)
+
+```
+roomtool/
+├── apps/
+│   ├── frontend/            # React-приложение (Vite)
+│   └── backend/             # Go API-сервер
+├── .github/workflows/ci.yml # GitHub Actions CI
+├── docker-compose.yml       # frontend + backend + postgres
+├── pnpm-workspace.yaml      # pnpm workspaces: apps/*
+└── package.json             # workspace root (scripts → frontend)
+```
+
+### Backend (`apps/backend/`)
+
+```
+apps/backend/
+├── cmd/
+│   └── server/
+│       └── main.go          # точка входа: HTTP-сервер на :8080
+├── internal/                # бизнес-логика (пусто, заполнять здесь)
+├── Dockerfile               # multi-stage: golang:1.23-alpine → alpine:3.21
+├── .air.toml                # hot-reload конфиг
+├── .env.example             # PORT, DATABASE_URL
+└── go.mod                   # module github.com/kirillgalimov/roomtool/backend
+```
+
+### Frontend (`apps/frontend/`)
 
 ```
 src/
@@ -457,7 +537,7 @@ GLB-файлы хранятся в `public/models/`.
 
 ## Что не делаем (скоуп MVP)
 
-- Бэкенд, API, авторизация
+- Авторизация / аутентификация
 - Скрытие элементов (только удаление)
 - Импорт/экспорт 3D-моделей
 - Мобильные устройства (< 1024px → заглушка)

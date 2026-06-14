@@ -5,6 +5,13 @@ import { resolve } from 'path'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  server: {
+    host: '0.0.0.0',
+    // Docker на macOS не пробрасывает inotify — включаем polling через env
+    watch: process.env.CHOKIDAR_USEPOLLING
+      ? { usePolling: true, interval: 1000 }
+      : undefined,
+  },
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),

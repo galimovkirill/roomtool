@@ -1,12 +1,21 @@
 set -e
 
-# 1. Линт + формат только по staged-файлам (быстро, автофикс)
-pnpm exec lint-staged
+# Frontend: lint + format staged files
+echo "▶ frontend: lint-staged…"
+pnpm --filter frontend exec lint-staged
 
-# 2. Проверка типов всего проекта (tsc -b, noEmit)
-echo "▶ typecheck…"
-pnpm run typecheck
+# Frontend: typecheck
+echo "▶ frontend: typecheck…"
+pnpm --filter frontend run typecheck
 
-# 3. Полный прогон тестов
-echo "▶ tests…"
-pnpm run test:run
+# Frontend: tests
+echo "▶ frontend: tests…"
+pnpm --filter frontend run test:run
+
+# Backend: vet + test (only if Go files are staged)
+if git diff --cached --name-only | grep -q '\.go$'; then
+  echo "▶ backend: vet…"
+  (cd apps/backend && go vet ./...)
+  echo "▶ backend: test…"
+  (cd apps/backend && go test ./...)
+fi
