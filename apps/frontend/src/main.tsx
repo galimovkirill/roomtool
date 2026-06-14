@@ -6,6 +6,11 @@ import { AppLayout } from '@/components/ui/AppLayout'
 import { ScreenGuard } from '@/components/ui/ScreenGuard'
 import { SceneCanvas } from '@/components/scene/SceneCanvas'
 import { RightPanel } from '@/components/panels/RightPanel'
+import { initScene } from '@/api/syncService'
+
+// Fire-and-forget: app renders immediately with localStorage data;
+// server data loads in the background and updates the store when ready.
+initScene()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

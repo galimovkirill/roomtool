@@ -16,6 +16,8 @@
 | `src/store/uiStore.ts` | sceneMode, activeRightPanelTab, showGizmo, showCeilingLight |
 | `src/store/defaultScene.ts` | Стартовая сцена (DEFAULT_SCENE_ITEMS / DEFAULT_SCENE_GROUPS) |
 | `src/store/persistence.ts` | LocalStorage (key: `roomtool_scene_v1`) |
+| `src/store/syncStore.ts` | SyncStatus ('idle'/'syncing'/'error'), sceneId (localStorage key: `roomtool_scene_id_v1`) |
+| `src/api/syncService.ts` | initScene (старт), scheduleSync (debounce 1500ms), syncNow (немедленно); подписывается на sceneStore |
 | `src/catalog/items.ts` | Каталог (~19 деталей, 6 категорий) |
 | `src/catalog/materials.ts` | MATERIAL_OPTIONS, MATERIAL_COLORS (материал → цвета) |
 | `src/components/scene/SceneCanvas.tsx` | R3F Canvas (3D) + монтирует Scene2DView в 2D |
@@ -206,6 +208,18 @@ LocalStorage key: `roomtool_scene_v1`. Не сохраняется: undo-ист�
 ⚠️ `clearScene()` вызывать **снаружи** `set()`, не внутри updater — side effect в updater нарушает idempotency.
 
 `resetScene()` пишет в историю (undo работает), очищает localStorage, сбрасывает `dragSession`/`resizeSession`.
+
+`loadScene(items, groups)` — загружает данные с сервера без записи в undo-историю. Используется только syncService.
+
+### Backend sync (syncService.ts)
+
+LocalStorage + backend sync работают параллельно и независимо:
+- localStorage: debounce 500ms, всегда (offline-first fallback)
+- backend: debounce 1500ms, только когда `sceneId` известен
+
+`initScene()` вызывается один раз в main.tsx до рендера. Приложение рендерится немедленно с данными из localStorage; если сервер вернул свежие данные — sceneStore обновится после ответа.
+
+Подписка в syncService.ts (не в sceneStore.ts) — избегает циркулярной зависимости. Мокируй `@/store/sceneStore` с `subscribe: vi.fn()` в тестах файлов, импортирующих syncService.
 
 ---
 
