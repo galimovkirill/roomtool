@@ -1,13 +1,14 @@
 services:
   frontend:
     build:
-      context: ./apps/frontend
-      dockerfile: Dockerfile.dev
+      context: .
+      dockerfile: apps/frontend/Dockerfile.dev
     ports:
       - "5173:5173"
     volumes:
-      - ./apps/frontend:/app
-      - frontend_nm:/app/node_modules   # изолированы от хоста, не перезаписываются bind-mount'ом
+      - ./apps/frontend:/workspace/apps/frontend
+      - frontend_nm:/workspace/node_modules          # изолированы от хоста, не перезаписываются bind-mount'ом
+      - frontend_app_nm:/workspace/apps/frontend/node_modules  # симлинки из apps/frontend/node_modules не просочатся с хоста
     environment:
       CHOKIDAR_USEPOLLING: "true"
       BACKEND_URL: "http://backend:8080"
@@ -46,5 +47,6 @@ services:
 
 volumes:
   frontend_nm:
+  frontend_app_nm:
   go_mod_cache:
   postgres_dev_data:
