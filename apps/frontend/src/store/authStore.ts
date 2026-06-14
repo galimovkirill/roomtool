@@ -7,6 +7,18 @@ import { useSyncStore } from './syncStore'
 
 type User = components['schemas']['User']
 
+const API_ERROR_MESSAGES: Record<string, string> = {
+  'invalid credentials': 'Неверный email или пароль',
+  'email already registered': 'Этот email уже зарегистрирован',
+  'validation error': 'Ошибка валидации данных',
+  unauthorized: 'Необходима авторизация',
+}
+
+function translateApiError(raw: string | undefined, fallback: string): string {
+  if (!raw) return fallback
+  return API_ERROR_MESSAGES[raw.toLowerCase()] ?? raw
+}
+
 interface AuthState {
   user: User | null
   status: 'loading' | 'authenticated' | 'unauthenticated'
@@ -37,7 +49,8 @@ export const useAuthStore = create<AuthState>((set) => ({
     const { data, error } = await apiClient.POST('/api/v1/auth/login', {
       body: { email, password },
     })
-    if (error) throw new Error((error as { message?: string }).message ?? 'Login failed')
+    if (error)
+      throw new Error(translateApiError((error as { message?: string }).message, 'Ошибка входа'))
     if (data) set({ user: data.user, status: 'authenticated' })
   },
 
@@ -45,7 +58,10 @@ export const useAuthStore = create<AuthState>((set) => ({
     const { data, error } = await apiClient.POST('/api/v1/auth/register', {
       body: { email, password },
     })
-    if (error) throw new Error((error as { message?: string }).message ?? 'Registration failed')
+    if (error)
+      throw new Error(
+        translateApiError((error as { message?: string }).message, 'Ошибка регистрации')
+      )
     if (data) set({ user: data.user, status: 'authenticated' })
   },
 
