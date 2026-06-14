@@ -28,6 +28,8 @@ type SceneRepository interface {
 	Get(ctx context.Context, id, userID string) (*Scene, error)
 	List(ctx context.Context, userID string) ([]Scene, error)
 	Update(ctx context.Context, id, userID, name string, data json.RawMessage) (*Scene, error)
+	UpdateName(ctx context.Context, id, userID, name string) (*Scene, error)
+	Duplicate(ctx context.Context, id, userID string) (*Scene, error)
 	Delete(ctx context.Context, id, userID string) error
 }
 
@@ -117,6 +119,48 @@ func (r *PostgresSceneRepository) Update(ctx context.Context, id, userID, name s
 	}
 	if err != nil {
 		return nil, fmt.Errorf("update scene: %w", err)
+	}
+	s.UserID = uid.String
+	s.Data = json.RawMessage(rawData)
+	return s, nil
+}
+
+func (r *PostgresSceneRepository) UpdateName(ctx context.Context, id, userID, name string) (*Scene, error) {
+	s := &Scene{}
+	var rawData []byte
+	var uid sql.NullString
+	err := r.db.QueryRowContext(ctx,
+		`UPDATE scenes SET name = $1
+		 WHERE id = $2 AND user_id = $3
+		 RETURNING id, user_id, name, data, created_at, updated_at`,
+		name, id, userID,
+	).Scan(&s.ID, &uid, &s.Name, &rawData, &s.CreatedAt, &s.UpdatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("update scene name: %w", err)
+	}
+	s.UserID = uid.String
+	s.Data = json.RawMessage(rawData)
+	return s, nil
+}
+
+func (r *PostgresSceneRepository) Duplicate(ctx context.Context, id, userID string) (*Scene, error) {
+	s := &Scene{}
+	var rawData []byte
+	var uid sql.NullString
+	err := r.db.QueryRowContext(ctx,
+		`INSERT INTO scenes (user_id, name, data)
+		 SELECT user_id, 'Копия ' || name, data FROM scenes WHERE id = $1 AND user_id = $2
+		 RETURNING id, user_id, name, data, created_at, updated_at`,
+		id, userID,
+	).Scan(&s.ID, &uid, &s.Name, &rawData, &s.CreatedAt, &s.UpdatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("duplicate scene: %w", err)
 	}
 	s.UserID = uid.String
 	s.Data = json.RawMessage(rawData)

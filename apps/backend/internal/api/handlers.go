@@ -138,6 +138,55 @@ func (h *Handler) HandleUpdateScene(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, resp)
 }
 
+func (h *Handler) HandleRenameScene(w http.ResponseWriter, r *http.Request) {
+	userID, _ := UserIDFromContext(r.Context())
+	id := r.PathValue("id")
+	var body RenameSceneJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Message: "invalid JSON"})
+		return
+	}
+	scene, err := h.scenes.UpdateName(r.Context(), id, userID, body.Name)
+	if errors.Is(err, repository.ErrNotFound) {
+		writeJSON(w, http.StatusNotFound, ErrorResponse{Message: "scene not found"})
+		return
+	}
+	if err != nil {
+		slog.Error("rename scene", "err", err)
+		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Message: "internal error"})
+		return
+	}
+	resp, err := sceneToResponse(scene)
+	if err != nil {
+		slog.Error("build scene response", "err", err)
+		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Message: "internal error"})
+		return
+	}
+	writeJSON(w, http.StatusOK, resp)
+}
+
+func (h *Handler) HandleDuplicateScene(w http.ResponseWriter, r *http.Request) {
+	userID, _ := UserIDFromContext(r.Context())
+	id := r.PathValue("id")
+	scene, err := h.scenes.Duplicate(r.Context(), id, userID)
+	if errors.Is(err, repository.ErrNotFound) {
+		writeJSON(w, http.StatusNotFound, ErrorResponse{Message: "scene not found"})
+		return
+	}
+	if err != nil {
+		slog.Error("duplicate scene", "err", err)
+		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Message: "internal error"})
+		return
+	}
+	resp, err := sceneToResponse(scene)
+	if err != nil {
+		slog.Error("build scene response", "err", err)
+		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Message: "internal error"})
+		return
+	}
+	writeJSON(w, http.StatusCreated, resp)
+}
+
 func (h *Handler) HandleDeleteScene(w http.ResponseWriter, r *http.Request) {
 	userID, _ := UserIDFromContext(r.Context())
 	id := r.PathValue("id")

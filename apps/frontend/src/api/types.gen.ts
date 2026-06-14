@@ -142,6 +142,26 @@ export interface paths {
     delete: operations['DeleteScene']
     options?: never
     head?: never
+    /** Rename a scene (update name only) */
+    patch: operations['RenameScene']
+    trace?: never
+  }
+  '/api/v1/scenes/{id}/duplicate': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: string
+      }
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Duplicate a scene */
+    post: operations['DuplicateScene']
+    delete?: never
+    options?: never
+    head?: never
     patch?: never
     trace?: never
   }
@@ -184,6 +204,10 @@ export interface components {
       /** @description Human-readable scene name */
       name: string
       data: components['schemas']['SceneData']
+    }
+    SceneRenameInput: {
+      /** @description New scene name */
+      name: string
     }
     /** @description Scene content as stored by the frontend */
     SceneData: {
@@ -577,6 +601,99 @@ export interface operations {
           [name: string]: unknown
         }
         content?: never
+      }
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorResponse']
+        }
+      }
+      /** @description Scene not found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorResponse']
+        }
+      }
+    }
+  }
+  RenameScene: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SceneRenameInput']
+      }
+    }
+    responses: {
+      /** @description Scene renamed */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Scene']
+        }
+      }
+      /** @description Invalid input */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorResponse']
+        }
+      }
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorResponse']
+        }
+      }
+      /** @description Scene not found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorResponse']
+        }
+      }
+    }
+  }
+  DuplicateScene: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Scene duplicated */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Scene']
+        }
       }
       /** @description Unauthorized */
       401: {

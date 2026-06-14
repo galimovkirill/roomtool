@@ -70,7 +70,9 @@ func main() {
 	mux.Handle("POST /api/v1/scenes", h.AuthMiddleware(http.HandlerFunc(h.HandleCreateScene)))
 	mux.Handle("GET /api/v1/scenes/{id}", h.AuthMiddleware(http.HandlerFunc(h.HandleGetScene)))
 	mux.Handle("PUT /api/v1/scenes/{id}", h.AuthMiddleware(http.HandlerFunc(h.HandleUpdateScene)))
+	mux.Handle("PATCH /api/v1/scenes/{id}", h.AuthMiddleware(http.HandlerFunc(h.HandleRenameScene)))
 	mux.Handle("DELETE /api/v1/scenes/{id}", h.AuthMiddleware(http.HandlerFunc(h.HandleDeleteScene)))
+	mux.Handle("POST /api/v1/scenes/{id}/duplicate", h.AuthMiddleware(http.HandlerFunc(h.HandleDuplicateScene)))
 
 	slog.Info("server starting", "port", port)
 	if err := http.ListenAndServe(":"+port, mux); err != nil {

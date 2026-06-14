@@ -240,3 +240,87 @@ func TestDeleteNotFound(t *testing.T) {
 		t.Errorf("expected ErrNotFound, got %v", err)
 	}
 }
+
+func TestUpdateName(t *testing.T) {
+	repo := newRepo(t)
+	ctx := context.Background()
+
+	created, err := repo.Create(ctx, testUserID, "Original Name", testData)
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	renamed, err := repo.UpdateName(ctx, created.ID, testUserID, "New Name")
+	if err != nil {
+		t.Fatalf("update name: %v", err)
+	}
+	if renamed.Name != "New Name" {
+		t.Errorf("name: got %q, want %q", renamed.Name, "New Name")
+	}
+	if renamed.ID != created.ID {
+		t.Errorf("id changed: got %q, want %q", renamed.ID, created.ID)
+	}
+}
+
+func TestUpdateNameNotFound(t *testing.T) {
+	repo := newRepo(t)
+
+	_, err := repo.UpdateName(context.Background(), "00000000-0000-0000-0000-000000000000", testUserID, "x")
+	if !errors.Is(err, repository.ErrNotFound) {
+		t.Errorf("expected ErrNotFound, got %v", err)
+	}
+}
+
+func TestUpdateNameWrongUser(t *testing.T) {
+	repo := newRepo(t)
+	ctx := context.Background()
+
+	created, err := repo.Create(ctx, testUserID, "My Scene", testData)
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	_, err = repo.UpdateName(ctx, created.ID, "00000000-0000-0000-0000-000000000001", "Hacked")
+	if !errors.Is(err, repository.ErrNotFound) {
+		t.Errorf("expected ErrNotFound for wrong user, got %v", err)
+	}
+}
+
+func TestDuplicate(t *testing.T) {
+	repo := newRepo(t)
+	ctx := context.Background()
+
+	orig, err := repo.Create(ctx, testUserID, "Original", testData)
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	dup, err := repo.Duplicate(ctx, orig.ID, testUserID)
+	if err != nil {
+		t.Fatalf("duplicate: %v", err)
+	}
+	if dup.Name != "Копия Original" {
+		t.Errorf("name: got %q, want %q", dup.Name, "Копия Original")
+	}
+	if dup.ID == orig.ID {
+		t.Error("duplicate should have a different ID")
+	}
+
+	// original untouched
+	got, err := repo.Get(ctx, orig.ID, testUserID)
+	if err != nil {
+		t.Fatalf("get original: %v", err)
+	}
+	if got.Name != "Original" {
+		t.Errorf("original name changed: got %q", got.Name)
+	}
+}
+
+func TestDuplicateNotFound(t *testing.T) {
+	repo := newRepo(t)
+
+	_, err := repo.Duplicate(context.Background(), "00000000-0000-0000-0000-000000000000", testUserID)
+	if !errors.Is(err, repository.ErrNotFound) {
+		t.Errorf("expected ErrNotFound, got %v", err)
+	}
+}

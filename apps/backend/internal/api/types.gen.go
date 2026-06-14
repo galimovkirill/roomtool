@@ -77,6 +77,12 @@ type SceneInput struct {
 // SceneItem Opaque scene item — shape defined by frontend SceneItem type
 type SceneItem map[string]interface{}
 
+// SceneRenameInput defines model for SceneRenameInput.
+type SceneRenameInput struct {
+	// Name New scene name
+	Name string `json:"name"`
+}
+
 // SceneSummary defines model for SceneSummary.
 type SceneSummary struct {
 	CreatedAt time.Time `json:"createdAt"`
@@ -108,6 +114,9 @@ type RegisterJSONRequestBody = AuthRequest
 
 // CreateSceneJSONRequestBody defines body for CreateScene for application/json ContentType.
 type CreateSceneJSONRequestBody = SceneInput
+
+// RenameSceneJSONRequestBody defines body for RenameScene for application/json ContentType.
+type RenameSceneJSONRequestBody = SceneRenameInput
 
 // UpdateSceneJSONRequestBody defines body for UpdateScene for application/json ContentType.
 type UpdateSceneJSONRequestBody = SceneInput

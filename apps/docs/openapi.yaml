@@ -240,6 +240,42 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: RenameScene
+      summary: Rename a scene (update name only)
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SceneRenameInput"
+      responses:
+        "200":
+          description: Scene renamed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Scene"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Scene not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
     delete:
       operationId: DeleteScene
       summary: Delete a scene
@@ -248,6 +284,38 @@ paths:
       responses:
         "204":
           description: Scene deleted
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Scene not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/scenes/{id}/duplicate:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    post:
+      operationId: DuplicateScene
+      summary: Duplicate a scene
+      security:
+        - cookieAuth: []
+      responses:
+        "201":
+          description: Scene duplicated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Scene"
         "401":
           description: Unauthorized
           content:
@@ -341,6 +409,15 @@ components:
           description: Human-readable scene name
         data:
           $ref: "#/components/schemas/SceneData"
+
+    SceneRenameInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          description: New scene name
 
     SceneData:
       type: object

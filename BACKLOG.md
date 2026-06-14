@@ -670,7 +670,7 @@ Inline-переименование (SceneName):
 | TASK-033 | Персистентность | Backend: scenes table + CRUD handlers | L | ✅ |
 | TASK-034 | Персистентность | Frontend: sync service (scene ID lifecycle + autosave) | M | ✅ |
 | TASK-035 | Персистентность | Frontend: индикатор статуса синхронизации в Ribbon | S | ✅ |
-| TASK-036 | Файлы | Backend: PATCH переименование + дублирование сцены | M | ⬜ |
+| TASK-036 | Файлы | Backend: PATCH переименование + дублирование сцены | M | ✅ |
 | TASK-037 | Файлы | Frontend: страница /files + мультисценовая навигация | XL | ⬜ |
 
 **S** = ~30–60 мин · **M** = ~1–2 ч · **L** = ~2–4 ч · **XL** = ~4–8 ч
