@@ -320,7 +320,7 @@ Handlers не должны знать о конкретной реализаци
 | TASK-030 | 2D-режим | Полная переработка 2D-вида: SVG-план с линейками и размерными линиями | XL | ✅ |
 | TASK-031 | Дизайн-система | Миграция UI-примитивов на Radix UI + дизайн-соглашения | L | ✅ |
 | TASK-032 | Персистентность | Сохранение и загрузка сцены через LocalStorage | M | ✅ |
-| TASK-033 | Персистентность | Backend: scenes table + CRUD handlers | L | ⬜ |
+| TASK-033 | Персистентность | Backend: scenes table + CRUD handlers | L | ✅ |
 | TASK-034 | Персистентность | Frontend: sync service (scene ID lifecycle + autosave) | M | ⬜ |
 | TASK-035 | Персистентность | Frontend: индикатор статуса синхронизации в Ribbon | S | ⬜ |
 
