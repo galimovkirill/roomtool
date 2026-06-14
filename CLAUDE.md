@@ -15,7 +15,7 @@ apps/
 | Слой | Путь | Стек |
 |------|------|------|
 | Frontend | `apps/frontend/` | React 19, TypeScript, Vite, Three.js, Zustand |
-| Backend | `apps/backend/` | Go 1.23, PostgreSQL |
+| Backend | `apps/backend/` | Go 1.24, PostgreSQL |
 | Оркестрация | `docker-compose.yml` | frontend + backend + postgres |
 | CI | `.github/workflows/ci.yml` | GitHub Actions |
 
@@ -82,7 +82,7 @@ docker compose up --build     # пересобрать образы
 
 | Слой | Инструмент |
 |------|-----------|
-| Язык | Go 1.23 |
+| Язык | Go 1.24 |
 | HTTP | `net/http` (stdlib) |
 | База данных | PostgreSQL 17 |
 | Hot-reload | air |
