@@ -322,6 +322,6 @@ Handlers не должны знать о конкретной реализаци
 | TASK-032 | Персистентность | Сохранение и загрузка сцены через LocalStorage | M | ✅ |
 | TASK-033 | Персистентность | Backend: scenes table + CRUD handlers | L | ✅ |
 | TASK-034 | Персистентность | Frontend: sync service (scene ID lifecycle + autosave) | M | ✅ |
-| TASK-035 | Персистентность | Frontend: индикатор статуса синхронизации в Ribbon | S | ⬜ |
+| TASK-035 | Персистентность | Frontend: индикатор статуса синхронизации в Ribbon | S | ✅ |
 
 **S** = ~30–60 мин · **M** = ~1–2 ч · **L** = ~2–4 ч · **XL** = ~4–8 ч
