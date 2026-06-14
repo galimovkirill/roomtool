@@ -284,6 +284,353 @@ Handlers не должны знать о конкретной реализаци
 
 ---
 
+### TASK-036 — Backend: PATCH переименование + дублирование сцены
+
+**Промпт для Claude Code:**
+```
+Добавь два новых эндпоинта для многофайлового режима: переименование сцены и её дублирование.
+
+Контекст:
+- Схема openapi.yaml: GET/PUT/DELETE /api/v1/scenes/{id} уже есть.
+- PUT требует полный SceneInput (name + data). Для переименования с /files мы не хотим
+  тащить весь data — нужен отдельный PATCH только по имени.
+- Дублирование создаёт копию сцены с тем же data и именем "Копия {оригинал}".
+- Все операции должны быть привязаны к userID текущего пользователя (из middleware).
+
+Шаг 1 — openapi.yaml.
+В apps/docs/openapi.yaml добавь:
+
+Новая схема (в components.schemas):
+  SceneRenameInput:
+    type: object
+    required: [name]
+    properties:
+      name:
+        type: string
+        description: New scene name
+
+Новый путь PATCH /api/v1/scenes/{id}:
+  patch:
+    operationId: RenameScene
+    summary: Rename a scene (update name only)
+    security:
+      - cookieAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/SceneRenameInput"
+    responses:
+      "200":
+        description: Scene renamed
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Scene"
+      "400": { ... ErrorResponse }
+      "401": { ... ErrorResponse }
+      "404": { ... ErrorResponse }
+
+Новый путь POST /api/v1/scenes/{id}/duplicate:
+  post:
+    operationId: DuplicateScene
+    summary: Duplicate a scene
+    security:
+      - cookieAuth: []
+    responses:
+      "201":
+        description: Scene duplicated
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Scene"
+      "401": { ... ErrorResponse }
+      "404": { ... ErrorResponse }
+
+Шаг 2 — make gen.
+Запусти make gen. Убедись что apps/backend/internal/api/types.gen.go и
+apps/frontend/src/api/types.gen.ts обновились и компилируются.
+
+Шаг 3 — Repository.
+В apps/backend/internal/repository/scenes.go добавь в интерфейс SceneRepository:
+  UpdateName(ctx context.Context, id string, userID string, name string) (*Scene, error)
+  Duplicate(ctx context.Context, id string, userID string) (*Scene, error)
+
+Реализация PostgresSceneRepository:
+- UpdateName: UPDATE scenes SET name=$1 WHERE id=$2 AND user_id=$3 RETURNING *.
+  Если rowsAffected == 0 → ErrNotFound (уже определён в scenes.go).
+- Duplicate: SELECT * FROM scenes WHERE id=$1 AND user_id=$2.
+  Если не найден → ErrNotFound.
+  INSERT INTO scenes (user_id, name, data) VALUES ($3, 'Копия ' || $4, $5) RETURNING *.
+  Возвращает новую сцену.
+
+Шаг 4 — Handlers.
+В apps/backend/internal/api/handlers.go добавь два метода на Handler:
+
+HandleRenameScene:
+- Декодируй тело в SceneRenameInput (из types.gen.go).
+- Вызови h.repo.UpdateName(ctx, id, userID, input.Name).
+- 404 при ErrNotFound, 200 + SceneResponse при успехе.
+
+HandleDuplicateScene:
+- Вызови h.repo.Duplicate(ctx, id, userID).
+- 404 при ErrNotFound, 201 + SceneResponse при успехе.
+
+Шаг 5 — Routes.
+В apps/backend/cmd/server/main.go зарегистрируй новые маршруты:
+  mux.Handle("PATCH /api/v1/scenes/{id}", authMiddleware(handler.HandleRenameScene))
+  mux.Handle("POST /api/v1/scenes/{id}/duplicate", authMiddleware(handler.HandleDuplicateScene))
+
+Шаг 6 — Тесты.
+В apps/backend/internal/repository/scenes_test.go (testcontainers) добавь тесты:
+- UpdateName: переименовывает сцену, другой пользователь получает ErrNotFound.
+- Duplicate: создаёт новую запись с prefix "Копия ", оригинал не тронут.
+```
+
+---
+
+### TASK-037 — Frontend: страница /files и мультисценовая навигация
+
+**Промпт для Claude Code:**
+```
+Реализуй страницу-хаб /files со списком 3D-сцен пользователя и перепиши роутинг
+под мультисценовую модель (один редактор на сцену по URL-идентификатору).
+
+Контекст:
+- Сейчас единственный маршрут редактора — '/'. SceneId хранится в localStorage и
+  определяется автоматически при старте.
+- После этой задачи: редактор живёт на '/editor/:id', /files — хаб с картотекой сцен.
+- PATCH /api/v1/scenes/{id} и POST /api/v1/scenes/{id}/duplicate уже реализованы
+  в TASK-036.
+- Дизайн-система: shadcn/ui + Tailwind v4. Визуальный ориентир — Figma Files.
+- Все тексты UI — на русском языке.
+
+─────────────────────────────────────────
+Шаг 1 — Роутинг (src/main.tsx)
+─────────────────────────────────────────
+Перепиши маршруты:
+
+  <Routes>
+    <Route path="/login"    element={<LoginPage />} />
+    <Route path="/register" element={<RegisterPage />} />
+    <Route path="/"         element={<Navigate to="/files" replace />} />
+    <Route path="/files"    element={<ProtectedRoute><FilesPage /></ProtectedRoute>} />
+    <Route
+      path="/editor/:id"
+      element={
+        <ProtectedRoute>
+          <ScreenGuard>
+            <EditorPage />   {/* новый компонент, см. Шаг 3 */}
+          </ScreenGuard>
+        </ProtectedRoute>
+      }
+    />
+  </Routes>
+
+LoginPage и RegisterPage: после успешной авторизации редиректить на '/files'
+(сейчас они редиректят на '/').
+
+─────────────────────────────────────────
+Шаг 2 — Рефакторинг syncService + syncStore
+─────────────────────────────────────────
+src/store/syncStore.ts:
+- Убери localStorage-персистентность sceneId (ключ 'roomtool_scene_id_v1').
+  Теперь sceneId всегда приходит из URL, а не из localStorage.
+- SyncStatus ('idle'|'syncing'|'error') и остальная логика не меняются.
+
+src/api/syncService.ts — измени сигнатуру initScene:
+
+  // Было: initScene(): Promise<void>  (читает sceneId из localStorage)
+  // Стало:
+  export async function initScene(sceneId: string): Promise<'ok' | 'not_found'>
+  // Логика:
+  //   GET /api/v1/scenes/{sceneId}
+  //   200: loadScene(items, groups) в sceneStore + syncStore.setSceneId(sceneId) → return 'ok'
+  //   404: return 'not_found'
+  //   Сетевая ошибка: setSyncStatus('error'), return 'not_found'
+
+src/store/persistence.ts:
+- Измени ключ localStorage с фиксированного 'roomtool_scene_v1' на
+  динамический `roomtool_scene_${sceneId}_v1`.
+- Добавь параметр sceneId в saveScene(snapshot, sceneId) и loadScene(sceneId).
+- В sceneStore.subscribe передавай sceneId из syncStore.getState().sceneId
+  (может быть null — тогда не сохранять в localStorage).
+
+─────────────────────────────────────────
+Шаг 3 — EditorPage (src/pages/EditorPage.tsx)
+─────────────────────────────────────────
+Создай EditorPage — оборачивает существующий контент редактора:
+
+  export function EditorPage() {
+    const { id } = useParams<{ id: string }>()
+    const navigate = useNavigate()
+
+    useEffect(() => {
+      if (!id) { navigate('/files', { replace: true }); return }
+      initScene(id).then(status => {
+        if (status === 'not_found') navigate('/files', { replace: true })
+      })
+      return () => {
+        // сброс сцены при уходе из редактора
+        useSceneStore.getState().resetScene()
+        useSyncStore.getState().setSceneId(null)
+      }
+    }, [id])
+
+    return (
+      <AppLayout>
+        <SceneRibbon />
+        <div className="flex flex-1 overflow-hidden">
+          <SceneCanvas />
+          <RightPanel />
+        </div>
+      </AppLayout>
+    )
+  }
+
+Убедись что resetScene() в sceneStore существует и сбрасывает items/groups/history
+без записи в undo-историю. Если нет — добавь.
+
+─────────────────────────────────────────
+Шаг 4 — AppHeader (src/components/ui/AppHeader.tsx)
+─────────────────────────────────────────
+Минималистичный хедер для не-редакторских страниц (как у Figma):
+
+  <header className="h-12 border-b flex items-center justify-between px-4">
+    <span className="font-semibold text-sm">RoomTool</span>
+    <UserMenu />   {/* email пользователя + кнопка "Выйти" */}
+  </header>
+
+UserMenu: получает user из authStore. Показывает email (truncate) + выпадающий
+список (shadcn DropdownMenu) с единственным пунктом "Выйти" (вызывает logout из authStore).
+Можно использовать компонент UserButton из SceneRibbon как основу — он уже реализован.
+
+─────────────────────────────────────────
+Шаг 5 — FilesPage (src/pages/FilesPage.tsx)
+─────────────────────────────────────────
+Структура страницы:
+
+  <div className="min-h-screen flex flex-col bg-background">
+    <AppHeader />
+    <main className="flex-1 p-6 max-w-7xl mx-auto w-full">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-xl font-semibold">Мои файлы</h1>
+        <Button onClick={handleCreateScene}>Создать сцену</Button>
+      </div>
+      <SortTabs />   {/* переключатель сортировки */}
+      <SceneGrid />  {/* сетка карточек */}
+    </main>
+  </div>
+
+Загрузка данных:
+- Используй apiClient.GET('/api/v1/scenes') для получения списка.
+- Показывай скелетон (shimmer placeholder) во время загрузки.
+- Обработай ошибку загрузки (показать toast + retry-кнопку).
+
+Сортировка (3 варианта, переключатель над сеткой):
+- "Последнее изменение" — по updatedAt desc (по умолчанию)
+- "Дата создания"       — по createdAt desc
+- "По названию"         — по name asc (алфавит)
+Сортировка локальная (не на сервере): sort массив после получения.
+
+handleCreateScene:
+  const { data } = await apiClient.POST('/api/v1/scenes', {
+    body: { name: 'Без названия', data: { version: 1, items: [], groups: [] } }
+  })
+  navigate(`/editor/${data.id}`)
+
+Пустое состояние (нет сцен):
+  <div className="text-center py-24 text-muted-foreground">
+    <p className="mb-4">У вас ещё нет файлов</p>
+    <Button onClick={handleCreateScene}>Создать первую сцену</Button>
+  </div>
+
+─────────────────────────────────────────
+Шаг 6 — SceneCard (src/components/files/SceneCard.tsx)
+─────────────────────────────────────────
+Карточка одной сцены (Figma-стиль):
+
+  <div className="group relative rounded-lg border bg-card hover:border-primary
+                  cursor-pointer transition-colors"
+       onClick={() => navigate(`/editor/${scene.id}`)}>
+
+    {/* Превью — иконка-заглушка */}
+    <div className="aspect-video bg-muted rounded-t-lg flex items-center justify-center">
+      <BoxIcon className="w-12 h-12 text-muted-foreground/40" />
+    </div>
+
+    {/* Мета */}
+    <div className="p-3">
+      <SceneName scene={scene} onRename={handleRename} />  {/* см. ниже */}
+      <p className="text-xs text-muted-foreground mt-1">
+        Изменено {formatRelativeDate(scene.updatedAt)}
+      </p>
+    </div>
+
+    {/* Контекстное меню */}
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button className="absolute top-2 right-2 opacity-0 group-hover:opacity-100
+                           p-1 rounded hover:bg-accent transition-opacity"
+                onClick={e => e.stopPropagation()}>
+          <MoreHorizontalIcon className="w-4 h-4" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent>
+        <DropdownMenuItem onClick={handleStartRename}>Переименовать</DropdownMenuItem>
+        <DropdownMenuItem onClick={handleDuplicate}>Дублировать</DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem className="text-destructive" onClick={handleDelete}>
+          Удалить
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  </div>
+
+Inline-переименование (SceneName):
+- По двойному клику на имя (или через меню "Переименовать") — показать <input>
+  с текущим значением, автофокус.
+- По Enter или blur — вызвать apiClient.PATCH('/api/v1/scenes/{id}', { body: { name } }).
+- По Escape — отменить.
+- Обновить локальный список оптимистично (до ответа сервера), откатить при ошибке.
+
+Дублирование (handleDuplicate):
+  const { data } = await apiClient.POST('/api/v1/scenes/{id}/duplicate')
+  setScenes(prev => [data, ...prev])  // добавить в начало списка
+
+Удаление (handleDelete):
+- Подтверждение через window.confirm("Удалить «{name}»?") или shadcn AlertDialog.
+- DELETE /api/v1/scenes/{id} → убрать из локального списка.
+- Показать toast "Сцена удалена" (Sonner).
+
+Утилита formatRelativeDate(dateStr: string): string:
+- Сегодня: "сегодня в 14:32"
+- Вчера: "вчера в 09:15"
+- Текущий год: "15 мар в 11:00"
+- Прошлый год: "15 мар 2024"
+Положи в src/utils/formatDate.ts. Напиши unit-тест.
+
+─────────────────────────────────────────
+Шаг 7 — Имя сцены в редакторе (SceneRibbon)
+─────────────────────────────────────────
+Добавь отображение имени текущей сцены в SceneRibbon (по центру или рядом с логотипом):
+- Читай name из нового поля syncStore.sceneName (добавь в SyncState).
+- initScene должен сохранять name: syncStore.setSceneName(scene.name).
+- Показывай как простой текст (не редактируемый — переименование только из /files).
+
+─────────────────────────────────────────
+Требования и ограничения
+─────────────────────────────────────────
+- Не использовать новых npm-зависимостей — все нужные компоненты уже есть в shadcn.
+- BoxIcon и MoreHorizontalIcon — из lucide-react (уже в зависимостях).
+- Убедись что TypeScript компилируется: pnpm typecheck.
+- Убедись что тесты не сломались: pnpm test:run.
+- Не удаляй localStorage-кеш полностью — только измени ключ на per-scene.
+```
+
+---
+
 ## Сводная таблица
 
 | ID | Фаза | Задача | Сложность | Статус |
@@ -323,5 +670,7 @@ Handlers не должны знать о конкретной реализаци
 | TASK-033 | Персистентность | Backend: scenes table + CRUD handlers | L | ✅ |
 | TASK-034 | Персистентность | Frontend: sync service (scene ID lifecycle + autosave) | M | ✅ |
 | TASK-035 | Персистентность | Frontend: индикатор статуса синхронизации в Ribbon | S | ✅ |
+| TASK-036 | Файлы | Backend: PATCH переименование + дублирование сцены | M | ⬜ |
+| TASK-037 | Файлы | Frontend: страница /files + мультисценовая навигация | XL | ⬜ |
 
 **S** = ~30–60 мин · **M** = ~1–2 ч · **L** = ~2–4 ч · **XL** = ~4–8 ч
