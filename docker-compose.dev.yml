@@ -7,8 +7,8 @@ services:
       - "5173:5173"
     volumes:
       - ./apps/frontend:/workspace/apps/frontend
-      - frontend_nm:/workspace/node_modules          # изолированы от хоста, не перезаписываются bind-mount'ом
-      - frontend_app_nm:/workspace/apps/frontend/node_modules  # симлинки из apps/frontend/node_modules не просочатся с хоста
+      - frontend_nm:/workspace/node_modules # изолированы от хоста, не перезаписываются bind-mount'ом
+      - frontend_app_nm:/workspace/apps/frontend/node_modules # симлинки из apps/frontend/node_modules не просочатся с хоста
     environment:
       CHOKIDAR_USEPOLLING: "true"
       BACKEND_URL: "http://backend:8080"
@@ -21,10 +21,11 @@ services:
       - "8080:8080"
     volumes:
       - ./apps/backend:/app
-      - go_mod_cache:/root/go/pkg/mod   # кэш модулей между перезапусками
+      - go_mod_cache:/root/go/pkg/mod # кэш модулей между перезапусками
     environment:
       PORT: "8080"
       DATABASE_URL: "postgres://roomtool:roomtool@db:5432/roomtool?sslmode=disable"
+      JWT_SECRET: "c21uhH6MB22w4VIc1bym7GCUAsi1Vq8Ochrr5YQ8dP7"
     depends_on:
       db:
         condition: service_healthy
