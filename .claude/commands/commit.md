@@ -9,7 +9,11 @@
 ```
 
 **Типы:** feat, fix, refactor, test, docs, style, perf, build, chore
-**Scope:** store, scene, catalog, ui, config, deps
+
+**Scope — frontend:** `store, scene, catalog, ui, config`
+**Scope — backend:** `api, db, handler, migrations, server`
+**Scope — общий:** `deps, docs, ci, spec` (для `openapi.yaml` и сгенерированных типов)
+
 **Description:** английский, lowercase, без точки, до 72 символов.
 
 ## Примеры
@@ -17,6 +21,9 @@
 ```
 feat(store): add undo/redo with two-stack pattern
 fix(scene): prevent TransformControls conflict with OrbitControls
+feat(handler): add scene persistence endpoint
+fix(db): correct scene dimensions column type
+feat(spec): add scenes CRUD to openapi.yaml
 ```
 
 ## Инструкция
@@ -24,7 +31,11 @@ fix(scene): prevent TransformControls conflict with OrbitControls
 1. `git status` + `git diff --stat` — список изменённых файлов и объём правок
 2. Добавь в stage релевантные файлы (не `.env`, не секреты, не temp-файлы)
 3. Определи type/scope по именам файлов и контексту текущей задачи
-4. **Проверь CLAUDE.md.** Если среди изменённых есть файлы из `types/`, `config/`, `catalog/`, `store/`, `utils/` — или добавлены новые компоненты/конвенции — сверь CLAUDE.md с кодом. Обнови затронутые разделы и включи `CLAUDE.md` в тот же коммит. Обновляй только «почему» и договорённости, а не описание кода.
+4. **Проверь CLAUDE.md.** Затронуты ли структурные файлы?
+   - Frontend: `apps/frontend/src/types/`, `config/`, `catalog/`, `store/`, `utils/` — обнови `apps/frontend/CLAUDE.md`
+   - Backend: `apps/backend/internal/`, новые handlers/services/migrations — обнови `apps/backend/CLAUDE.md`
+   - Корневой `CLAUDE.md` — при изменении команд, OpenAPI workflow или CI
+   Обновляй только «почему» и договорённости, не пересказывай код. Включи изменённые CLAUDE.md в тот же коммит.
 5. Сформируй сообщение: title обязателен, body — если нужно объяснить «почему»
 6. Создай коммит с `Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>`
 7. Покажи итог: файлы и финальное сообщение коммита
