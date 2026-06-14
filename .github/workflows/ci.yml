@@ -90,7 +90,7 @@ jobs:
       - name: Regenerate types
         run: |
           cd apps/backend && go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen \
-            --config .oapi-codegen.yaml ../../docs/api/openapi.yaml
+            --config .oapi-codegen.yaml ../docs/openapi.yaml
           pnpm gen:types
 
       - name: Check for drift

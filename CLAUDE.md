@@ -93,7 +93,7 @@ docker compose up --build     # пересобрать образы
 
 ## API-контракт (OpenAPI)
 
-Единственный источник истины — **`docs/api/openapi.yaml`** (OpenAPI 3.0.3).
+Единственный источник истины — **`apps/docs/openapi.yaml`** (OpenAPI 3.0.3).
 Из него генерируются типы для обеих сторон; ручное редактирование сгенерированных файлов запрещено.
 
 ### Сгенерированные файлы
@@ -106,12 +106,12 @@ docker compose up --build     # пересобрать образы
 ### Регенерация
 
 ```bash
-make gen          # Go-типы + TS-типы из docs/api/openapi.yaml
+make gen          # Go-типы + TS-типы из apps/docs/openapi.yaml
 # или отдельно:
 pnpm gen:types    # только TypeScript
 ```
 
-**Workflow:** изменить `docs/api/openapi.yaml` → `make gen` → зафиксировать все три файла в одном коммите.
+**Workflow:** изменить `apps/docs/openapi.yaml` → `make gen` → зафиксировать все три файла в одном коммите.
 
 ### HTTP-клиент на фронтенде
 
@@ -139,7 +139,7 @@ Job `spec-check` регенерирует оба файла и проверяе�
 
 ### Инструменты: как добавить новый эндпоинт
 
-1. Добавить path + schemas в `docs/api/openapi.yaml`
+1. Добавить path + schemas в `apps/docs/openapi.yaml`
 2. `make gen` — регенерировать типы
 3. Добавить handler в `apps/backend/internal/api/handlers.go`
 4. Зарегистрировать route в `apps/backend/cmd/server/main.go`
