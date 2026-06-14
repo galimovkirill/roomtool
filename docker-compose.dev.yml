@@ -2,22 +2,31 @@ services:
   frontend:
     build:
       context: ./apps/frontend
+      dockerfile: Dockerfile.dev
     ports:
-      - "3000:80"
-    restart: unless-stopped
+      - "5173:5173"
+    volumes:
+      - ./apps/frontend:/app
+      - frontend_nm:/app/node_modules   # изолированы от хоста, не перезаписываются bind-mount'ом
+    environment:
+      CHOKIDAR_USEPOLLING: "true"
+      BACKEND_URL: "http://backend:8080"
 
   backend:
     build:
       context: ./apps/backend
+      dockerfile: Dockerfile.dev
     ports:
       - "8080:8080"
+    volumes:
+      - ./apps/backend:/app
+      - go_mod_cache:/root/go/pkg/mod   # кэш модулей между перезапусками
     environment:
       PORT: "8080"
       DATABASE_URL: "postgres://roomtool:roomtool@db:5432/roomtool?sslmode=disable"
     depends_on:
       db:
         condition: service_healthy
-    restart: unless-stopped
 
   db:
     image: postgres:17-alpine
@@ -26,7 +35,7 @@ services:
       POSTGRES_USER: roomtool
       POSTGRES_PASSWORD: roomtool
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_dev_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U roomtool"]
       interval: 5s
@@ -36,4 +45,6 @@ services:
       - "5432:5432"
 
 volumes:
-  postgres_data:
+  frontend_nm:
+  go_mod_cache:
+  postgres_dev_data:

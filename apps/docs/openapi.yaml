@@ -1,0 +1,202 @@
+openapi: "3.0.3"
+info:
+  title: RoomTool API
+  version: "1.0.0"
+  description: REST API for RoomTool wardrobe designer
+
+paths:
+  /health:
+    get:
+      operationId: GetHealth
+      summary: Health check
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  /api/v1/scenes:
+    get:
+      operationId: ListScenes
+      summary: List all scenes
+      responses:
+        "200":
+          description: List of scenes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SceneSummary"
+    post:
+      operationId: CreateScene
+      summary: Create a new scene
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SceneInput"
+      responses:
+        "201":
+          description: Scene created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Scene"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/scenes/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      operationId: GetScene
+      summary: Get a scene by ID
+      responses:
+        "200":
+          description: Scene found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Scene"
+        "404":
+          description: Scene not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      operationId: UpdateScene
+      summary: Update a scene
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SceneInput"
+      responses:
+        "200":
+          description: Scene updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Scene"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Scene not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: DeleteScene
+      summary: Delete a scene
+      responses:
+        "204":
+          description: Scene deleted
+        "404":
+          description: Scene not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          example: ok
+
+    SceneSummary:
+      type: object
+      required: [id, name, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          description: Unique identifier (UUID)
+        name:
+          type: string
+          description: Human-readable scene name
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Scene:
+      allOf:
+        - $ref: "#/components/schemas/SceneSummary"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/SceneData"
+
+    SceneInput:
+      type: object
+      required: [name, data]
+      properties:
+        name:
+          type: string
+          description: Human-readable scene name
+        data:
+          $ref: "#/components/schemas/SceneData"
+
+    SceneData:
+      type: object
+      description: Scene content as stored by the frontend
+      required: [version, items, groups]
+      properties:
+        version:
+          type: integer
+          description: Snapshot format version
+          example: 1
+        items:
+          type: array
+          description: Scene items (furniture, panels, etc.)
+          items:
+            $ref: "#/components/schemas/SceneItem"
+        groups:
+          type: array
+          description: Item groups
+          items:
+            $ref: "#/components/schemas/SceneGroup"
+
+    SceneItem:
+      type: object
+      description: Opaque scene item — shape defined by frontend SceneItem type
+      additionalProperties: true
+
+    SceneGroup:
+      type: object
+      description: Opaque scene group — shape defined by frontend SceneGroup type
+      additionalProperties: true
+
+    ErrorResponse:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+          description: Human-readable error message

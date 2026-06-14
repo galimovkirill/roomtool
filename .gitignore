@@ -7,11 +7,21 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Node
 node_modules
 dist
 dist-ssr
 coverage
 *.local
+
+# Go
+apps/backend/tmp/
+apps/backend/vendor/
+
+# Env
+.env
+.env.*
+!.env.example
 
 # Playwright MCP artifacts
 .playwright-mcp/
