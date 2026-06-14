@@ -19,7 +19,10 @@ import (
 	"github.com/kirillgalimov/roomtool/backend/migrations"
 )
 
-var sharedDB *sql.DB
+var (
+	sharedDB   *sql.DB
+	testUserID string
+)
 
 func TestMain(m *testing.M) {
 	ctx := context.Background()
@@ -63,6 +66,12 @@ func TestMain(m *testing.M) {
 		log.Fatalf("run migrations: %v", err)
 	}
 
+	if err := sharedDB.QueryRowContext(ctx,
+		`INSERT INTO users (email, password_hash) VALUES ('test@example.com', 'fakehash') RETURNING id`,
+	).Scan(&testUserID); err != nil {
+		log.Fatalf("create test user: %v", err)
+	}
+
 	os.Exit(m.Run())
 }
 
@@ -81,7 +90,7 @@ func TestCreate(t *testing.T) {
 	repo := newRepo(t)
 	ctx := context.Background()
 
-	s, err := repo.Create(ctx, "Test Scene", testData)
+	s, err := repo.Create(ctx, testUserID, "Test Scene", testData)
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -104,12 +113,12 @@ func TestGet(t *testing.T) {
 	repo := newRepo(t)
 	ctx := context.Background()
 
-	created, err := repo.Create(ctx, "My Scene", testData)
+	created, err := repo.Create(ctx, testUserID, "My Scene", testData)
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
 
-	got, err := repo.Get(ctx, created.ID)
+	got, err := repo.Get(ctx, created.ID, testUserID)
 	if err != nil {
 		t.Fatalf("get: %v", err)
 	}
@@ -124,7 +133,7 @@ func TestGet(t *testing.T) {
 func TestGetNotFound(t *testing.T) {
 	repo := newRepo(t)
 
-	_, err := repo.Get(context.Background(), "00000000-0000-0000-0000-000000000000")
+	_, err := repo.Get(context.Background(), "00000000-0000-0000-0000-000000000000", testUserID)
 	if !errors.Is(err, repository.ErrNotFound) {
 		t.Errorf("expected ErrNotFound, got %v", err)
 	}
@@ -134,10 +143,10 @@ func TestList(t *testing.T) {
 	repo := newRepo(t)
 	ctx := context.Background()
 
-	repo.Create(ctx, "Scene A", testData) //nolint:errcheck
-	repo.Create(ctx, "Scene B", testData) //nolint:errcheck
+	repo.Create(ctx, testUserID, "Scene A", testData) //nolint:errcheck
+	repo.Create(ctx, testUserID, "Scene B", testData) //nolint:errcheck
 
-	scenes, err := repo.List(ctx)
+	scenes, err := repo.List(ctx, testUserID)
 	if err != nil {
 		t.Fatalf("list: %v", err)
 	}
@@ -149,7 +158,7 @@ func TestList(t *testing.T) {
 func TestListEmpty(t *testing.T) {
 	repo := newRepo(t)
 
-	scenes, err := repo.List(context.Background())
+	scenes, err := repo.List(context.Background(), testUserID)
 	if err != nil {
 		t.Fatalf("list: %v", err)
 	}
@@ -165,7 +174,7 @@ func TestUpdate(t *testing.T) {
 	repo := newRepo(t)
 	ctx := context.Background()
 
-	created, err := repo.Create(ctx, "Original", testData)
+	created, err := repo.Create(ctx, testUserID, "Original", testData)
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -174,7 +183,7 @@ func TestUpdate(t *testing.T) {
 	time.Sleep(2 * time.Millisecond)
 
 	newData := json.RawMessage(`{"version":1,"items":[{"id":"abc"}],"groups":[]}`)
-	updated, err := repo.Update(ctx, created.ID, "Updated", newData)
+	updated, err := repo.Update(ctx, created.ID, testUserID, "Updated", newData)
 	if err != nil {
 		t.Fatalf("update: %v", err)
 	}
@@ -198,7 +207,7 @@ func TestUpdate(t *testing.T) {
 func TestUpdateNotFound(t *testing.T) {
 	repo := newRepo(t)
 
-	_, err := repo.Update(context.Background(), "00000000-0000-0000-0000-000000000000", "x", testData)
+	_, err := repo.Update(context.Background(), "00000000-0000-0000-0000-000000000000", testUserID, "x", testData)
 	if !errors.Is(err, repository.ErrNotFound) {
 		t.Errorf("expected ErrNotFound, got %v", err)
 	}
@@ -208,16 +217,16 @@ func TestDelete(t *testing.T) {
 	repo := newRepo(t)
 	ctx := context.Background()
 
-	created, err := repo.Create(ctx, "To Delete", testData)
+	created, err := repo.Create(ctx, testUserID, "To Delete", testData)
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
 
-	if err := repo.Delete(ctx, created.ID); err != nil {
+	if err := repo.Delete(ctx, created.ID, testUserID); err != nil {
 		t.Fatalf("delete: %v", err)
 	}
 
-	_, err = repo.Get(ctx, created.ID)
+	_, err = repo.Get(ctx, created.ID, testUserID)
 	if !errors.Is(err, repository.ErrNotFound) {
 		t.Errorf("expected ErrNotFound after delete, got %v", err)
 	}
@@ -226,7 +235,7 @@ func TestDelete(t *testing.T) {
 func TestDeleteNotFound(t *testing.T) {
 	repo := newRepo(t)
 
-	err := repo.Delete(context.Background(), "00000000-0000-0000-0000-000000000000")
+	err := repo.Delete(context.Background(), "00000000-0000-0000-0000-000000000000", testUserID)
 	if !errors.Is(err, repository.ErrNotFound) {
 		t.Errorf("expected ErrNotFound, got %v", err)
 	}

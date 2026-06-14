@@ -5,7 +5,24 @@ package api
 
 import (
 	"time"
+
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
+
+const (
+	CookieAuthScopes cookieAuthContextKey = "cookieAuth.Scopes"
+)
+
+// AuthRequest defines model for AuthRequest.
+type AuthRequest struct {
+	Email    openapi_types.Email `json:"email"`
+	Password string              `json:"password"`
+}
+
+// AuthResponse defines model for AuthResponse.
+type AuthResponse struct {
+	User User `json:"user"`
+}
 
 // ErrorResponse defines model for ErrorResponse.
 type ErrorResponse struct {
@@ -71,6 +88,23 @@ type SceneSummary struct {
 	Name      string    `json:"name"`
 	UpdatedAt time.Time `json:"updatedAt"`
 }
+
+// User defines model for User.
+type User struct {
+	Email openapi_types.Email `json:"email"`
+
+	// Id User ID (UUID)
+	Id string `json:"id"`
+}
+
+// cookieAuthContextKey is the context key for cookieAuth security scheme
+type cookieAuthContextKey string
+
+// LoginJSONRequestBody defines body for Login for application/json ContentType.
+type LoginJSONRequestBody = AuthRequest
+
+// RegisterJSONRequestBody defines body for Register for application/json ContentType.
+type RegisterJSONRequestBody = AuthRequest
 
 // CreateSceneJSONRequestBody defines body for CreateScene for application/json ContentType.
 type CreateSceneJSONRequestBody = SceneInput

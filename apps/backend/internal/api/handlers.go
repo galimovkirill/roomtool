@@ -11,11 +11,24 @@ import (
 )
 
 type Handler struct {
-	repo repository.SceneRepository
+	scenes        repository.SceneRepository
+	users         repository.UserRepository
+	refreshTokens repository.RefreshTokenRepository
+	jwtSecret     []byte
 }
 
-func NewHandler(repo repository.SceneRepository) *Handler {
-	return &Handler{repo: repo}
+func NewHandler(
+	scenes repository.SceneRepository,
+	users repository.UserRepository,
+	refreshTokens repository.RefreshTokenRepository,
+	jwtSecret []byte,
+) *Handler {
+	return &Handler{
+		scenes:        scenes,
+		users:         users,
+		refreshTokens: refreshTokens,
+		jwtSecret:     jwtSecret,
+	}
 }
 
 func (h *Handler) HandleHealth(w http.ResponseWriter, r *http.Request) {
@@ -23,7 +36,8 @@ func (h *Handler) HandleHealth(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) HandleListScenes(w http.ResponseWriter, r *http.Request) {
-	scenes, err := h.repo.List(r.Context())
+	userID, _ := UserIDFromContext(r.Context())
+	scenes, err := h.scenes.List(r.Context(), userID)
 	if err != nil {
 		slog.Error("list scenes", "err", err)
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Message: "internal error"})
@@ -42,6 +56,7 @@ func (h *Handler) HandleListScenes(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) HandleCreateScene(w http.ResponseWriter, r *http.Request) {
+	userID, _ := UserIDFromContext(r.Context())
 	var body CreateSceneJSONRequestBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeJSON(w, http.StatusBadRequest, ErrorResponse{Message: "invalid JSON"})
@@ -53,7 +68,7 @@ func (h *Handler) HandleCreateScene(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Message: "internal error"})
 		return
 	}
-	scene, err := h.repo.Create(r.Context(), body.Name, dataJSON)
+	scene, err := h.scenes.Create(r.Context(), userID, body.Name, dataJSON)
 	if err != nil {
 		slog.Error("create scene", "err", err)
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Message: "internal error"})
@@ -69,8 +84,9 @@ func (h *Handler) HandleCreateScene(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) HandleGetScene(w http.ResponseWriter, r *http.Request) {
+	userID, _ := UserIDFromContext(r.Context())
 	id := r.PathValue("id")
-	scene, err := h.repo.Get(r.Context(), id)
+	scene, err := h.scenes.Get(r.Context(), id, userID)
 	if errors.Is(err, repository.ErrNotFound) {
 		writeJSON(w, http.StatusNotFound, ErrorResponse{Message: "scene not found"})
 		return
@@ -90,6 +106,7 @@ func (h *Handler) HandleGetScene(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) HandleUpdateScene(w http.ResponseWriter, r *http.Request) {
+	userID, _ := UserIDFromContext(r.Context())
 	id := r.PathValue("id")
 	var body UpdateSceneJSONRequestBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -102,7 +119,7 @@ func (h *Handler) HandleUpdateScene(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Message: "internal error"})
 		return
 	}
-	scene, err := h.repo.Update(r.Context(), id, body.Name, dataJSON)
+	scene, err := h.scenes.Update(r.Context(), id, userID, body.Name, dataJSON)
 	if errors.Is(err, repository.ErrNotFound) {
 		writeJSON(w, http.StatusNotFound, ErrorResponse{Message: "scene not found"})
 		return
@@ -122,8 +139,9 @@ func (h *Handler) HandleUpdateScene(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) HandleDeleteScene(w http.ResponseWriter, r *http.Request) {
+	userID, _ := UserIDFromContext(r.Context())
 	id := r.PathValue("id")
-	err := h.repo.Delete(r.Context(), id)
+	err := h.scenes.Delete(r.Context(), id, userID)
 	if errors.Is(err, repository.ErrNotFound) {
 		writeJSON(w, http.StatusNotFound, ErrorResponse{Message: "scene not found"})
 		return

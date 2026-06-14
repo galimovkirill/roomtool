@@ -22,6 +22,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	jwtSecret := []byte(os.Getenv("JWT_SECRET"))
+	if len(jwtSecret) == 0 {
+		slog.Error("JWT_SECRET is not set")
+		os.Exit(1)
+	}
+
 	sqlDB, err := sql.Open("pgx", dsn)
 	if err != nil {
 		slog.Error("open database", "err", err)
@@ -39,8 +45,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	repo := repository.NewPostgresSceneRepository(sqlDB)
-	h := api.NewHandler(repo)
+	scenes := repository.NewPostgresSceneRepository(sqlDB)
+	users := repository.NewPostgresUserRepository(sqlDB)
+	refreshTokens := repository.NewPostgresRefreshTokenRepository(sqlDB)
+	h := api.NewHandler(scenes, users, refreshTokens, jwtSecret)
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -49,11 +57,20 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", h.HandleHealth)
-	mux.HandleFunc("GET /api/v1/scenes", h.HandleListScenes)
-	mux.HandleFunc("POST /api/v1/scenes", h.HandleCreateScene)
-	mux.HandleFunc("GET /api/v1/scenes/{id}", h.HandleGetScene)
-	mux.HandleFunc("PUT /api/v1/scenes/{id}", h.HandleUpdateScene)
-	mux.HandleFunc("DELETE /api/v1/scenes/{id}", h.HandleDeleteScene)
+
+	// Public auth routes
+	mux.HandleFunc("POST /api/v1/auth/register", h.HandleRegister)
+	mux.HandleFunc("POST /api/v1/auth/login", h.HandleLogin)
+	mux.HandleFunc("POST /api/v1/auth/refresh", h.HandleRefresh)
+
+	// Protected routes
+	mux.Handle("POST /api/v1/auth/logout", h.AuthMiddleware(http.HandlerFunc(h.HandleLogout)))
+	mux.Handle("GET /api/v1/auth/me", h.AuthMiddleware(http.HandlerFunc(h.HandleMe)))
+	mux.Handle("GET /api/v1/scenes", h.AuthMiddleware(http.HandlerFunc(h.HandleListScenes)))
+	mux.Handle("POST /api/v1/scenes", h.AuthMiddleware(http.HandlerFunc(h.HandleCreateScene)))
+	mux.Handle("GET /api/v1/scenes/{id}", h.AuthMiddleware(http.HandlerFunc(h.HandleGetScene)))
+	mux.Handle("PUT /api/v1/scenes/{id}", h.AuthMiddleware(http.HandlerFunc(h.HandleUpdateScene)))
+	mux.Handle("DELETE /api/v1/scenes/{id}", h.AuthMiddleware(http.HandlerFunc(h.HandleDeleteScene)))
 
 	slog.Info("server starting", "port", port)
 	if err := http.ListenAndServe(":"+port, mux); err != nil {
