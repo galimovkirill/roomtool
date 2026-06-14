@@ -3,7 +3,8 @@ import { v4 as uuid } from 'uuid'
 import type { CatalogItem, SceneGroup, SceneItem } from '@/types'
 import { MATERIAL_COLORS, MATERIAL_OPTIONS, type MaterialType } from '@/catalog/materials'
 import { DEFAULT_SCENE_GROUPS, DEFAULT_SCENE_ITEMS } from './defaultScene'
-import { clearScene, loadScene, saveScene } from './persistence'
+import { clearScene, saveScene } from './persistence'
+import { useSyncStore } from './syncStore'
 
 type ItemPatch = Partial<Pick<SceneItem, 'position' | 'rotationY' | 'dimensions' | 'properties'>>
 
@@ -102,13 +103,9 @@ function pushHistory(state: Pick<SceneState, 'items' | 'groups' | 'history' | 'f
   return { history, future: [] }
 }
 
-const _saved = loadScene()
-const _initialItems = _saved?.items ?? DEFAULT_SCENE_ITEMS
-const _initialGroups = _saved?.groups ?? DEFAULT_SCENE_GROUPS
-
 export const useSceneStore = create<SceneState>((set, get) => ({
-  items: _initialItems,
-  groups: _initialGroups,
+  items: [],
+  groups: [],
   selectedItemId: null,
   selectedItemIds: [],
   editingItemId: null,
@@ -661,9 +658,9 @@ export const useSceneStore = create<SceneState>((set, get) => ({
   },
 
   resetScene() {
-    clearScene()
-    set((state) => ({
-      ...pushHistory(state),
+    const sceneId = useSyncStore.getState().sceneId
+    if (sceneId) clearScene(sceneId)
+    set({
       items: DEFAULT_SCENE_ITEMS,
       groups: DEFAULT_SCENE_GROUPS,
       selectedItemId: null,
@@ -671,7 +668,9 @@ export const useSceneStore = create<SceneState>((set, get) => ({
       editingItemId: null,
       dragSession: null,
       resizeSession: null,
-    }))
+      history: [],
+      future: [],
+    })
   },
 
   undo() {
@@ -710,6 +709,8 @@ let _saveTimer: ReturnType<typeof setTimeout> | null = null
 useSceneStore.subscribe((state) => {
   if (_saveTimer) clearTimeout(_saveTimer)
   _saveTimer = setTimeout(() => {
-    saveScene({ version: 1, items: state.items, groups: state.groups })
+    const sceneId = useSyncStore.getState().sceneId
+    if (!sceneId) return
+    saveScene({ version: 1, items: state.items, groups: state.groups }, sceneId)
   }, 500)
 })

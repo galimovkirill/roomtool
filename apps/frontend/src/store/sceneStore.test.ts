@@ -1359,12 +1359,11 @@ describe('resetScene', () => {
     expect(s.editingItemId).toBeNull()
   })
 
-  it('pushes a history snapshot so undo can restore the previous state', () => {
+  it('clears history and future so undo is not possible after reset', () => {
     useSceneStore.setState({ items: [makeResetItem('a')], groups: [], history: [], future: [] })
     useSceneStore.getState().resetScene()
     const s = useSceneStore.getState()
-    expect(s.history.length).toBeGreaterThan(0)
-    useSceneStore.getState().undo()
-    expect(useSceneStore.getState().items.some((i) => i.id === 'a')).toBe(true)
+    expect(s.history).toHaveLength(0)
+    expect(s.future).toHaveLength(0)
   })
 })

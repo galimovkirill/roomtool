@@ -1,6 +1,8 @@
 import type { SceneGroup, SceneItem } from '@/types'
 
-const STORAGE_KEY = 'roomtool_scene_v1'
+function storageKey(sceneId: string): string {
+  return `roomtool_scene_${sceneId}_v1`
+}
 
 export interface SceneSnapshot {
   version: 1
@@ -8,17 +10,17 @@ export interface SceneSnapshot {
   groups: SceneGroup[]
 }
 
-export function saveScene(snapshot: SceneSnapshot): void {
+export function saveScene(snapshot: SceneSnapshot, sceneId: string): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot))
+    localStorage.setItem(storageKey(sceneId), JSON.stringify(snapshot))
   } catch {
     // localStorage may be unavailable (private mode, quota exceeded)
   }
 }
 
-export function loadScene(): SceneSnapshot | null {
+export function loadScene(sceneId: string): SceneSnapshot | null {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = localStorage.getItem(storageKey(sceneId))
     if (!raw) return null
     const parsed = JSON.parse(raw)
     if (parsed?.version !== 1 || !Array.isArray(parsed?.items) || !Array.isArray(parsed?.groups)) {
@@ -31,6 +33,6 @@ export function loadScene(): SceneSnapshot | null {
   }
 }
 
-export function clearScene(): void {
-  localStorage.removeItem(STORAGE_KEY)
+export function clearScene(sceneId: string): void {
+  localStorage.removeItem(storageKey(sceneId))
 }

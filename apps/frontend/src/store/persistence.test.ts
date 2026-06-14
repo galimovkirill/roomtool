@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { clearScene, loadScene, saveScene, type SceneSnapshot } from './persistence'
 import type { SceneGroup, SceneItem } from '@/types'
 
-const STORAGE_KEY = 'roomtool_scene_v1'
+const SCENE_ID = 'test-scene-123'
+const STORAGE_KEY = `roomtool_scene_${SCENE_ID}_v1`
 
 const ITEM: SceneItem = {
   id: 'test-item',
@@ -33,8 +34,8 @@ afterEach(() => {
 })
 
 describe('saveScene', () => {
-  it('saves valid JSON to localStorage under the correct key', () => {
-    saveScene(SNAPSHOT)
+  it('saves valid JSON to localStorage under the correct per-scene key', () => {
+    saveScene(SNAPSHOT, SCENE_ID)
     const raw = localStorage.getItem(STORAGE_KEY)
     expect(raw).not.toBeNull()
     const parsed = JSON.parse(raw!)
@@ -47,18 +48,18 @@ describe('saveScene', () => {
     vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
       throw new DOMException('QuotaExceededError')
     })
-    expect(() => saveScene(SNAPSHOT)).not.toThrow()
+    expect(() => saveScene(SNAPSHOT, SCENE_ID)).not.toThrow()
   })
 })
 
 describe('loadScene', () => {
   it('returns null when key is absent', () => {
-    expect(loadScene()).toBeNull()
+    expect(loadScene(SCENE_ID)).toBeNull()
   })
 
   it('returns the snapshot when key contains valid data', () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(SNAPSHOT))
-    const result = loadScene()
+    const result = loadScene(SCENE_ID)
     expect(result).not.toBeNull()
     expect(result!.version).toBe(1)
     expect(result!.items).toHaveLength(1)
@@ -67,29 +68,35 @@ describe('loadScene', () => {
 
   it('returns null when JSON.parse throws', () => {
     localStorage.setItem(STORAGE_KEY, 'not-valid-json{{{')
-    expect(loadScene()).toBeNull()
+    expect(loadScene(SCENE_ID)).toBeNull()
   })
 
   it('returns null when version !== 1', () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 2, items: [], groups: [] }))
-    expect(loadScene()).toBeNull()
+    expect(loadScene(SCENE_ID)).toBeNull()
   })
 
   it('returns null when items is not an array', () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, items: null, groups: [] }))
-    expect(loadScene()).toBeNull()
+    expect(loadScene(SCENE_ID)).toBeNull()
   })
 
   it('returns null when groups is not an array', () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, items: [], groups: 'bad' }))
-    expect(loadScene()).toBeNull()
+    expect(loadScene(SCENE_ID)).toBeNull()
+  })
+
+  it('uses a different key per sceneId', () => {
+    saveScene(SNAPSHOT, 'scene-a')
+    expect(loadScene('scene-b')).toBeNull()
+    expect(loadScene('scene-a')).not.toBeNull()
   })
 })
 
 describe('clearScene', () => {
   it('removes the key from localStorage', () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(SNAPSHOT))
-    clearScene()
+    clearScene(SCENE_ID)
     expect(localStorage.getItem(STORAGE_KEY)).toBeNull()
   })
 })

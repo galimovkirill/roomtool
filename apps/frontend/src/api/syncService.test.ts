@@ -3,14 +3,19 @@ import type { SceneGroup, SceneItem } from '@/types'
 
 const mockSetSyncStatus = vi.fn()
 const mockSetSceneId = vi.fn()
+const mockSetSceneName = vi.fn()
 const mockSyncStoreState: {
   sceneId: string | null
+  sceneName: string | null
   setSyncStatus: ReturnType<typeof vi.fn>
   setSceneId: ReturnType<typeof vi.fn>
+  setSceneName: ReturnType<typeof vi.fn>
 } = {
   sceneId: 'scene-abc',
+  sceneName: 'Test Scene',
   setSyncStatus: mockSetSyncStatus,
   setSceneId: mockSetSceneId,
+  setSceneName: mockSetSceneName,
 }
 
 const mockSceneStoreState = {
@@ -31,13 +36,11 @@ vi.mock('@/store/sceneStore', () => ({
 }))
 
 const mockPUT = vi.fn()
-const mockPOST = vi.fn()
 const mockGET = vi.fn()
 
 vi.mock('@/api/client', () => ({
   apiClient: {
     PUT: mockPUT,
-    POST: mockPOST,
     GET: mockGET,
   },
 }))
@@ -55,13 +58,13 @@ beforeEach(() => {
   vi.clearAllMocks()
   mockSyncStoreState.sceneId = 'scene-abc'
   mockPUT.mockResolvedValue({ response: { status: 200 }, data: {} })
-  mockPOST.mockResolvedValue({ response: { status: 201 }, data: { id: 'new-id' } })
   mockGET.mockResolvedValue({
     response: { status: 200 },
-    data: { data: { items: [], groups: [] } },
+    data: { name: 'Test Scene', data: { items: [], groups: [] } },
   })
   mockSetSyncStatus.mockReset()
   mockSetSceneId.mockReset()
+  mockSetSceneName.mockReset()
 })
 
 describe('scheduleSync', () => {
@@ -105,16 +108,6 @@ describe('scheduleSync', () => {
     await Promise.resolve() // flush microtasks
     expect(mockSetSyncStatus).toHaveBeenCalledWith('syncing')
     expect(mockSetSyncStatus).toHaveBeenCalledWith('idle')
-  })
-
-  it('creates new scene and retries on 404', async () => {
-    mockPUT.mockResolvedValueOnce({ response: { status: 404 }, data: null })
-    mockPUT.mockResolvedValueOnce({ response: { status: 200 }, data: {} })
-    const { scheduleSync } = await import('./syncService')
-    scheduleSync([], [])
-    await vi.runAllTimersAsync()
-    expect(mockPOST).toHaveBeenCalledOnce()
-    expect(mockPUT).toHaveBeenCalledTimes(2)
   })
 })
 

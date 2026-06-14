@@ -1,22 +1,18 @@
-import { useEffect, useRef } from 'react'
-import { Navigate, Outlet } from 'react-router-dom'
+import type { ReactNode } from 'react'
+import { useEffect } from 'react'
+import { Navigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
-import { initScene } from '@/api/syncService'
 
-export function ProtectedRoute() {
+interface Props {
+  children: ReactNode
+}
+
+export function ProtectedRoute({ children }: Props) {
   const { status, checkAuth } = useAuthStore()
-  const initCalled = useRef(false)
 
   useEffect(() => {
     checkAuth()
   }, [checkAuth])
-
-  useEffect(() => {
-    if (status === 'authenticated' && !initCalled.current) {
-      initCalled.current = true
-      initScene()
-    }
-  }, [status])
 
   if (status === 'loading') {
     return (
@@ -30,5 +26,5 @@ export function ProtectedRoute() {
     return <Navigate to="/login" replace />
   }
 
-  return <Outlet />
+  return <>{children}</>
 }

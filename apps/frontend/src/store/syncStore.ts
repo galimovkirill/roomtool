@@ -2,26 +2,22 @@ import { create } from 'zustand'
 
 export type SyncStatus = 'idle' | 'syncing' | 'error'
 
-const SCENE_ID_KEY = 'roomtool_scene_id_v1'
-
 interface SyncState {
   status: SyncStatus
   sceneId: string | null
+  sceneName: string | null
   setSyncStatus: (status: SyncStatus) => void
-  setSceneId: (id: string) => void
+  setSceneId: (id: string | null) => void
+  setSceneName: (name: string | null) => void
   clearSceneId: () => void
 }
 
 export const useSyncStore = create<SyncState>((set) => ({
   status: 'idle',
-  sceneId: localStorage.getItem(SCENE_ID_KEY),
+  sceneId: null,
+  sceneName: null,
   setSyncStatus: (status) => set({ status }),
-  setSceneId: (id) => {
-    localStorage.setItem(SCENE_ID_KEY, id)
-    set({ sceneId: id })
-  },
-  clearSceneId: () => {
-    localStorage.removeItem(SCENE_ID_KEY)
-    set({ sceneId: null, status: 'idle' })
-  },
+  setSceneId: (id) => set({ sceneId: id }),
+  setSceneName: (name) => set({ sceneName: name }),
+  clearSceneId: () => set({ sceneId: null, sceneName: null, status: 'idle' }),
 }))

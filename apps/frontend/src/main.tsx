@@ -3,13 +3,12 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import './index.css'
-import { AppLayout } from '@/components/ui/AppLayout'
 import { ScreenGuard } from '@/components/ui/ScreenGuard'
-import { SceneCanvas } from '@/components/scene/SceneCanvas'
-import { RightPanel } from '@/components/panels/RightPanel'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { LoginPage } from '@/pages/LoginPage'
 import { RegisterPage } from '@/pages/RegisterPage'
+import { FilesPage } from '@/pages/FilesPage'
+import { EditorPage } from '@/pages/EditorPage'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -17,20 +16,26 @@ createRoot(document.getElementById('root')!).render(
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
-        <Route element={<ProtectedRoute />}>
-          <Route
-            path="/"
-            element={
+        <Route path="/" element={<Navigate to="/files" replace />} />
+        <Route
+          path="/files"
+          element={
+            <ProtectedRoute>
+              <FilesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/editor/:id"
+          element={
+            <ProtectedRoute>
               <ScreenGuard>
-                <AppLayout>
-                  <SceneCanvas />
-                  <RightPanel />
-                </AppLayout>
+                <EditorPage />
               </ScreenGuard>
-            }
-          />
-        </Route>
-        <Route path="*" element={<Navigate to="/" replace />} />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="*" element={<Navigate to="/files" replace />} />
       </Routes>
       <Toaster position="bottom-right" />
     </BrowserRouter>

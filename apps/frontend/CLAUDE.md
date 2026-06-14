@@ -15,9 +15,9 @@
 | `src/store/sceneStore.ts` | items, groups, выделение, drag/resize сессии, undo/redo, все мутации |
 | `src/store/uiStore.ts` | sceneMode, activeRightPanelTab, showGizmo, showCeilingLight |
 | `src/store/defaultScene.ts` | Стартовая сцена (DEFAULT_SCENE_ITEMS / DEFAULT_SCENE_GROUPS) |
-| `src/store/persistence.ts` | LocalStorage (key: `roomtool_scene_v1`) |
-| `src/store/syncStore.ts` | SyncStatus ('idle'/'syncing'/'error'), sceneId (localStorage key: `roomtool_scene_id_v1`) |
-| `src/api/syncService.ts` | initScene (старт), scheduleSync (debounce 1500ms), syncNow (немедленно); подписывается на sceneStore |
+| `src/store/persistence.ts` | LocalStorage (per-scene key: `roomtool_scene_${sceneId}_v1`) |
+| `src/store/syncStore.ts` | SyncStatus ('idle'/'syncing'/'error'), sceneId, sceneName — без localStorage |
+| `src/api/syncService.ts` | initScene(sceneId) → 'ok'/'not_found', scheduleSync (debounce 1500ms), syncNow (немедленно); подписывается на sceneStore |
 | `src/catalog/items.ts` | Каталог (~19 деталей, 6 категорий) |
 | `src/catalog/materials.ts` | MATERIAL_OPTIONS, MATERIAL_COLORS (материал → цвета) |
 | `src/components/scene/SceneCanvas.tsx` | R3F Canvas (3D) + монтирует Scene2DView в 2D |
@@ -26,7 +26,7 @@
 | `src/components/scene/TransformProxy.tsx` | Gizmo перемещения (pivot + drag-сессия) |
 | `src/components/scene/ResizeHandles.tsx` | 6 ручек по граням для resize одиночного элемента |
 | `src/components/scene/useMeshDrag.ts` | Прямой drag по телу элемента (только XZ) |
-| `src/components/scene/SceneRibbon.tsx` | Лента над canvas (layout-обёртка) |
+| `src/components/scene/SceneRibbon.tsx` | Лента над canvas: кнопки режимов + абсолютно-центрированное имя сцены из syncStore |
 | `src/components/scene/ribbon/` | Компоненты ленты: ViewModeToggle, GizmoToggle, AlignmentPopover, ItemActionsGroup, ResetSceneButton, SaveStatusIndicator |
 | `src/components/scene/SceneOverlay.tsx` | W/H/D выделенного; при мультивыборе — bounding box |
 | `src/components/scene/ElevationSlider.tsx` | Ползунок высоты (Y); скрыт при showGizmo |
@@ -34,8 +34,15 @@
 | `src/components/panels/LayersPanel.tsx` | Дерево слоёв, мультивыбор, группы, контекст-меню, visibility |
 | `src/components/panels/PropertiesPanel.tsx` | Форма свойств (открывается только явным жестом) |
 | `src/components/panels/PropertyField.tsx` | Поле: number / select / material / color |
-| `src/components/ui/AppLayout.tsx` | Корневой flex layout + TooltipProvider |
+| `src/components/ui/AppLayout.tsx` | Корневой `flex-col` layout + TooltipProvider; принимает любой `ReactNode` |
+| `src/components/ui/AppHeader.tsx` | Шапка с логотипом и дропдауном пользователя (email + Выйти) |
+| `src/components/ui/dropdown-menu.tsx` | DropdownMenu на @base-ui/react/menu (аналог context-menu.tsx) |
+| `src/components/ui/skeleton.tsx` | Skeleton — `animate-pulse bg-muted` div-заглушка |
 | `src/components/ui/ToolbarToggleButton.tsx` | Toggle-кнопка с тултипом для Ribbon |
+| `src/components/files/SceneCard.tsx` | Карточка сцены: thumbnail, имя, дата; двойной клик — переименование; DropdownMenu |
+| `src/pages/FilesPage.tsx` | Хаб `/files`: список сцен, создание, сортировка, состояния загрузки/ошибки/пусто |
+| `src/pages/EditorPage.tsx` | Страница `/editor/:id`: initScene → resetScene при уходе; редирект на `/files` если not_found |
+| `src/utils/formatDate.ts` | `formatRelativeDate(dateStr)` — относительные даты на русском (сегодня/вчера/дата) |
 | `src/utils/collision.ts` | AABB: clampGroupDelta, clampGroupDeltaAgainstItems, totalOverlapVolume |
 | `src/utils/clampToRoom.ts` | Удержание элемента в границах комнаты (чистая функция) |
 | `src/utils/groupTransform.ts` | computeGroupCenter, groupDragDelta, pivotPositionOnChange |
@@ -192,7 +199,7 @@ Single-select: `value={[active]} onValueChange={vals => vals.length > 0 && set(v
 
 **R3F-компоненты не тестируются** — Three.js не работает в jsdom. Чистую логику выносить в `utils/` и покрывать там (паттерн: `clampToRoom` вынесен из `SceneElement`).
 
-**Тест инициализации стора из localStorage** (`sceneStore.persistence-init.test.ts`) — отдельный файл с `vi.mock('./persistence')`. `loadScene()` вызывается на уровне модуля при первом импорте, поэтому нужны `vi.resetModules()` + динамический `import('./sceneStore')` внутри теста.
+**sceneStore.persistence-init.test.ts удалён** — модульный `loadScene()` при первом импорте убран, инициализация теперь через `initScene(sceneId)` в EditorPage.
 
 **Мокирование shadcn Select:** `vi.mock('@/components/ui/select', ...)` — заменяет на нативный `<select>` для работы `getByRole('combobox')` и `fireEvent.change`.
 
@@ -200,24 +207,42 @@ Single-select: `value={[active]} onValueChange={vals => vals.length > 0 && set(v
 
 ---
 
+## Роутинг
+
+```
+/           → redirect /files
+/files      → FilesPage (ProtectedRoute)
+/editor/:id → EditorPage (ProtectedRoute + ScreenGuard)
+*           → redirect /files
+```
+
+`ProtectedRoute` — обёртка (children), не Outlet. Проверяет `authStore.status`, редиректит на `/login` если не аутентифицирован.
+
+`EditorPage` вызывает `initScene(id)` при монтировании и `resetScene()` + `setSceneId(null)` при размонтировании (cleanup в useEffect). Используй cancellation флаг (как в FilesPage), чтобы избежать race condition при быстрой навигации.
+
+---
+
 ## Персистентность
 
-LocalStorage key: `roomtool_scene_v1`. Не сохраняется: undo-история, выделение, uiStore.
-`loadScene()` вызывается один раз на уровне модуля — не в хуке, не в компоненте.
+LocalStorage key формат: `roomtool_scene_${sceneId}_v1` (per-scene). Все три функции `saveScene/loadScene/clearScene` требуют `sceneId: string`. Не сохраняется: undo-история, выделение, uiStore.
+
+`loadScene()` **не** вызывается на уровне модуля. Инициализация через `initScene(sceneId)` в EditorPage.
 
 ⚠️ `clearScene()` вызывать **снаружи** `set()`, не внутри updater — side effect в updater нарушает idempotency.
 
-`resetScene()` пишет в историю (undo работает), очищает localStorage, сбрасывает `dragSession`/`resizeSession`.
+`resetScene()` **не** пишет в историю — очищает `history` и `future`, сбрасывает `dragSession`/`resizeSession`. После reset undo недоступен.
 
 `loadScene(items, groups)` — загружает данные с сервера без записи в undo-историю. Используется только syncService.
 
 ### Backend sync (syncService.ts)
 
 LocalStorage + backend sync работают параллельно и независимо:
-- localStorage: debounce 500ms, всегда (offline-first fallback)
+- localStorage: debounce 500ms, только когда `syncStore.sceneId` известен
 - backend: debounce 1500ms, только когда `sceneId` известен
 
-`initScene()` вызывается один раз в main.tsx до рендера. Приложение рендерится немедленно с данными из localStorage; если сервер вернул свежие данные — sceneStore обновится после ответа.
+`initScene(sceneId: string)` → `'ok' | 'not_found'`. Вызывается в EditorPage при каждом открытии сцены. Загружает данные с сервера, устанавливает `sceneId` и `sceneName` в syncStore.
+
+`syncStore.sceneName` — читается в `putScene` при каждом PUT, чтобы сохранять актуальное имя сцены.
 
 Подписка в syncService.ts (не в sceneStore.ts) — избегает циркулярной зависимости. Мокируй `@/store/sceneStore` с `subscribe: vi.fn()` в тестах файлов, импортирующих syncService.
 

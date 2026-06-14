@@ -20,7 +20,7 @@ export function RegisterPage() {
     setLoading(true)
     try {
       await register(email, password)
-      navigate('/', { replace: true })
+      navigate('/files', { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ошибка регистрации')
     } finally {
