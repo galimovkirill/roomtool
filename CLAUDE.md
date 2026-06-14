@@ -93,8 +93,9 @@ const { data: scene } = await apiClient.GET('/api/v1/scenes/{id}', {
 | Файл | Назначение |
 |------|-----------|
 | `apps/frontend/CLAUDE.md` | Frontend-соглашения, анти-паттерны, архитектура |
+| `apps/frontend/ARCHITECTURE.md` | TypeScript-интерфейсы, дерево компонентов |
 | `apps/backend/CLAUDE.md` | Backend-структура, oapi-codegen |
-| `ARCHITECTURE.md` | TypeScript-интерфейсы, дерево компонентов |
+| `apps/backend/ARCHITECTURE.md` | Схема БД, доменные модели, слои сервисов |
 | `docs/mvp.md` | Требования MVP |
 | `docs/user-flows.md` | Пользовательские сценарии |
 | `docs/TODO.md` | Отложенные решения |

@@ -2,6 +2,8 @@
 
 Стек: React 19 · TypeScript strict · Vite 6 · Three.js + @react-three/fiber + @react-three/drei · Zustand · Tailwind CSS v4 · shadcn/ui (Base UI) · Sonner · Vitest
 
+Типы и дерево компонентов: [ARCHITECTURE.md](ARCHITECTURE.md)
+
 ---
 
 ## Ключевые файлы
