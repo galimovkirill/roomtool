@@ -540,6 +540,200 @@ https://…/share/abc123…   [Скопировать]
 
 ---
 
+### TASK-041 — Привязка к сетке (Snapping)
+
+**Промпт для Claude Code:**
+```
+Реализуй два типа snap при drag мебели по XZ в 3D-режиме.
+
+## Scope
+
+Только перемещение (drag). Resize и поворот — вне scope. Только 3D (Scene2DView без snap).
+
+## 1. Конфигурация
+
+В `src/config/scene.ts` добавь секцию:
+
+```typescript
+snapping: {
+  gridStep: 100,   // мм — шаг метрической сетки
+  threshold: 50,   // мм — порог прилипания к другому объекту
+}
+```
+
+## 2. Утилита `src/utils/snapping.ts` (новый файл)
+
+Чистая функция:
+
+```typescript
+import type { SceneItem, Vec3 } from '@/types'
+import { SCENE_CONFIG } from '@/config/scene'
+import { clampGroupDelta } from './collision'
+
+export function computeSnapDelta(
+  rawDelta: Vec3,
+  draggedIds: string[],
+  basePositions: Record<string, Vec3>,
+  allItems: SceneItem[]
+): { delta: Vec3; snapping: boolean }
+```
+
+**Алгоритм:**
+
+**Guard:** если `draggedIds.length === 0` → вернуть `{ delta: rawDelta, snapping: false }` сразу.
+
+**Шаг 1 — Grid snap (anchor-based):**
+- `anchorId = draggedIds[0]`
+- `rawAnchorX = basePositions[anchorId][0] + rawDelta[0]`
+- `snapDeltaX = Math.round(rawAnchorX / gridStep) * gridStep - basePositions[anchorId][0]`
+- Аналогично для Z; Y не трогать
+
+**Шаг 2 — Object snap (край → край):**
+- Для каждого dragged item `m` (с применённым gridSnapDelta):
+  - `mLeft  = (base[m][0] + snapDeltaX) - m.dimensions.width / 2`
+  - `mRight = (base[m][0] + snapDeltaX) + m.dimensions.width / 2`
+  - То же для Z: `mFront = ... - depth/2`, `mBack = ... + depth/2`
+- Для каждого non-dragged item `o`:
+  - `oLeft  = o.position[0] - o.dimensions.width / 2`
+  - `oRight = o.position[0] + o.dimensions.width / 2`
+  - Проверить "стыковочные" пары:
+    - `mRight → oLeft`:  `correction = oLeft  - mRight`
+    - `mLeft  → oRight`: `correction = oRight - mLeft`
+  - То же для Z
+- Выбрать correction с минимальным `|correction|` по X и Z отдельно
+- Если `|correction| < threshold` → `objCorrX = correction`
+
+**Шаг 3 — Итоговый delta:**
+```
+finalDelta = [snapDeltaX + objCorrX, rawDelta[1], snapDeltaZ + objCorrZ]
+```
+
+**Шаг 4 — Финальный wall clamp:**
+```
+finalDelta = clampGroupDelta(draggedIds, finalDelta, allItems)
+```
+Предотвращает выход за стены если snap-коррекция > расстояние до стены.
+
+**Return:** `{ delta: finalDelta, snapping: objCorrX !== 0 || objCorrZ !== 0 }`
+
+## 3. Store — `src/store/sceneStore.ts`
+
+Расширить `DragSession` (только в `sceneStore.ts`, не в ARCHITECTURE.md — его обновлять не нужно):
+```typescript
+// В описании DragSession внутри стора:
+snapping: boolean
+```
+
+Расширить `dragSelectionBy`:
+```typescript
+dragSelectionBy: (delta: Vec3, snapping?: boolean) => void
+```
+
+В реализации: при `snapping` аргументе обновлять `dragSession.snapping` вместе с позициями:
+```typescript
+dragSelectionBy(delta, snapping = false) {
+  const { dragSession } = get()
+  if (!dragSession) return
+  const { base } = dragSession
+  set((state) => ({
+    items: state.items.map((item) => {
+      const start = base[item.id]
+      if (!start) return item
+      return { ...item, position: [start[0] + delta[0], start[1] + delta[1], start[2] + delta[2]] as Vec3 }
+    }),
+    dragSession: state.dragSession
+      ? { ...state.dragSession, snapping }
+      : null,
+  }))
+},
+```
+
+Добавить `snapping: false` в начальное значение `dragSession` при `beginDrag`.
+
+## 4. `src/components/scene/useDragSession.ts`
+
+Добавить `draggedIdsRef` и wrap `moveDrag` с вызовом `computeSnapDelta`:
+
+```typescript
+const draggedIdsRef = useRef<string[]>([])
+
+const startDrag = useCallback((ids: string[]) => {
+  draggedIdsRef.current = ids
+  startItemsRef.current = useSceneStore.getState().items
+  beginDrag(ids)
+}, [beginDrag])
+
+const moveDrag = useCallback((clampedDelta: Vec3) => {
+  const { items, dragSession } = useSceneStore.getState()
+  if (!dragSession) return
+  const { delta, snapping } = computeSnapDelta(
+    clampedDelta,
+    draggedIdsRef.current,
+    dragSession.base,
+    items
+  )
+  dragSelectionBy(delta, snapping)
+}, [dragSelectionBy])
+```
+
+Вернуть `moveDrag` вместо прямого `dragSelectionBy`.
+
+## 5. Highlight в SceneElement
+
+В `src/components/scene/SceneCanvas.tsx`:
+- Добавить `const isSnapping = useSceneStore(s => s.dragSession?.snapping ?? false)`
+- Передать `snapping={isSnapping && selectedItemIds.includes(item.id)}` каждому `<SceneElement>`
+
+В `src/components/scene/SceneElement.tsx`:
+- Принять `snapping: boolean` prop
+- На основном `meshStandardMaterial` (не GLTF) применить:
+
+```typescript
+emissive={snapping ? '#ffd700' : '#000000'}
+emissiveIntensity={snapping ? 0.15 : 0}
+```
+
+Highlight мгновенный (нет transitions).
+
+## 6. TransformProxy
+
+Открой `src/components/scene/TransformProxy.tsx` и найди обработчик `objectChange` (или аналогичный) в TransformControls, где вычисляется delta позиции и вызывается `dragSelectionBy`.
+
+Если там `useSceneStore(s => s.dragSelectionBy)` — это прямой вызов стора, snap обойдётся. Замени:
+1. Добавь `useDragSession()` аналогично `useMeshDrag`
+2. В `onMouseDown`-подобном событии вызывай `startDrag(ids)` из `useDragSession`
+3. В `objectChange` вычисляй raw delta и передавай в `moveDrag(delta)` вместо `dragSelectionBy(delta)`
+
+Snap подхватится автоматически через `useDragSession.moveDrag`.
+
+## 7. Тесты `src/utils/snapping.test.ts`
+
+Покрыть минимум 10 случаев:
+
+1. Grid snap — позиция anchor округляется до ближайшего gridStep
+2. Grid snap — rawDelta уже кратен gridStep → delta не меняется
+3. Grid snap группы — все объекты двигаются на одинаковый delta
+4. Финальный wall clamp после snap — finalDelta не выводит за стены
+   (требует мока стора: `vi.mock('@/store/sceneStore', () => ({ useSceneStore: { getState: () => ({ room: { width: 4000, depth: 4000, height: 3000 } }) } }))` — `clampGroupDelta` читает размеры комнаты из стора)
+5. Object snap по X: правый край dragged прилипает к левому краю стационарного
+6. Object snap по X: левый край dragged прилипает к правому краю стационарного
+7. Object snap по Z
+8. Object snap имеет приоритет над grid snap (коррекция не кратна gridStep)
+9. Object snap не срабатывает при расстоянии > threshold
+10. `snapping: false` при отсутствии object snap
+11. `snapping: true` при активном object snap
+12. Мультиселект: коррекция применяется равномерно ко всем объектам
+
+## Ограничения
+
+- Поворот не учитывается в AABB (существующий known limitation)
+- Скрытые элементы участвуют в object snap (аналогично коллизии)
+- Нет snap lines / аннотаций расстояний
+- 2D-режим — без изменений
+```
+
+---
+
 ## Сводная таблица
 
 | ID | Фаза | Задача | Сложность | Статус |
@@ -584,5 +778,6 @@ https://…/share/abc123…   [Скопировать]
 | TASK-038 | Сцена | Настройка размеров комнаты (Ribbon + store + валидация) | L | ✅ |
 | TASK-039 | Шаринг | Backend: share token API (migration + enable/disable/public get) | M | ⬜ |
 | TASK-040 | Шаринг | Frontend: ShareViewerPage + ShareDialog + Ribbon/SceneCard UI | L | ⬜ |
+| TASK-041 | UX | Привязка к сетке: grid snap + object snap (край→край) + highlight | L | ⬜ |
 
 **S** = ~30–60 мин · **M** = ~1–2 ч · **L** = ~2–4 ч · **XL** = ~4–8 ч
