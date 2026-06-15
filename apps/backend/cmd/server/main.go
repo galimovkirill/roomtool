@@ -73,6 +73,9 @@ func main() {
 	mux.Handle("PATCH /api/v1/scenes/{id}", h.AuthMiddleware(http.HandlerFunc(h.HandleRenameScene)))
 	mux.Handle("DELETE /api/v1/scenes/{id}", h.AuthMiddleware(http.HandlerFunc(h.HandleDeleteScene)))
 	mux.Handle("POST /api/v1/scenes/{id}/duplicate", h.AuthMiddleware(http.HandlerFunc(h.HandleDuplicateScene)))
+	mux.Handle("POST /api/v1/scenes/{id}/share", h.AuthMiddleware(http.HandlerFunc(h.HandleEnableShare)))
+	mux.Handle("DELETE /api/v1/scenes/{id}/share", h.AuthMiddleware(http.HandlerFunc(h.HandleDisableShare)))
+	mux.HandleFunc("GET /api/v1/share/{token}", h.HandleGetPublicScene)
 
 	slog.Info("server starting", "port", port)
 	if err := http.ListenAndServe(":"+port, mux); err != nil {

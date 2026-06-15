@@ -776,7 +776,7 @@ Snap подхватится автоматически через `useDragSessio
 | TASK-036 | Файлы | Backend: PATCH переименование + дублирование сцены | M | ✅ |
 | TASK-037 | Файлы | Frontend: страница /files + мультисценовая навигация | XL | ✅ |
 | TASK-038 | Сцена | Настройка размеров комнаты (Ribbon + store + валидация) | L | ✅ |
-| TASK-039 | Шаринг | Backend: share token API (migration + enable/disable/public get) | M | ⬜ |
+| TASK-039 | Шаринг | Backend: share token API (migration + enable/disable/public get) | M | ✅ |
 | TASK-040 | Шаринг | Frontend: ShareViewerPage + ShareDialog + Ribbon/SceneCard UI | L | ⬜ |
 | TASK-041 | UX | Привязка к сетке: grid snap + object snap (край→край) + highlight | L | ⬜ |
 

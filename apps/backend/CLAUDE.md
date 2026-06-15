@@ -22,7 +22,8 @@ apps/backend/
 │       ├── scenes.go               # SceneRepository interface + PostgresSceneRepository
 │       ├── users.go                # UserRepository interface + PostgresUserRepository
 │       ├── refresh_tokens.go       # RefreshTokenRepository + HashToken (SHA-256)
-│       └── scenes_test.go          # интеграционные тесты через testcontainers-go
+│       ├── scenes_test.go          # интеграционные тесты через testcontainers-go
+│       └── scenes_share_test.go   # тесты share-методов (EnableShare/DisableShare/GetByShareToken)
 ├── tools/tools.go                  # //go:build tools — закрепляет oapi-codegen в go.mod
 ├── .oapi-codegen.yaml              # конфиг генератора (package: api, output: internal/api/types.gen.go)
 ├── Dockerfile                      # multi-stage: golang:1.25-alpine → alpine:3.21

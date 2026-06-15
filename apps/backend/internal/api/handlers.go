@@ -46,10 +46,11 @@ func (h *Handler) HandleListScenes(w http.ResponseWriter, r *http.Request) {
 	result := make([]SceneSummary, len(scenes))
 	for i, s := range scenes {
 		result[i] = SceneSummary{
-			Id:        s.ID,
-			Name:      s.Name,
-			CreatedAt: s.CreatedAt,
-			UpdatedAt: s.UpdatedAt,
+			Id:         s.ID,
+			Name:       s.Name,
+			ShareToken: s.ShareToken,
+			CreatedAt:  s.CreatedAt,
+			UpdatedAt:  s.UpdatedAt,
 		}
 	}
 	writeJSON(w, http.StatusOK, result)
@@ -203,17 +204,71 @@ func (h *Handler) HandleDeleteScene(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (h *Handler) HandleEnableShare(w http.ResponseWriter, r *http.Request) {
+	userID, _ := UserIDFromContext(r.Context())
+	id := r.PathValue("id")
+	token, err := h.scenes.EnableShare(r.Context(), id, userID)
+	if errors.Is(err, repository.ErrNotFound) {
+		writeJSON(w, http.StatusNotFound, ErrorResponse{Message: "scene not found"})
+		return
+	}
+	if err != nil {
+		slog.Error("enable share", "err", err)
+		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Message: "internal error"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"share_token": token})
+}
+
+func (h *Handler) HandleDisableShare(w http.ResponseWriter, r *http.Request) {
+	userID, _ := UserIDFromContext(r.Context())
+	id := r.PathValue("id")
+	err := h.scenes.DisableShare(r.Context(), id, userID)
+	if errors.Is(err, repository.ErrNotFound) {
+		writeJSON(w, http.StatusNotFound, ErrorResponse{Message: "scene not found"})
+		return
+	}
+	if err != nil {
+		slog.Error("disable share", "err", err)
+		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Message: "internal error"})
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) HandleGetPublicScene(w http.ResponseWriter, r *http.Request) {
+	token := r.PathValue("token")
+	scene, err := h.scenes.GetByShareToken(r.Context(), token)
+	if errors.Is(err, repository.ErrNotFound) {
+		writeJSON(w, http.StatusNotFound, ErrorResponse{Message: "scene not found"})
+		return
+	}
+	if err != nil {
+		slog.Error("get public scene", "err", err)
+		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Message: "internal error"})
+		return
+	}
+	resp, err := sceneToResponse(scene)
+	if err != nil {
+		slog.Error("build scene response", "err", err)
+		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Message: "internal error"})
+		return
+	}
+	writeJSON(w, http.StatusOK, resp)
+}
+
 func sceneToResponse(s *repository.Scene) (Scene, error) {
 	var data SceneData
 	if err := json.Unmarshal(s.Data, &data); err != nil {
 		return Scene{}, fmt.Errorf("unmarshal scene data: %w", err)
 	}
 	return Scene{
-		Id:        s.ID,
-		Name:      s.Name,
-		Data:      data,
-		CreatedAt: s.CreatedAt,
-		UpdatedAt: s.UpdatedAt,
+		Id:         s.ID,
+		Name:       s.Name,
+		Data:       data,
+		ShareToken: s.ShareToken,
+		CreatedAt:  s.CreatedAt,
+		UpdatedAt:  s.UpdatedAt,
 	}, nil
 }
 

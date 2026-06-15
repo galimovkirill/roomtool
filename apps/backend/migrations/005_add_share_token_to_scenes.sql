@@ -1,0 +1,1 @@
+ALTER TABLE scenes ADD COLUMN share_token VARCHAR(43) UNIQUE;

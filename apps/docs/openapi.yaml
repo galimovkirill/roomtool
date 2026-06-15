@@ -329,7 +329,93 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /api/v1/scenes/{id}/share:
+    parameters:
+      - $ref: "#/components/parameters/SceneId"
+    post:
+      operationId: EnableShare
+      summary: Enable sharing (idempotent)
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Share token (existing or newly created)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [share_token]
+                properties:
+                  share_token:
+                    type: string
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: DisableShare
+      summary: Revoke sharing
+      security:
+        - cookieAuth: []
+      responses:
+        "204":
+          description: Sharing revoked
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/share/{token}:
+    get:
+      operationId: GetPublicScene
+      summary: Get public scene by share token (no auth required)
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Scene data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Scene"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
 components:
+  parameters:
+    SceneId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+
+  responses:
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
   securitySchemes:
     cookieAuth:
       type: apiKey
@@ -390,6 +476,12 @@ components:
         updatedAt:
           type: string
           format: date-time
+        share_token:
+          type: string
+          nullable: true
+          description: >
+            Opaque share token. Non-null means the scene is publicly accessible
+            via GET /api/v1/share/{token}. Null means sharing is disabled.
 
     Scene:
       allOf:

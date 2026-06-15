@@ -46,8 +46,11 @@ type Scene struct {
 	Id string `json:"id"`
 
 	// Name Human-readable scene name
-	Name      string    `json:"name"`
-	UpdatedAt time.Time `json:"updatedAt"`
+	Name string `json:"name"`
+
+	// ShareToken Opaque share token. Non-null means the scene is publicly accessible via GET /api/v1/share/{token}. Null means sharing is disabled.
+	ShareToken *string   `json:"share_token,omitempty"`
+	UpdatedAt  time.Time `json:"updatedAt"`
 }
 
 // SceneData Scene content as stored by the frontend
@@ -98,8 +101,11 @@ type SceneSummary struct {
 	Id string `json:"id"`
 
 	// Name Human-readable scene name
-	Name      string    `json:"name"`
-	UpdatedAt time.Time `json:"updatedAt"`
+	Name string `json:"name"`
+
+	// ShareToken Opaque share token. Non-null means the scene is publicly accessible via GET /api/v1/share/{token}. Null means sharing is disabled.
+	ShareToken *string   `json:"share_token,omitempty"`
+	UpdatedAt  time.Time `json:"updatedAt"`
 }
 
 // User defines model for User.
@@ -109,6 +115,12 @@ type User struct {
 	// Id User ID (UUID)
 	Id string `json:"id"`
 }
+
+// SceneId defines model for SceneId.
+type SceneId = string
+
+// NotFound defines model for NotFound.
+type NotFound = ErrorResponse
 
 // cookieAuthContextKey is the context key for cookieAuth security scheme
 type cookieAuthContextKey string

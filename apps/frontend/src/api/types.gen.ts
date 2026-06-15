@@ -165,6 +165,43 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/scenes/{id}/share': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['SceneId']
+      }
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Enable sharing (idempotent) */
+    post: operations['EnableShare']
+    /** Revoke sharing */
+    delete: operations['DisableShare']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/share/{token}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Get public scene by share token (no auth required) */
+    get: operations['GetPublicScene']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
 }
 export type webhooks = Record<string, never>
 export interface components {
@@ -196,6 +233,8 @@ export interface components {
       createdAt: string
       /** Format: date-time */
       updatedAt: string
+      /** @description Opaque share token. Non-null means the scene is publicly accessible via GET /api/v1/share/{token}. Null means sharing is disabled. */
+      share_token?: string | null
     }
     Scene: components['schemas']['SceneSummary'] & {
       data: components['schemas']['SceneData']
@@ -240,8 +279,29 @@ export interface components {
       message: string
     }
   }
-  responses: never
-  parameters: never
+  responses: {
+    /** @description Forbidden */
+    Forbidden: {
+      headers: {
+        [name: string]: unknown
+      }
+      content: {
+        'application/json': components['schemas']['ErrorResponse']
+      }
+    }
+    /** @description Not found */
+    NotFound: {
+      headers: {
+        [name: string]: unknown
+      }
+      content: {
+        'application/json': components['schemas']['ErrorResponse']
+      }
+    }
+  }
+  parameters: {
+    SceneId: string
+  }
   requestBodies: never
   headers: never
   pathItems: never
@@ -719,6 +779,93 @@ export interface operations {
           'application/json': components['schemas']['ErrorResponse']
         }
       }
+    }
+  }
+  EnableShare: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['SceneId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Share token (existing or newly created) */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            share_token: string
+          }
+        }
+      }
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorResponse']
+        }
+      }
+      404: components['responses']['NotFound']
+    }
+  }
+  DisableShare: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: components['parameters']['SceneId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Sharing revoked */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorResponse']
+        }
+      }
+      404: components['responses']['NotFound']
+    }
+  }
+  GetPublicScene: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        token: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Scene data */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Scene']
+        }
+      }
+      404: components['responses']['NotFound']
     }
   }
 }

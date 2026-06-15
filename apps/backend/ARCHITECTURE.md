@@ -7,7 +7,7 @@
 ## Схема БД
 
 ```sql
--- Миграции применяются в алфавитном порядке (001 → 004)
+-- Миграции применяются в алфавитном порядке (001 → 005)
 
 users
   id            UUID PK  DEFAULT gen_random_uuid()
@@ -24,12 +24,13 @@ refresh_tokens
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 
 scenes
-  id         UUID PK  DEFAULT gen_random_uuid()
-  user_id    UUID → users(id) ON DELETE SET NULL  -- nullable (legacy rows)
-  name       TEXT NOT NULL
-  data       JSONB NOT NULL DEFAULT '{}'
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  id           UUID PK  DEFAULT gen_random_uuid()
+  user_id      UUID → users(id) ON DELETE SET NULL  -- nullable (legacy rows)
+  name         TEXT NOT NULL
+  data         JSONB NOT NULL DEFAULT '{}'
+  share_token  VARCHAR(43) UNIQUE      -- NULL = шаринг выключен; non-NULL = публично доступна
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 ```
 
 Индексы: `idx_refresh_tokens_token_hash`, `idx_refresh_tokens_user_id`.  
@@ -43,7 +44,7 @@ scenes
 |--------|-------|----------|
 | `User` | `repository` | Пользователь: id, email, password_hash, timestamps |
 | `RefreshToken` | `repository` | Refresh-токен: id, user_id, token_hash, expires_at |
-| `Scene` | `repository` | Сцена: id, user_id, name, data (JSONB), timestamps |
+| `Scene` | `repository` | Сцена: id, user_id, name, data (JSONB), share_token, timestamps |
 
 ---
 
