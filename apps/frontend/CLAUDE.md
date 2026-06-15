@@ -15,8 +15,7 @@
 | `src/store/sceneStore.ts` | items, groups, выделение, drag/resize сессии, undo/redo, все мутации |
 | `src/store/uiStore.ts` | sceneMode, activeRightPanelTab, showGizmo, showCeilingLight |
 | `src/store/defaultScene.ts` | Стартовая сцена (DEFAULT_SCENE_ITEMS / DEFAULT_SCENE_GROUPS) |
-| `src/store/persistence.ts` | LocalStorage (per-scene key: `roomtool_scene_${sceneId}_v1`) |
-| `src/store/syncStore.ts` | SyncStatus ('idle'/'syncing'/'error'), sceneId, sceneName — без localStorage |
+| `src/store/syncStore.ts` | SyncStatus ('idle'/'syncing'/'error'), sceneId, sceneName |
 | `src/api/syncService.ts` | initScene(sceneId) → 'ok'/'not_found', scheduleSync (debounce 1500ms), syncNow (немедленно); подписывается на sceneStore |
 | `src/catalog/items.ts` | Каталог (~19 деталей, 6 категорий) |
 | `src/catalog/materials.ts` | MATERIAL_OPTIONS, MATERIAL_COLORS (материал → цвета) |
@@ -199,8 +198,6 @@ Single-select: `value={[active]} onValueChange={vals => vals.length > 0 && set(v
 
 **R3F-компоненты не тестируются** — Three.js не работает в jsdom. Чистую логику выносить в `utils/` и покрывать там (паттерн: `clampToRoom` вынесен из `SceneElement`).
 
-**sceneStore.persistence-init.test.ts удалён** — модульный `loadScene()` при первом импорте убран, инициализация теперь через `initScene(sceneId)` в EditorPage.
-
 **Мокирование shadcn Select:** `vi.mock('@/components/ui/select', ...)` — заменяет на нативный `<select>` для работы `getByRole('combobox')` и `fireEvent.change`.
 
 **Покрытие:** пороги в `vite.config.ts → test.coverage.thresholds`. Снижать нельзя.
@@ -224,23 +221,13 @@ Single-select: `value={[active]} onValueChange={vals => vals.length > 0 && set(v
 
 ## Персистентность
 
-LocalStorage key формат: `roomtool_scene_${sceneId}_v1` (per-scene). Все три функции `saveScene/loadScene/clearScene` требуют `sceneId: string`. Не сохраняется: undo-история, выделение, uiStore.
-
-`loadScene()` **не** вызывается на уровне модуля. Инициализация через `initScene(sceneId)` в EditorPage.
-
-⚠️ `clearScene()` вызывать **снаружи** `set()`, не внутри updater — side effect в updater нарушает idempotency.
-
 `resetScene()` **не** пишет в историю — очищает `history` и `future`, сбрасывает `dragSession`/`resizeSession`. После reset undo недоступен.
 
 `loadScene(items, groups)` — загружает данные с сервера без записи в undo-историю. Используется только syncService.
 
 ### Backend sync (syncService.ts)
 
-LocalStorage + backend sync работают параллельно и независимо:
-- localStorage: debounce 500ms, только когда `syncStore.sceneId` известен
-- backend: debounce 1500ms, только когда `sceneId` известен
-
-`initScene(sceneId: string)` → `'ok' | 'not_found'`. Вызывается в EditorPage при каждом открытии сцены. Загружает данные с сервера, устанавливает `sceneId` и `sceneName` в syncStore.
+`initScene(sceneId: string)` → `'ok' | 'not_found'`. Вызывается в EditorPage при каждом открытии сцены. Загружает данные с сервера (debounce 1500ms), устанавливает `sceneId` и `sceneName` в syncStore.
 
 `syncStore.sceneName` — читается в `putScene` при каждом PUT, чтобы сохранять актуальное имя сцены.
 
