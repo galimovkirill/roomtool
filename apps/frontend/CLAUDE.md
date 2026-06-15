@@ -27,7 +27,7 @@
 | `src/components/scene/ResizeHandles.tsx` | 6 ручек по граням для resize одиночного элемента |
 | `src/components/scene/useMeshDrag.ts` | Прямой drag по телу элемента (только XZ) |
 | `src/components/scene/SceneRibbon.tsx` | Лента над canvas: кнопки режимов + абсолютно-центрированное имя сцены из syncStore |
-| `src/components/scene/ribbon/` | Компоненты ленты: ViewModeToggle, GizmoToggle, AlignmentPopover, ItemActionsGroup, ResetSceneButton, SaveStatusIndicator |
+| `src/components/scene/ribbon/` | Компоненты ленты: BackButton, ViewModeToggle, GizmoToggle, AlignmentPopover, ItemActionsGroup, ResetSceneButton, SaveStatusIndicator |
 | `src/components/scene/SceneOverlay.tsx` | W/H/D выделенного; при мультивыборе — bounding box |
 | `src/components/scene/ElevationSlider.tsx` | Ползунок высоты (Y); скрыт при showGizmo |
 | `src/components/panels/RightPanel.tsx` | Вкладки Каталог/Слои; при editingItemId — PropertiesPanel |

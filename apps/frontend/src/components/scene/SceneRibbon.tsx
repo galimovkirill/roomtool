@@ -6,6 +6,7 @@ import { ItemActionsGroup } from './ribbon/ItemActionsGroup'
 import { ResetSceneButton } from './ribbon/ResetSceneButton'
 import { SaveStatusIndicator } from './ribbon/SaveStatusIndicator'
 import { UserButton } from './ribbon/UserButton'
+import { BackButton } from './ribbon/BackButton'
 import { useSyncStore } from '@/store/syncStore'
 
 export function SceneRibbon() {
@@ -18,6 +19,8 @@ export function SceneRibbon() {
           <span className="text-sm font-medium text-gray-700 truncate max-w-xs">{sceneName}</span>
         </div>
       )}
+      <BackButton />
+      <div className="w-px h-5 bg-gray-200 mx-1" />
       <ViewModeToggle />
       <div className="w-px h-5 bg-gray-200 mx-1" />
       <GizmoToggle />
