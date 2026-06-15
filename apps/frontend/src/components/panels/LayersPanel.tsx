@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { Eye, EyeOff, Lock, LockOpen } from 'lucide-react'
 import {
   ContextMenu,
   ContextMenuContent,
@@ -9,15 +8,10 @@ import {
 } from '@/components/ui/context-menu'
 import { toast } from 'sonner'
 import { useSceneStore, useEditorStore } from '@/store'
-import {
-  buildLayerTree,
-  flattenLayerTree,
-  getAllItemIdsInGroup,
-  rangeSelection,
-} from '@/utils/layerTree'
-import type { LayerNode } from '@/utils/layerTree'
-import type { SceneGroup, SceneItem } from '@/types'
+import { buildLayerTree, flattenLayerTree, rangeSelection } from '@/utils/layerTree'
 import { isItemEffectivelyLocked } from '@/utils/locked'
+import { LayerItem } from './LayerItem'
+import { LayerGroup } from './LayerGroup'
 
 type CtxTarget = { kind: 'item'; id: string } | { kind: 'group'; id: string } | null
 
@@ -29,11 +23,6 @@ export function LayersPanel() {
   const removeItems = useSceneStore((s) => s.removeItems)
   const removeGroup = useSceneStore((s) => s.removeGroup)
   const renameGroup = useSceneStore((s) => s.renameGroup)
-  const toggleGroupCollapse = useSceneStore((s) => s.toggleGroupCollapse)
-  const toggleItemVisibility = useSceneStore((s) => s.toggleItemVisibility)
-  const toggleGroupVisibility = useSceneStore((s) => s.toggleGroupVisibility)
-  const toggleItemLocked = useSceneStore((s) => s.toggleItemLocked)
-  const toggleGroupLocked = useSceneStore((s) => s.toggleGroupLocked)
 
   const selectedItemIds = useEditorStore((s) => s.selectedItemIds)
   const selectItems = useEditorStore((s) => s.selectItems)
@@ -64,6 +53,15 @@ export function LayersPanel() {
       selectItems([id])
       setAnchorId(id)
     }
+  }
+
+  const handleItemContextMenu = (id: string) => {
+    const isSelected = selectedItemIds.includes(id)
+    if (!isSelected) {
+      selectItems([id])
+      setAnchorId(id)
+    }
+    setCtxTarget({ kind: 'item', id })
   }
 
   const commitRename = () => {
@@ -97,175 +95,48 @@ export function LayersPanel() {
   const ctxItem = ctxTarget?.kind === 'item' ? items.find((i) => i.id === ctxTarget.id) : null
   const ctxGroup = ctxTarget?.kind === 'group' ? groups.find((g) => g.id === ctxTarget.id) : null
 
-  const renderItem = (item: SceneItem, depth: number) => {
-    const isSelected = selectedItemIds.includes(item.id)
-    const indent = depth * 16 + 12
-    return (
-      <div
-        key={item.id}
-        style={{ paddingLeft: `${indent}px` }}
-        className={`flex items-center gap-2 pr-3 py-1.5 cursor-pointer hover:bg-gray-50 group/row ${
-          isSelected ? 'bg-blue-50 text-blue-700' : ''
-        }`}
-        onClick={(e) => handleItemClick(item.id, e)}
-        onContextMenu={() => {
-          if (!isSelected) {
-            selectItems([item.id])
-            setAnchorId(item.id)
-          }
-          setCtxTarget({ kind: 'item', id: item.id })
-        }}
-      >
-        <span className="text-gray-400 flex-shrink-0 text-xs">▪</span>
-        <span className={`text-sm truncate flex-1 ${item.hidden ? 'opacity-40' : ''}`}>
-          {item.name}
-        </span>
-        <button
-          className={`flex-shrink-0 rounded p-0.5 transition-opacity ${
-            item.hidden
-              ? 'opacity-60 hover:opacity-100 text-gray-400'
-              : 'opacity-0 group-hover/row:opacity-60 hover:!opacity-100 text-gray-400'
-          }`}
-          aria-label={item.hidden ? 'Показать элемент' : 'Скрыть элемент'}
-          onClick={(e) => {
-            e.stopPropagation()
-            toggleItemVisibility(item.id)
-          }}
-        >
-          {item.hidden ? <EyeOff size={14} /> : <Eye size={14} />}
-        </button>
-        {(() => {
-          const effectivelyLocked = isItemEffectivelyLocked(item, groups)
-          const inheritedLock = !item.locked && effectivelyLocked
-          return (
-            <button
-              className={`flex-shrink-0 rounded p-0.5 transition-opacity text-gray-400 ${
-                effectivelyLocked
-                  ? 'opacity-60 hover:opacity-100'
-                  : 'opacity-0 group-hover/row:opacity-60 hover:!opacity-100'
-              } ${inheritedLock ? 'cursor-not-allowed' : ''}`}
-              aria-label={
-                item.locked
-                  ? 'Разблокировать элемент'
-                  : inheritedLock
-                    ? 'Заблокировано через группу'
-                    : 'Заблокировать элемент'
-              }
-              onClick={(e) => {
-                e.stopPropagation()
-                if (!inheritedLock) toggleItemLocked(item.id)
-              }}
-            >
-              {effectivelyLocked ? <Lock size={14} /> : <LockOpen size={14} />}
-            </button>
-          )
-        })()}
-      </div>
-    )
-  }
-
-  const renderGroup = (group: SceneGroup, children: LayerNode[], depth: number) => {
-    const allIds = getAllItemIdsInGroup(group.id, items, groups)
-    const allSelected = allIds.length > 0 && allIds.every((id) => selectedItemIds.includes(id))
-    const indent = depth * 16 + 12
-
-    return (
-      <div key={group.id}>
-        <div
-          style={{ paddingLeft: `${indent}px` }}
-          className={`flex items-center gap-2 pr-3 py-1.5 cursor-pointer hover:bg-gray-50 group/row ${
-            allSelected ? 'bg-blue-50 text-blue-700' : ''
-          }`}
-          onClick={() => {
-            selectItems(allIds)
-            setAnchorId(allIds[0] ?? null)
-          }}
-          onContextMenu={() => {
-            setCtxTarget({ kind: 'group', id: group.id })
-          }}
-        >
-          <button
-            className="text-gray-400 w-3 text-xs flex-shrink-0"
-            aria-label={group.collapsed ? 'Развернуть группу' : 'Свернуть группу'}
-            onClick={(e) => {
-              e.stopPropagation()
-              toggleGroupCollapse(group.id)
-            }}
-          >
-            {group.collapsed ? '▶' : '▼'}
-          </button>
-          <span className={`text-gray-500 flex-shrink-0 ${group.hidden ? 'opacity-40' : ''}`}>
-            ⊞
-          </span>
-          {renamingGroupId === group.id ? (
-            <input
-              className="text-sm flex-1 border border-blue-400 rounded px-1 outline-none"
-              value={renameValue}
-              onChange={(e) => setRenameValue(e.target.value)}
-              onBlur={commitRename}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') commitRename()
-                if (e.key === 'Escape') setRenamingGroupId(null)
-                e.stopPropagation()
-              }}
-              onClick={(e) => e.stopPropagation()}
-              autoFocus
-            />
-          ) : (
-            <span
-              className={`text-sm font-medium truncate flex-1 ${group.hidden ? 'opacity-40' : ''}`}
-            >
-              {group.name}
-            </span>
-          )}
-          <button
-            className={`flex-shrink-0 rounded p-0.5 transition-opacity ${
-              group.hidden
-                ? 'opacity-60 hover:opacity-100 text-gray-400'
-                : 'opacity-0 group-hover/row:opacity-60 hover:!opacity-100 text-gray-400'
-            }`}
-            aria-label={group.hidden ? 'Показать группу' : 'Скрыть группу'}
-            onClick={(e) => {
-              e.stopPropagation()
-              toggleGroupVisibility(group.id)
-            }}
-          >
-            {group.hidden ? <EyeOff size={14} /> : <Eye size={14} />}
-          </button>
-          <button
-            className={`flex-shrink-0 rounded p-0.5 transition-opacity ${
-              group.locked
-                ? 'opacity-60 hover:opacity-100 text-gray-400'
-                : 'opacity-0 group-hover/row:opacity-60 hover:!opacity-100 text-gray-400'
-            }`}
-            aria-label={group.locked ? 'Разблокировать группу' : 'Заблокировать группу'}
-            onClick={(e) => {
-              e.stopPropagation()
-              toggleGroupLocked(group.id)
-            }}
-          >
-            {group.locked ? <Lock size={14} /> : <LockOpen size={14} />}
-          </button>
-        </div>
-
-        {!group.collapsed && (
-          <div className={group.hidden ? 'opacity-50' : ''}>
-            {children.map((child) => renderNode(child, depth + 1))}
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  const renderNode = (node: LayerNode, depth: number): React.ReactNode => {
-    if (node.type === 'item') return renderItem(node.item, depth)
-    return renderGroup(node.group, node.children, depth)
+  const sharedChildProps = {
+    items,
+    groups,
+    selectedItemIds,
+    renamingGroupId,
+    renameValue,
+    onItemClick: handleItemClick,
+    onItemContextMenu: handleItemContextMenu,
+    onRenameChange: setRenameValue,
+    onRenameCommit: commitRename,
+    onRenameCancel: () => setRenamingGroupId(null),
   }
 
   return (
     <ContextMenu>
       <ContextMenuTrigger render={<div className="overflow-y-auto h-full py-1 select-none" />}>
-        {tree.map((node) => renderNode(node, 0))}
+        {tree.map((node) =>
+          node.type === 'item' ? (
+            <LayerItem
+              key={node.item.id}
+              item={node.item}
+              depth={0}
+              groups={groups}
+              isSelected={selectedItemIds.includes(node.item.id)}
+              onItemClick={handleItemClick}
+              onContextMenu={handleItemContextMenu}
+            />
+          ) : (
+            <LayerGroup
+              key={node.group.id}
+              group={node.group}
+              children={node.children}
+              depth={0}
+              onSelectGroup={(ids, anchor) => {
+                selectItems(ids)
+                setAnchorId(anchor)
+              }}
+              onContextMenu={(id) => setCtxTarget({ kind: 'group', id })}
+              {...sharedChildProps}
+            />
+          )
+        )}
       </ContextMenuTrigger>
 
       <ContextMenuContent className="bg-white rounded-lg shadow-lg border border-gray-200 p-1 min-w-[180px] z-50">
