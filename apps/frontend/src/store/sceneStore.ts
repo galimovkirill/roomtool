@@ -1,7 +1,8 @@
 import { create } from 'zustand'
 import { v4 as uuid } from 'uuid'
-import type { CatalogItem, SceneGroup, SceneItem, Vec3 } from '@/types'
+import type { CatalogItem, RoomDimensions, SceneGroup, SceneItem, Vec3 } from '@/types'
 import { getDefaultColorForMaterial, MATERIAL_OPTIONS } from '@/catalog/materials'
+import { SCENE_CONFIG } from '@/config/scene'
 import { DEFAULT_SCENE_GROUPS, DEFAULT_SCENE_ITEMS } from './defaultScene'
 import { useEditorStore } from './editorStore'
 
@@ -46,6 +47,7 @@ type ResizeSession = { snapshot: HistorySnapshot }
 interface SceneState {
   items: SceneItem[]
   groups: SceneGroup[]
+  room: RoomDimensions
   groupCounter: number
   history: HistorySnapshot[]
   future: HistorySnapshot[]
@@ -73,10 +75,15 @@ interface SceneState {
   toggleItemLocked: (id: string) => void
   toggleGroupLocked: (id: string) => void
   alignItems: (alignment: AlignmentType) => void
-  loadScene: (items: SceneItem[], groups: SceneGroup[]) => void
+  setRoomDimensions: (dims: RoomDimensions) => void
+  loadScene: (items: SceneItem[], groups: SceneGroup[], room?: RoomDimensions) => void
   resetScene: () => void
   undo: () => void
   redo: () => void
+}
+
+export function selectRoom(state: SceneState): RoomDimensions {
+  return state.room
 }
 
 function pushHistory(state: Pick<SceneState, 'items' | 'groups' | 'history' | 'future'>): {
@@ -95,6 +102,7 @@ function pushHistory(state: Pick<SceneState, 'items' | 'groups' | 'history' | 'f
 export const useSceneStore = create<SceneState>((set, get) => ({
   items: [],
   groups: [],
+  room: { ...SCENE_CONFIG.room },
   groupCounter: 0,
   history: [],
   future: [],
@@ -548,8 +556,12 @@ export const useSceneStore = create<SceneState>((set, get) => ({
     })
   },
 
-  loadScene(items, groups) {
-    set({ items, groups })
+  setRoomDimensions(dims) {
+    set({ room: dims })
+  },
+
+  loadScene(items, groups, room) {
+    set({ items, groups, room: room ?? { ...SCENE_CONFIG.room } })
     useEditorStore.getState().clearEditorState()
   },
 
@@ -557,6 +569,7 @@ export const useSceneStore = create<SceneState>((set, get) => ({
     set({
       items: DEFAULT_SCENE_ITEMS,
       groups: DEFAULT_SCENE_GROUPS,
+      room: { ...SCENE_CONFIG.room },
       history: [],
       future: [],
       dragSession: null,

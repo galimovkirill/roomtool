@@ -428,6 +428,23 @@ components:
           type: integer
           description: Snapshot format version
           example: 1
+        room:
+          type: object
+          description: Room dimensions in mm. If absent, defaults are used (4000x4000x3000).
+          required: [width, depth, height]
+          properties:
+            width:
+              type: integer
+              minimum: 1000
+              maximum: 50000
+            depth:
+              type: integer
+              minimum: 1000
+              maximum: 50000
+            height:
+              type: integer
+              minimum: 1000
+              maximum: 10000
         items:
           type: array
           description: Scene items (furniture, panels, etc.)

@@ -216,6 +216,12 @@ export interface components {
        * @example 1
        */
       version: number
+      /** @description Room dimensions in mm. If absent, defaults are used (4000x4000x3000). */
+      room?: {
+        width: number
+        depth: number
+        height: number
+      }
       /** @description Scene items (furniture, panels, etc.) */
       items: components['schemas']['SceneItem'][]
       /** @description Item groups */

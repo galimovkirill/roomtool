@@ -1,4 +1,4 @@
-import type { SceneGroup, SceneItem } from '@/types'
+import type { RoomDimensions, SceneGroup, SceneItem } from '@/types'
 import { apiClient } from './client'
 import type { components } from './client'
 import { useSyncStore } from '@/store/syncStore'
@@ -9,13 +9,19 @@ type ApiGroup = components['schemas']['SceneGroup']
 
 let _syncTimer: ReturnType<typeof setTimeout> | null = null
 
-async function putScene(id: string, items: SceneItem[], groups: SceneGroup[]): Promise<boolean> {
+async function putScene(
+  id: string,
+  items: SceneItem[],
+  groups: SceneGroup[],
+  room: RoomDimensions
+): Promise<boolean> {
   const { response } = await apiClient.PUT('/api/v1/scenes/{id}', {
     params: { path: { id } },
     body: {
       name: useSyncStore.getState().sceneName ?? 'Без названия',
       data: {
         version: 1,
+        room,
         items: items as unknown as ApiItem[],
         groups: groups as unknown as ApiGroup[],
       },
@@ -35,7 +41,8 @@ export async function initScene(sceneId: string): Promise<'ok' | 'not_found'> {
     if (response.status === 200 && data) {
       loadScene(
         data.data.items as unknown as SceneItem[],
-        data.data.groups as unknown as SceneGroup[]
+        data.data.groups as unknown as SceneGroup[],
+        data.data.room as RoomDimensions | undefined
       )
       setSceneId(sceneId)
       setSceneName(data.name)
@@ -55,14 +62,14 @@ export function cancelSync(): void {
   }
 }
 
-export function scheduleSync(items: SceneItem[], groups: SceneGroup[]): void {
+export function scheduleSync(items: SceneItem[], groups: SceneGroup[], room: RoomDimensions): void {
   if (_syncTimer) clearTimeout(_syncTimer)
   _syncTimer = setTimeout(() => {
     _syncTimer = null
     const { sceneId, setSyncStatus } = useSyncStore.getState()
     if (!sceneId) return
     setSyncStatus('syncing')
-    putScene(sceneId, items, groups)
+    putScene(sceneId, items, groups, room)
       .then((ok) => {
         if (!ok) {
           console.error('[syncService] scheduleSync: PUT failed')
@@ -85,10 +92,10 @@ export async function syncNow(): Promise<void> {
   }
   const { sceneId, setSyncStatus } = useSyncStore.getState()
   if (!sceneId) return
-  const { items, groups } = useSceneStore.getState()
+  const { items, groups, room } = useSceneStore.getState()
   setSyncStatus('syncing')
   try {
-    await putScene(sceneId, items, groups)
+    await putScene(sceneId, items, groups, room)
     setSyncStatus('idle')
   } catch (err) {
     console.error('[syncService] syncNow failed', err)
@@ -101,6 +108,11 @@ export async function syncNow(): Promise<void> {
 // Only fires when items or groups references change — ignores UI-only updates
 // (selection, drag sessions, etc.) that don't need to be persisted.
 useSceneStore.subscribe((state, prevState) => {
-  if (state.items === prevState.items && state.groups === prevState.groups) return
-  scheduleSync(state.items, state.groups)
+  if (
+    state.items === prevState.items &&
+    state.groups === prevState.groups &&
+    state.room === prevState.room
+  )
+    return
+  scheduleSync(state.items, state.groups, state.room)
 })

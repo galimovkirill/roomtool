@@ -1,5 +1,7 @@
 import { beforeAll, beforeEach, afterAll, describe, expect, it, vi } from 'vitest'
-import type { SceneGroup, SceneItem } from '@/types'
+import type { RoomDimensions, SceneGroup, SceneItem } from '@/types'
+
+const DEFAULT_ROOM: RoomDimensions = { width: 4000, depth: 4000, height: 3000 }
 
 const mockSetSyncStatus = vi.fn()
 const mockSetSceneId = vi.fn()
@@ -21,6 +23,7 @@ const mockSyncStoreState: {
 const mockSceneStoreState = {
   items: [] as SceneItem[],
   groups: [] as SceneGroup[],
+  room: DEFAULT_ROOM,
   loadScene: vi.fn(),
 }
 
@@ -70,25 +73,25 @@ beforeEach(() => {
 describe('scheduleSync', () => {
   it('does not call PUT before 1500ms', async () => {
     const { scheduleSync } = await import('./syncService')
-    scheduleSync([], [])
+    scheduleSync([], [], DEFAULT_ROOM)
     await vi.advanceTimersByTimeAsync(1499)
     expect(mockPUT).not.toHaveBeenCalled()
   })
 
   it('calls PUT after 1500ms', async () => {
     const { scheduleSync } = await import('./syncService')
-    scheduleSync([], [])
+    scheduleSync([], [], DEFAULT_ROOM)
     await vi.advanceTimersByTimeAsync(1500)
     expect(mockPUT).toHaveBeenCalledOnce()
   })
 
   it('only sends one PUT when called multiple times (debounce)', async () => {
     const { scheduleSync } = await import('./syncService')
-    scheduleSync([], [])
+    scheduleSync([], [], DEFAULT_ROOM)
     await vi.advanceTimersByTimeAsync(500)
-    scheduleSync([], [])
+    scheduleSync([], [], DEFAULT_ROOM)
     await vi.advanceTimersByTimeAsync(500)
-    scheduleSync([], [])
+    scheduleSync([], [], DEFAULT_ROOM)
     await vi.advanceTimersByTimeAsync(1500)
     expect(mockPUT).toHaveBeenCalledOnce()
   })
@@ -96,14 +99,14 @@ describe('scheduleSync', () => {
   it('skips PUT when sceneId is null', async () => {
     mockSyncStoreState.sceneId = null
     const { scheduleSync } = await import('./syncService')
-    scheduleSync([], [])
+    scheduleSync([], [], DEFAULT_ROOM)
     await vi.advanceTimersByTimeAsync(1500)
     expect(mockPUT).not.toHaveBeenCalled()
   })
 
   it('sets syncing then idle status', async () => {
     const { scheduleSync } = await import('./syncService')
-    scheduleSync([], [])
+    scheduleSync([], [], DEFAULT_ROOM)
     await vi.advanceTimersByTimeAsync(1500)
     await Promise.resolve() // flush microtasks
     expect(mockSetSyncStatus).toHaveBeenCalledWith('syncing')
@@ -121,7 +124,7 @@ describe('syncNow', () => {
 
   it('cancels pending debounce timer', async () => {
     const { scheduleSync, syncNow } = await import('./syncService')
-    scheduleSync([], [])
+    scheduleSync([], [], DEFAULT_ROOM)
     await syncNow()
     // Advance past debounce window — the cancelled timer should NOT fire again
     await vi.advanceTimersByTimeAsync(1500)

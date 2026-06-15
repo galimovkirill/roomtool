@@ -38,6 +38,7 @@ vi.mock('@/store', () => ({
     selector({
       items: fixture.item ? [fixture.item] : [],
       updateItem: mockUpdateItem,
+      room: { width: 4000, depth: 4000, height: 3000 },
     }),
   useEditorStore: (selector: (s: object) => unknown) =>
     selector({

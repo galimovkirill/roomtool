@@ -1,4 +1,4 @@
-import { SCENE_CONFIG } from '@/config/scene'
+import { useSceneStore } from '@/store/sceneStore'
 
 /**
  * Преобразование координат между мировой системой Three.js и системой «от угла».
@@ -13,24 +13,22 @@ import { SCENE_CONFIG } from '@/config/scene'
  * её «низ на полу при Y=0» считается отдельно (вычитанием height/2).
  */
 
-const { width, depth } = SCENE_CONFIG.room
-
 /** world (центр = 0) → отображение (дальний угол = 0), диапазон [0, width]. */
 export function worldToRoomX(worldX: number): number {
-  return worldX + width / 2
+  return worldX + useSceneStore.getState().room.width / 2
 }
 
 /** world (центр = 0) → отображение (дальний угол = 0), диапазон [0, depth]. */
 export function worldToRoomZ(worldZ: number): number {
-  return worldZ + depth / 2
+  return worldZ + useSceneStore.getState().room.depth / 2
 }
 
 /** отображение (дальний угол = 0) → world (центр = 0). */
 export function roomToWorldX(roomX: number): number {
-  return roomX - width / 2
+  return roomX - useSceneStore.getState().room.width / 2
 }
 
 /** отображение (дальний угол = 0) → world (центр = 0). */
 export function roomToWorldZ(roomZ: number): number {
-  return roomZ - depth / 2
+  return roomZ - useSceneStore.getState().room.depth / 2
 }

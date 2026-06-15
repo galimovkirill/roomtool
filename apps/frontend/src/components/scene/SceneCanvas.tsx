@@ -3,6 +3,7 @@ import { Canvas } from '@react-three/fiber'
 import { Environment, PerspectiveCamera } from '@react-three/drei'
 import { SCENE_CONFIG } from '@/config/scene'
 import { useSceneStore, useEditorStore, useUIStore } from '@/store'
+import { selectRoom } from '@/store/sceneStore'
 import { getAllItemIdsInGroup } from '@/utils/layerTree'
 import type { SceneGroup, SceneItem } from '@/types'
 import { Room } from './Room'
@@ -22,15 +23,8 @@ const { initialPosition, fov, near, far } = SCENE_CONFIG.camera
 const CEILING_LIGHT_LUMENS = 4_000_000
 // Objects within 10cm of the ceiling won't cast shadows — acceptable for MVP
 const SHADOW_NEAR_DISTANCE = 100
-// Max shadow distance: ceiling center → farthest floor corner + margin
-const SHADOW_MAX_DISTANCE =
-  Math.ceil(
-    Math.sqrt(
-      (SCENE_CONFIG.room.width / 2) ** 2 +
-        SCENE_CONFIG.room.height ** 2 +
-        (SCENE_CONFIG.room.depth / 2) ** 2
-    )
-  ) + 500
+// Max shadow distance: ceiling → farthest floor corner for max room (50000×50000×10000mm) ≈ 36742 + margin
+const SHADOW_MAX_DISTANCE = 37500
 const perspPosition: [number, number, number] = [
   initialPosition[0],
   initialPosition[1],
@@ -55,6 +49,7 @@ export function SceneCanvas() {
   const showCeilingLight = useUIStore((s) => s.showCeilingLight)
   const items = useSceneStore((s) => s.items)
   const groups = useSceneStore((s) => s.groups)
+  const room = useSceneStore(selectRoom)
   const selectedItemIds = useEditorStore((s) => s.selectedItemIds)
   const selectItem = useEditorStore((s) => s.selectItem)
 
@@ -115,7 +110,7 @@ export function SceneCanvas() {
             <ambientLight intensity={showCeilingLight ? 0.8 : 1} />
             {showCeilingLight && (
               <pointLight
-                position={[0, SCENE_CONFIG.room.height, 0]}
+                position={[0, room.height, 0]}
                 intensity={CEILING_LIGHT_LUMENS}
                 castShadow
                 shadow-mapSize={[2048, 2048]}

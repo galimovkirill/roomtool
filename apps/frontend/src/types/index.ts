@@ -1,5 +1,11 @@
 export type Vec3 = [number, number, number]
 
+export interface RoomDimensions {
+  width: number // мм
+  depth: number // мм
+  height: number // мм
+}
+
 export interface PropertyDef {
   key: string
   label: string

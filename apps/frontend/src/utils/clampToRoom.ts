@@ -1,4 +1,4 @@
-import { SCENE_CONFIG } from '@/config/scene'
+import { useSceneStore } from '@/store/sceneStore'
 
 /**
  * Удерживает элемент внутри границ комнаты по всем трём осям с учётом его размеров.
@@ -11,7 +11,7 @@ export function clampToRoom(
   pos: { x: number; y: number; z: number },
   dims: { width: number; height: number; depth: number }
 ): [number, number, number] {
-  const { width: roomW, depth: roomD, height: roomH } = SCENE_CONFIG.room
+  const { width: roomW, depth: roomD, height: roomH } = useSceneStore.getState().room
   return [
     Math.min(roomW / 2 - dims.width / 2, Math.max(-roomW / 2 + dims.width / 2, pos.x)),
     Math.min(roomH - dims.height / 2, Math.max(dims.height / 2, pos.y)),

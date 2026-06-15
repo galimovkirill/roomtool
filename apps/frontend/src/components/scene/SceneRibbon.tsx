@@ -2,6 +2,7 @@ import { ViewModeToggle } from './ribbon/ViewModeToggle'
 import { GizmoToggle } from './ribbon/GizmoToggle'
 import { CeilingLightToggle } from './ribbon/CeilingLightToggle'
 import { AlignmentPopover } from './ribbon/AlignmentPopover'
+import { RoomSettingsPopover } from './ribbon/RoomSettingsPopover'
 import { ItemActionsGroup } from './ribbon/ItemActionsGroup'
 import { ResetSceneButton } from './ribbon/ResetSceneButton'
 import { SaveStatusIndicator } from './ribbon/SaveStatusIndicator'
@@ -27,6 +28,7 @@ export function SceneRibbon() {
       <CeilingLightToggle />
       <div className="w-px h-5 bg-gray-200 mx-1" />
       <AlignmentPopover />
+      <RoomSettingsPopover />
       <div className="w-px h-5 bg-gray-200 mx-1" />
       <ItemActionsGroup />
       <div className="ml-auto" />

@@ -1,9 +1,9 @@
 import * as THREE from 'three'
-import { SCENE_CONFIG } from '@/config/scene'
-
-const { width, depth, height } = SCENE_CONFIG.room
+import { useSceneStore, selectRoom } from '@/store/sceneStore'
 
 export function Room() {
+  const { width, depth, height } = useSceneStore(selectRoom)
+
   return (
     <>
       {/* Пол */}

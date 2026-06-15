@@ -58,6 +58,13 @@ type SceneData struct {
 	// Items Scene items (furniture, panels, etc.)
 	Items []SceneItem `json:"items"`
 
+	// Room Room dimensions in mm. If absent, defaults are used (4000x4000x3000).
+	Room *struct {
+		Depth  int `json:"depth"`
+		Height int `json:"height"`
+		Width  int `json:"width"`
+	} `json:"room,omitempty"`
+
 	// Version Snapshot format version
 	Version int `json:"version"`
 }

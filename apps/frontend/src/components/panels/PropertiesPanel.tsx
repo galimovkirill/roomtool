@@ -1,7 +1,7 @@
 import { useSceneStore, useEditorStore } from '@/store'
+import { selectRoom } from '@/store/sceneStore'
 import { getCatalogItemById } from '@/catalog/items'
 import { getDefaultColorForMaterial } from '@/catalog/materials'
-import { SCENE_CONFIG } from '@/config/scene'
 import type { PropertyDef } from '@/types'
 import { PropertyField } from './PropertyField'
 
@@ -40,6 +40,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 export function PropertiesPanel({ itemId }: PropertiesPanelProps) {
   const item = useSceneStore((s) => s.items.find((i) => i.id === itemId))
   const updateItem = useSceneStore((s) => s.updateItem)
+  const room = useSceneStore(selectRoom)
   const closeEditing = useEditorStore((s) => s.closeEditing)
 
   const catalogItem = getCatalogItemById(item?.catalogId ?? '')
@@ -131,7 +132,7 @@ export function PropertiesPanel({ itemId }: PropertiesPanelProps) {
               type: 'number',
               unit: 'мм',
               min: 1,
-              max: SCENE_CONFIG.room.width,
+              max: room.width,
             }}
             value={item.dimensions.width}
             onChange={(v) => {
@@ -146,7 +147,7 @@ export function PropertiesPanel({ itemId }: PropertiesPanelProps) {
               type: 'number',
               unit: 'мм',
               min: 1,
-              max: SCENE_CONFIG.room.height,
+              max: room.height,
             }}
             value={item.dimensions.height}
             onChange={(v) => {
@@ -164,7 +165,7 @@ export function PropertiesPanel({ itemId }: PropertiesPanelProps) {
               type: 'number',
               unit: 'мм',
               min: 1,
-              max: SCENE_CONFIG.room.depth,
+              max: room.depth,
             }}
             value={item.dimensions.depth}
             onChange={(v) => {

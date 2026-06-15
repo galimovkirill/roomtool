@@ -11,7 +11,7 @@
 | Файл | Назначение |
 |------|-----------|
 | `src/config/scene.ts` | Размеры комнаты и камеры — **менять только здесь** |
-| `src/types/index.ts` | CatalogItem, SceneItem, SceneGroup, PropertyDef |
+| `src/types/index.ts` | RoomDimensions, CatalogItem, SceneItem, SceneGroup, PropertyDef |
 | `src/store/sceneStore.ts` | items, groups, drag/resize сессии, undo/redo, все мутации сцены |
 | `src/store/editorStore.ts` | selectedItemId, selectedItemIds, editingItemId, selectItem/selectItems/editItem/closeEditing |
 | `src/store/uiStore.ts` | sceneMode, activeRightPanelTab, showGizmo, showCeilingLight |
@@ -27,7 +27,7 @@
 | `src/components/scene/ResizeHandles.tsx` | 6 ручек по граням для resize одиночного элемента |
 | `src/components/scene/useMeshDrag.ts` | Прямой drag по телу элемента (только XZ) |
 | `src/components/scene/SceneRibbon.tsx` | Лента над canvas: кнопки режимов + абсолютно-центрированное имя сцены из syncStore |
-| `src/components/scene/ribbon/` | Компоненты ленты: BackButton, ViewModeToggle, GizmoToggle, AlignmentPopover, ItemActionsGroup, ResetSceneButton, SaveStatusIndicator |
+| `src/components/scene/ribbon/` | Компоненты ленты: BackButton, ViewModeToggle, GizmoToggle, AlignmentPopover, RoomSettingsPopover, ItemActionsGroup, ResetSceneButton, SaveStatusIndicator |
 | `src/components/scene/SceneOverlay.tsx` | W/H/D выделенного; при мультивыборе — bounding box |
 | `src/components/scene/ElevationSlider.tsx` | Ползунок высоты (Y); скрыт при showGizmo |
 | `src/components/panels/RightPanel.tsx` | Вкладки Каталог/Слои; при editingItemId — PropertiesPanel |
@@ -61,12 +61,19 @@
 ### 1 unit = 1 мм
 `BoxGeometry(900, 2200, 600)` = шкаф 900×2200×600 мм. Без исключений.
 
-### Размеры комнаты — только из конфига
+### Размеры комнаты — из стора (реактивно)
+Текущие размеры комнаты живут в `sceneStore.room`. Читать только через селектор:
 ```typescript
-import { SCENE_CONFIG } from '@/config/scene'
-// SCENE_CONFIG.room.width / .depth / .height
-// Никогда не хардкодить числа типа 4000, 3000
+// В React-компоненте:
+import { useSceneStore, selectRoom } from '@/store/sceneStore'
+const { width, depth, height } = useSceneStore(selectRoom)
+
+// Вне хука (утилиты, event-хендлеры):
+import { useSceneStore } from '@/store/sceneStore'
+const { width, depth, height } = useSceneStore.getState().room
 ```
+`SCENE_CONFIG.room` — дефолтные значения при инициализации/сбросе. Не хардкодить числа типа 4000, 3000.
+Изменить размеры: `useSceneStore.getState().setRoomDimensions(dims)` — не пишет в историю.
 
 ### Позиция живёт только в сторе
 ⚠️ Three.js-объекты рендерятся из `item.position` стора и **никогда** не мутируются императивно.

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { SceneItem } from '@/types'
 import { useSceneStore, useEditorStore } from '@/store'
-import { SCENE_CONFIG } from '@/config/scene'
+import { selectRoom } from '@/store/sceneStore'
 import { worldToRoomX, worldToRoomZ } from '@/utils/roomCoords'
 
 const RULER = 36 // px, ширина/высота линеек
@@ -9,7 +9,7 @@ const RULER = 36 // px, ширина/высота линеек
 // ─── Grid ────────────────────────────────────────────────────────────────────
 
 function PlanGrid({ scale, offset }: { scale: number; offset: { x: number; y: number } }) {
-  const { width, depth } = SCENE_CONFIG.room
+  const { width, depth } = useSceneStore(selectRoom)
   const step = scale >= 0.3 ? 100 : scale >= 0.1 ? 500 : 1000
   const majorStep = step * 5
 
@@ -53,7 +53,7 @@ function PlanGrid({ scale, offset }: { scale: number; offset: { x: number; y: nu
 // ─── Room outline ─────────────────────────────────────────────────────────────
 
 function RoomOutline({ scale, offset }: { scale: number; offset: { x: number; y: number } }) {
-  const { width, depth } = SCENE_CONFIG.room
+  const { width, depth } = useSceneStore(selectRoom)
   return (
     <rect
       x={offset.x}
@@ -82,8 +82,9 @@ function Element2D({
   isSelected: boolean
   onSelect: () => void
 }) {
-  const cx = (item.position[0] + SCENE_CONFIG.room.width / 2) * scale + offset.x
-  const cz = (item.position[2] + SCENE_CONFIG.room.depth / 2) * scale + offset.y
+  const { width: roomW, depth: roomD } = useSceneStore(selectRoom)
+  const cx = (item.position[0] + roomW / 2) * scale + offset.x
+  const cz = (item.position[2] + roomD / 2) * scale + offset.y
   const w = item.dimensions.width * scale
   const d = item.dimensions.depth * scale
 
@@ -144,8 +145,9 @@ function DimensionLines({
   scale: number
   offset: { x: number; y: number }
 }) {
-  const toSvgX = (wx: number) => (wx + SCENE_CONFIG.room.width / 2) * scale + offset.x
-  const toSvgZ = (wz: number) => (wz + SCENE_CONFIG.room.depth / 2) * scale + offset.y
+  const { width: roomW2, depth: roomD2 } = useSceneStore(selectRoom)
+  const toSvgX = (wx: number) => (wx + roomW2 / 2) * scale + offset.x
+  const toSvgZ = (wz: number) => (wz + roomD2 / 2) * scale + offset.y
 
   const cx = item.position[0]
   const cz = item.position[2]
@@ -251,7 +253,7 @@ function HorizontalRuler({
   containerWidth: number
   rulerSize: number
 }) {
-  const { width } = SCENE_CONFIG.room
+  const { width } = useSceneStore(selectRoom)
   const step = rulerStep(scale)
   const ticks: React.ReactNode[] = []
 
@@ -313,7 +315,7 @@ function VerticalRuler({
   containerHeight: number
   rulerSize: number
 }) {
-  const { depth } = SCENE_CONFIG.room
+  const { depth } = useSceneStore(selectRoom)
   const step = rulerStep(scale)
   const ticks: React.ReactNode[] = []
 
@@ -377,6 +379,7 @@ function VerticalRuler({
 export function Scene2DView() {
   const items = useSceneStore((s) => s.items)
   const groups = useSceneStore((s) => s.groups)
+  const room = useSceneStore(selectRoom)
   const selectedItemIds = useEditorStore((s) => s.selectedItemIds)
   const selectItem = useEditorStore((s) => s.selectItem)
 
@@ -393,14 +396,11 @@ export function Scene2DView() {
     const rect = el.getBoundingClientRect()
     const cw = rect.width
     const ch = rect.height
-    const s = Math.min(
-      ((cw - RULER) * 0.85) / SCENE_CONFIG.room.width,
-      ((ch - RULER) * 0.85) / SCENE_CONFIG.room.depth
-    )
+    const s = Math.min(((cw - RULER) * 0.85) / room.width, ((ch - RULER) * 0.85) / room.depth)
     setScale(s)
     setOffset({
-      x: RULER + (cw - RULER - SCENE_CONFIG.room.width * s) / 2,
-      y: RULER + (ch - RULER - SCENE_CONFIG.room.depth * s) / 2,
+      x: RULER + (cw - RULER - room.width * s) / 2,
+      y: RULER + (ch - RULER - room.depth * s) / 2,
     })
     setContainerSize({ w: cw, h: ch })
 
@@ -410,7 +410,7 @@ export function Scene2DView() {
     })
     ro.observe(el)
     return () => ro.disconnect()
-  }, [])
+  }, [room])
 
   useEffect(() => {
     const el = containerRef.current

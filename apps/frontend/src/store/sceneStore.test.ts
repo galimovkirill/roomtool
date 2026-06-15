@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { useSceneStore } from './sceneStore'
 import { useEditorStore } from './editorStore'
 import { MATERIAL_COLORS, MATERIAL_OPTIONS, type MaterialType } from '@/catalog/materials'
-import type { CatalogItem, SceneGroup, SceneItem } from '@/types'
+import { SCENE_CONFIG } from '@/config/scene'
+import type { CatalogItem, RoomDimensions, SceneGroup, SceneItem } from '@/types'
 
 const TEST_ITEM: CatalogItem = {
   id: 'side-panel',
@@ -16,6 +17,7 @@ beforeEach(() => {
   useSceneStore.setState({
     items: [],
     groups: [],
+    room: { ...SCENE_CONFIG.room },
     groupCounter: 0,
     history: [],
     future: [],
@@ -1358,5 +1360,35 @@ describe('resetScene', () => {
     const s = useSceneStore.getState()
     expect(s.history).toHaveLength(0)
     expect(s.future).toHaveLength(0)
+  })
+})
+
+describe('setRoomDimensions', () => {
+  const newRoom: RoomDimensions = { width: 6000, depth: 5000, height: 2700 }
+
+  it('updates room in state', () => {
+    useSceneStore.getState().setRoomDimensions(newRoom)
+    expect(useSceneStore.getState().room).toEqual(newRoom)
+  })
+
+  it('does not add an entry to history', () => {
+    useSceneStore.getState().setRoomDimensions(newRoom)
+    expect(useSceneStore.getState().history).toHaveLength(0)
+  })
+})
+
+describe('loadScene with room', () => {
+  const items: SceneItem[] = []
+  const groups: SceneGroup[] = []
+
+  it('sets room from data when provided', () => {
+    const customRoom: RoomDimensions = { width: 3000, depth: 2000, height: 2400 }
+    useSceneStore.getState().loadScene(items, groups, customRoom)
+    expect(useSceneStore.getState().room).toEqual(customRoom)
+  })
+
+  it('uses default room from SCENE_CONFIG when room is absent', () => {
+    useSceneStore.getState().loadScene(items, groups)
+    expect(useSceneStore.getState().room).toEqual(SCENE_CONFIG.room)
   })
 })

@@ -4,7 +4,6 @@ import { Html } from '@react-three/drei'
 import { useFrame, useThree } from '@react-three/fiber'
 import type { ThreeEvent } from '@react-three/fiber'
 import { useSceneStore } from '@/store'
-import { SCENE_CONFIG } from '@/config/scene'
 import type { SceneItem, Vec3 } from '@/types'
 
 const MIN_SIZE = 10
@@ -229,7 +228,7 @@ export function ResizeHandles({ item }: { item: SceneItem }) {
         const ax = activeAxisRef.current
         if (ax === '-y') newDim = Math.min(newDim, anchorRef.current.y)
         else if (ax === '+y')
-          newDim = Math.min(newDim, SCENE_CONFIG.room.height - anchorRef.current.y)
+          newDim = Math.min(newDim, useSceneStore.getState().room.height - anchorRef.current.y)
 
         newDim = Math.max(MIN_SIZE, Math.min(MAX_SIZE, newDim))
 

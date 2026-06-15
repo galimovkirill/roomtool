@@ -1,4 +1,4 @@
-import { SCENE_CONFIG } from '@/config/scene'
+import { useSceneStore } from '@/store/sceneStore'
 import type { SceneItem } from '@/types'
 
 export function totalOverlapVolume(movedItem: SceneItem, allItems: SceneItem[]): number {
@@ -32,7 +32,7 @@ export function clampGroupDelta(
   delta: [number, number, number],
   allItems: SceneItem[]
 ): [number, number, number] {
-  const { width: roomW, depth: roomD, height: roomH } = SCENE_CONFIG.room
+  const { width: roomW, depth: roomD, height: roomH } = useSceneStore.getState().room
   const groupItems = allItems.filter((i) => groupItemIds.includes(i.id))
 
   let [dx, dy, dz] = delta

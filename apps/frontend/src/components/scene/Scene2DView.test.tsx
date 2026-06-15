@@ -21,6 +21,7 @@ const makeItem = (id: string, overrides?: Partial<SceneItem>): SceneItem => ({
 const storeState = {
   items: [] as SceneItem[],
   groups: [],
+  room: { width: 4000, depth: 4000, height: 3000 },
 }
 
 const editorState = {
