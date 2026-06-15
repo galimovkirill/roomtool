@@ -35,9 +35,20 @@ export const useAuthStore = create<AuthState>((set) => ({
       const { data, response } = await apiClient.GET('/api/v1/auth/me')
       if (response.ok && data) {
         set({ user: data.user, status: 'authenticated' })
-      } else {
-        set({ user: null, status: 'unauthenticated' })
+        return
       }
+      if (response.status === 401) {
+        // access_token may have expired — attempt silent refresh before giving up
+        const { response: refreshRes } = await apiClient.POST('/api/v1/auth/refresh')
+        if (refreshRes.ok) {
+          const { data: fresh, response: retryRes } = await apiClient.GET('/api/v1/auth/me')
+          if (retryRes.ok && fresh) {
+            set({ user: fresh.user, status: 'authenticated' })
+            return
+          }
+        }
+      }
+      set({ user: null, status: 'unauthenticated' })
     } catch {
       set({ user: null, status: 'unauthenticated' })
     }
