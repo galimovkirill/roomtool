@@ -5,7 +5,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import type { ThreeEvent } from '@react-three/fiber'
 import { useSceneStore } from '@/store'
 import { SCENE_CONFIG } from '@/config/scene'
-import type { SceneItem } from '@/types'
+import type { SceneItem, Vec3 } from '@/types'
 
 const MIN_SIZE = 10
 const MAX_SIZE = 10000
@@ -30,8 +30,6 @@ const HANDLE_TOOLTIP: Record<HandleAxis, string> = {
   '+z': 'Изменить глубину',
   '-z': 'Изменить глубину',
 }
-
-type Vec3 = [number, number, number]
 
 function getLocalAxes(rotY: number) {
   const c = Math.cos(rotY)

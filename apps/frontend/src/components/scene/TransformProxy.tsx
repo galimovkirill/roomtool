@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { TransformControls } from '@react-three/drei'
+import type { Vec3 } from '@/types'
 import { useSceneStore } from '@/store'
 import { useUIStore } from '@/store/uiStore'
 import { computeGroupCenter, groupDragDelta } from '@/utils/groupTransform'
 import { isItemEffectivelyLocked } from '@/utils/locked'
 import { useDragSession } from './useDragSession'
-
-type Vec3 = [number, number, number]
 
 interface Props {
   // Items the gizmo moves together. One id = single element, many = group.

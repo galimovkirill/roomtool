@@ -1,8 +1,6 @@
 import { useCallback, useRef } from 'react'
+import type { SceneItem, Vec3 } from '@/types'
 import { useSceneStore } from '@/store'
-import type { SceneItem } from '@/types'
-
-type Vec3 = [number, number, number]
 
 export interface DragSession {
   startDrag(ids: string[]): void

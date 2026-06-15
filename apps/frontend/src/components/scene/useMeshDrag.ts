@@ -3,6 +3,7 @@ import type { MutableRefObject } from 'react'
 import * as THREE from 'three'
 import { useThree } from '@react-three/fiber'
 import type { ThreeEvent } from '@react-three/fiber'
+import type { Vec3 } from '@/types'
 import { useSceneStore, useEditorStore } from '@/store'
 import { groupDragDelta } from '@/utils/groupTransform'
 import { isItemEffectivelyLocked } from '@/utils/locked'
@@ -10,8 +11,6 @@ import { useDragSession } from './useDragSession'
 
 const DRAG_THRESHOLD_SQ = 25 // 5px squared
 const UP = new THREE.Vector3(0, 1, 0)
-
-type Vec3 = [number, number, number]
 
 export interface MeshDragHandlers {
   onPointerDown: (e: ThreeEvent<PointerEvent>) => void

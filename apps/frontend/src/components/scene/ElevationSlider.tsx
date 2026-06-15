@@ -1,12 +1,11 @@
 import { useRef } from 'react'
 import { useShallow } from 'zustand/shallow'
+import type { Vec3 } from '@/types'
 import { useSceneStore, useEditorStore, useUIStore } from '@/store'
 import { SCENE_CONFIG } from '@/config/scene'
 import { isItemEffectivelyLocked } from '@/utils/locked'
 import { computeGroupCenter, groupDragDelta } from '@/utils/groupTransform'
 import { useDragSession } from './useDragSession'
-
-type Vec3 = [number, number, number]
 
 const TRACK_PX = 200
 

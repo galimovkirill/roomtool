@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { v4 as uuid } from 'uuid'
-import type { CatalogItem, SceneGroup, SceneItem } from '@/types'
+import type { CatalogItem, SceneGroup, SceneItem, Vec3 } from '@/types'
 import { MATERIAL_COLORS, MATERIAL_OPTIONS, type MaterialType } from '@/catalog/materials'
 import { DEFAULT_SCENE_GROUPS, DEFAULT_SCENE_ITEMS } from './defaultScene'
 import { useEditorStore } from './editorStore'
@@ -17,8 +17,6 @@ export type AlignmentType =
   | 'front'
   | 'back'
   | 'centerZ'
-
-export type Vec3 = [number, number, number]
 
 type HistorySnapshot = { items: SceneItem[]; groups: SceneGroup[] }
 

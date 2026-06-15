@@ -1,7 +1,5 @@
-import type { SceneItem } from '@/types'
+import type { SceneItem, Vec3 } from '@/types'
 import { clampGroupDelta, clampGroupDeltaAgainstItems } from './collision'
-
-type Vec3 = [number, number, number]
 
 // Bounding-box center of a set of group items. The group gizmo (pivot) sits here.
 // Mirrors the AABB used for collision: position is the item center, so each axis

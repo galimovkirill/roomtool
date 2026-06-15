@@ -1,3 +1,5 @@
+export type Vec3 = [number, number, number]
+
 export interface PropertyDef {
   key: string
   label: string
