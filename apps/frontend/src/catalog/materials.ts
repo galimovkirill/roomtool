@@ -1,6 +1,10 @@
 export const MATERIAL_OPTIONS = ['ЛДСП', 'МДФ', 'Массив', 'ДВП', 'Стекло', 'Металл'] as const
 export type MaterialType = (typeof MATERIAL_OPTIONS)[number]
 
+export function getDefaultColorForMaterial(material: string): string {
+  return MATERIAL_COLORS[material as MaterialType]?.[0]?.value ?? '#F5F5F0'
+}
+
 export const MATERIAL_COLORS: Record<MaterialType, { label: string; value: string }[]> = {
   ЛДСП: [
     { label: 'Белый', value: '#F5F5F0' },

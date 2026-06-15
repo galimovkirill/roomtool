@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { v4 as uuid } from 'uuid'
 import type { CatalogItem, SceneGroup, SceneItem, Vec3 } from '@/types'
-import { MATERIAL_COLORS, MATERIAL_OPTIONS, type MaterialType } from '@/catalog/materials'
+import { getDefaultColorForMaterial, MATERIAL_OPTIONS } from '@/catalog/materials'
 import { DEFAULT_SCENE_GROUPS, DEFAULT_SCENE_ITEMS } from './defaultScene'
 import { useEditorStore } from './editorStore'
 
@@ -113,7 +113,7 @@ export const useSceneStore = create<SceneState>((set, get) => ({
         } else if (def.type === 'color') {
           const materialKey = def.dependsOnMaterial ?? 'material'
           const mat = (properties[materialKey] as string) || MATERIAL_OPTIONS[0]
-          properties[def.key] = MATERIAL_COLORS[mat as MaterialType]?.[0]?.value ?? '#F5F5F0'
+          properties[def.key] = getDefaultColorForMaterial(mat)
         } else {
           properties[def.key] = def.default ?? def.options?.[0]?.value ?? ''
         }

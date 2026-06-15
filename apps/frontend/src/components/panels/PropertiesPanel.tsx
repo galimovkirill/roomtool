@@ -1,6 +1,6 @@
 import { useSceneStore, useEditorStore } from '@/store'
 import { getCatalogItemById } from '@/catalog/items'
-import { MATERIAL_COLORS, type MaterialType } from '@/catalog/materials'
+import { getDefaultColorForMaterial } from '@/catalog/materials'
 import { SCENE_CONFIG } from '@/config/scene'
 import type { PropertyDef } from '@/types'
 import { PropertyField } from './PropertyField'
@@ -50,8 +50,13 @@ export function PropertiesPanel({ itemId }: PropertiesPanelProps) {
 
   const handleChange = (def: PropertyDef, v: string | number) => {
     if (def.type === 'material') {
-      const firstColor = MATERIAL_COLORS[v as MaterialType]?.[0]?.value ?? ''
-      updateItem(item.id, { properties: { ...item.properties, [def.key]: v, color: firstColor } })
+      updateItem(item.id, {
+        properties: {
+          ...item.properties,
+          [def.key]: v,
+          color: getDefaultColorForMaterial(v as string),
+        },
+      })
     } else {
       updateItem(item.id, { properties: { ...item.properties, [def.key]: v } })
     }
