@@ -4,7 +4,7 @@ import { useSceneStore, useEditorStore, useUIStore } from '@/store'
 import { SCENE_CONFIG } from '@/config/scene'
 import { isItemEffectivelyLocked } from '@/utils/locked'
 import { computeGroupCenter, groupDragDelta } from '@/utils/groupTransform'
-import type { SceneItem } from '@/types'
+import { useDragSession } from './useDragSession'
 
 type Vec3 = [number, number, number]
 
@@ -23,13 +23,10 @@ export function ElevationSlider() {
 
   const selectedItems = items.filter((i) => selectedIds.includes(i.id))
 
-  const beginDrag = useSceneStore((s) => s.beginDrag)
-  const dragSelectionBy = useSceneStore((s) => s.dragSelectionBy)
-  const endDrag = useSceneStore((s) => s.endDrag)
+  const { startDrag, moveDrag: dragSelectionBy, endDrag, startItemsRef } = useDragSession()
 
   // Snapshot captured once at drag start — same pattern as TransformProxy/useMeshDrag.
   const startCenterRef = useRef<Vec3 | null>(null)
-  const startItemsRef = useRef<SceneItem[]>([])
   const groupHeightRef = useRef<number>(0)
   const hasMoved = useRef(false)
 
@@ -52,8 +49,7 @@ export function ElevationSlider() {
   const currentOffset = Math.max(0, Math.min(maxOffset, Math.round(minY)))
 
   function handlePointerDown() {
-    const snap = useSceneStore.getState()
-    const snapSelected = snap.items.filter((i) => selectedIds.includes(i.id))
+    const snapSelected = useSceneStore.getState().items.filter((i) => selectedIds.includes(i.id))
     startCenterRef.current = computeGroupCenter(snapSelected)
     let snapMinY = Infinity
     let snapMaxY = -Infinity
@@ -62,9 +58,8 @@ export function ElevationSlider() {
       snapMaxY = Math.max(snapMaxY, it.position[1] + it.dimensions.height / 2)
     }
     groupHeightRef.current = snapMaxY - snapMinY
-    startItemsRef.current = snap.items
     hasMoved.current = false
-    beginDrag(selectedIds)
+    startDrag(selectedIds)
   }
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {

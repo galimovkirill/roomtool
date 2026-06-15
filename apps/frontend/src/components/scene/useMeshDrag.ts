@@ -6,7 +6,7 @@ import type { ThreeEvent } from '@react-three/fiber'
 import { useSceneStore, useEditorStore } from '@/store'
 import { groupDragDelta } from '@/utils/groupTransform'
 import { isItemEffectivelyLocked } from '@/utils/locked'
-import type { SceneItem } from '@/types'
+import { useDragSession } from './useDragSession'
 
 const DRAG_THRESHOLD_SQ = 25 // 5px squared
 const UP = new THREE.Vector3(0, 1, 0)
@@ -21,16 +21,12 @@ export interface MeshDragHandlers {
 
 export function useMeshDrag(itemId: string): MeshDragHandlers {
   const { camera, gl } = useThree()
-
-  const beginDrag = useSceneStore((s) => s.beginDrag)
-  const dragSelectionBy = useSceneStore((s) => s.dragSelectionBy)
-  const endDrag = useSceneStore((s) => s.endDrag)
+  const { startDrag, moveDrag: dragSelectionBy, endDrag, startItemsRef } = useDragSession()
 
   const isDraggingRef = useRef(false)
   const wasDraggedRef = useRef(false)
   const dragPlaneRef = useRef(new THREE.Plane())
   const startIntersectRef = useRef(new THREE.Vector3())
-  const startItemsRef = useRef<SceneItem[]>([])
   const targetIdsRef = useRef<string[]>([])
   const lastDeltaRef = useRef<Vec3>([0, 0, 0])
   const pointerDownClientRef = useRef({ x: 0, y: 0 })
@@ -77,8 +73,6 @@ export function useMeshDrag(itemId: string): MeshDragHandlers {
       dragPlaneRef.current.set(UP, -e.point.y)
       startIntersectRef.current.copy(e.point)
 
-      const sceneState = useSceneStore.getState()
-      startItemsRef.current = sceneState.items
       targetIdsRef.current = editorState.selectedItemIds
       lastDeltaRef.current = [0, 0, 0]
       pointerDownClientRef.current = { x: e.clientX, y: e.clientY }
@@ -111,7 +105,7 @@ export function useMeshDrag(itemId: string): MeshDragHandlers {
 
           isDraggingRef.current = true
           wasDraggedRef.current = true
-          beginDrag(targetIdsRef.current)
+          startDrag(targetIdsRef.current)
           document.body.style.cursor = 'grabbing'
         }
 
@@ -156,7 +150,7 @@ export function useMeshDrag(itemId: string): MeshDragHandlers {
       gl.domElement.addEventListener('pointermove', onMove)
       gl.domElement.addEventListener('pointerup', onUp)
     },
-    [itemId, beginDrag, dragSelectionBy, endDrag, getPlaneIntersect, gl]
+    [itemId, startDrag, dragSelectionBy, endDrag, getPlaneIntersect, gl]
   )
 
   const onDragClick = useCallback((e: ThreeEvent<MouseEvent>): boolean => {

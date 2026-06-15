@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { TransformControls } from '@react-three/drei'
-import type { SceneItem } from '@/types'
 import { useSceneStore } from '@/store'
 import { useUIStore } from '@/store/uiStore'
 import { computeGroupCenter, groupDragDelta } from '@/utils/groupTransform'
 import { isItemEffectivelyLocked } from '@/utils/locked'
+import { useDragSession } from './useDragSession'
 
 type Vec3 = [number, number, number]
 
@@ -22,18 +22,12 @@ interface Props {
 export function TransformProxy({ targetIds }: Props) {
   const [pivotMesh, setPivotMesh] = useState<THREE.Mesh | null>(null)
   const initialCenterRef = useRef<Vec3>([0, 0, 0])
-  // Read-only snapshot of item positions at drag start. Needed because the store
-  // positions move live during the drag, but clamp/collision must be computed
-  // against where the drag began (delta is relative to the start).
-  const startItemsRef = useRef<SceneItem[]>([])
   const lastDeltaRef = useRef<Vec3>([0, 0, 0])
   const draggingRef = useRef(false)
 
   const items = useSceneStore((s) => s.items)
-  const beginDrag = useSceneStore((s) => s.beginDrag)
-  const dragSelectionBy = useSceneStore((s) => s.dragSelectionBy)
-  const endDrag = useSceneStore((s) => s.endDrag)
   const sceneMode = useUIStore((s) => s.sceneMode)
+  const { startDrag, moveDrag: dragSelectionBy, endDrag, startItemsRef } = useDragSession()
 
   const targetItems = useMemo(
     () => items.filter((i) => targetIds.includes(i.id)),
@@ -79,9 +73,8 @@ export function TransformProxy({ targetIds }: Props) {
               return
             draggingRef.current = true
             initialCenterRef.current = [...center] as Vec3
-            startItemsRef.current = snap.items
             lastDeltaRef.current = [0, 0, 0]
-            beginDrag(targetIds)
+            startDrag(targetIds)
             window.dispatchEvent(new CustomEvent('transform-start'))
           }}
           onChange={() => {
