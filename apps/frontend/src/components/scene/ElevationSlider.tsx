@@ -5,6 +5,7 @@ import { useSceneStore, useEditorStore, useUIStore } from '@/store'
 import { SCENE_CONFIG } from '@/config/scene'
 import { isItemEffectivelyLocked } from '@/utils/locked'
 import { computeGroupCenter, groupDragDelta } from '@/utils/groupTransform'
+import { computeItemsBounds } from '@/utils/bounds'
 import { useDragSession } from './useDragSession'
 
 const TRACK_PX = 200
@@ -34,13 +35,9 @@ export function ElevationSlider() {
   const allLocked = selectedItems.every((item) => isItemEffectivelyLocked(item, groups))
   if (allLocked) return null
 
-  let minY = Infinity
-  let maxY = -Infinity
-  for (const item of selectedItems) {
-    minY = Math.min(minY, item.position[1] - item.dimensions.height / 2)
-    maxY = Math.max(maxY, item.position[1] + item.dimensions.height / 2)
-  }
-  const groupHeight = maxY - minY
+  const { min: selMin, max: selMax } = computeItemsBounds(selectedItems)
+  const minY = selMin[1]
+  const groupHeight = selMax[1] - minY
   const roomHeight = SCENE_CONFIG.room.height
   const maxOffset = roomHeight - groupHeight
   if (maxOffset <= 0) return null
@@ -50,13 +47,8 @@ export function ElevationSlider() {
   function handlePointerDown() {
     const snapSelected = useSceneStore.getState().items.filter((i) => selectedIds.includes(i.id))
     startCenterRef.current = computeGroupCenter(snapSelected)
-    let snapMinY = Infinity
-    let snapMaxY = -Infinity
-    for (const it of snapSelected) {
-      snapMinY = Math.min(snapMinY, it.position[1] - it.dimensions.height / 2)
-      snapMaxY = Math.max(snapMaxY, it.position[1] + it.dimensions.height / 2)
-    }
-    groupHeightRef.current = snapMaxY - snapMinY
+    const { min: snapMin, max: snapMax } = computeItemsBounds(snapSelected)
+    groupHeightRef.current = snapMax[1] - snapMin[1]
     hasMoved.current = false
     startDrag(selectedIds)
   }

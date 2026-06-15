@@ -43,6 +43,7 @@
 | `src/pages/FilesPage.tsx` | Хаб `/files`: список сцен, создание, сортировка, состояния загрузки/ошибки/пусто |
 | `src/pages/EditorPage.tsx` | Страница `/editor/:id`: initScene → resetScene при уходе; редирект на `/files` если not_found |
 | `src/utils/formatDate.ts` | `formatRelativeDate(dateStr)` — относительные даты на русском (сегодня/вчера/дата) |
+| `src/utils/bounds.ts` | `computeItemsBounds(items)` → `{ min: Vec3; max: Vec3 }` — AABB по списку элементов |
 | `src/utils/collision.ts` | AABB: clampGroupDelta, clampGroupDeltaAgainstItems, totalOverlapVolume |
 | `src/utils/clampToRoom.ts` | Удержание элемента в границах комнаты (чистая функция) |
 | `src/utils/groupTransform.ts` | computeGroupCenter, groupDragDelta, pivotPositionOnChange |
