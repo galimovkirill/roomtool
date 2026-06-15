@@ -78,6 +78,10 @@ export function FilesPage() {
     setScenes((prev) => prev.filter((s) => s.id !== id))
   }
 
+  function handleShareTokenChange(id: string, token: string | null) {
+    setScenes((prev) => prev.map((s) => (s.id === id ? { ...s, share_token: token } : s)))
+  }
+
   const sorted = sortScenes(scenes, sortKey)
 
   return (
@@ -144,6 +148,7 @@ export function FilesPage() {
                 onRename={handleRename}
                 onDuplicate={handleDuplicate}
                 onDelete={handleDelete}
+                onShareTokenChange={handleShareTokenChange}
               />
             ))}
           </div>

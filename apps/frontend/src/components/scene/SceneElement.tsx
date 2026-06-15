@@ -38,13 +38,14 @@ function GltfMesh({ src, dimensions }: { src: string; dimensions: SceneItem['dim
 interface Props {
   item: SceneItem
   locked: boolean
+  viewOnly?: boolean
 }
 
 // Presentational only: renders the element from the store and reports clicks for
 // selection. Movement is handled entirely by TransformProxy via the store, so the
 // element position is never mutated imperatively here — there is no second source
 // of truth to drift out of sync.
-export function SceneElement({ item, locked }: Props) {
+export function SceneElement({ item, locked, viewOnly = false }: Props) {
   const [hovered, setHovered] = useState(false)
   const selectedItemIds = useEditorStore((s) => s.selectedItemIds)
   const selectItem = useEditorStore((s) => s.selectItem)
@@ -71,53 +72,37 @@ export function SceneElement({ item, locked }: Props) {
     []
   )
 
+  const interactiveHandlers = viewOnly
+    ? {}
+    : {
+        onPointerDown,
+        onPointerOver: () => {
+          setHovered(true)
+          document.body.style.cursor = isSelected ? 'grab' : 'pointer'
+        },
+        onPointerOut: () => {
+          setHovered(false)
+          if (!isDraggingRef.current) document.body.style.cursor = 'auto'
+        },
+        onClick: (e: ThreeEvent<MouseEvent>) => {
+          e.stopPropagation()
+          if (onDragClick(e)) return
+          selectItem(item.id)
+        },
+        onDoubleClick: (e: ThreeEvent<MouseEvent>) => {
+          e.stopPropagation()
+          if (!locked) editItem(item.id)
+        },
+      }
+
   return (
     <group position={item.position} rotation={[0, item.rotationY, 0]}>
       {catalogItem?.render?.type === 'gltf' ? (
-        <group
-          onPointerDown={onPointerDown}
-          onPointerOver={() => {
-            setHovered(true)
-            document.body.style.cursor = isSelected ? 'grab' : 'pointer'
-          }}
-          onPointerOut={() => {
-            setHovered(false)
-            if (!isDraggingRef.current) document.body.style.cursor = 'auto'
-          }}
-          onClick={(e: ThreeEvent<MouseEvent>) => {
-            e.stopPropagation()
-            if (onDragClick(e)) return
-            selectItem(item.id)
-          }}
-          onDoubleClick={(e) => {
-            e.stopPropagation()
-            if (!locked) editItem(item.id)
-          }}
-        >
+        <group {...interactiveHandlers}>
           <GltfMesh src={catalogItem.render.src} dimensions={item.dimensions} />
         </group>
       ) : (
-        <mesh
-          castShadow
-          onPointerDown={onPointerDown}
-          onPointerOver={() => {
-            setHovered(true)
-            document.body.style.cursor = isSelected ? 'grab' : 'pointer'
-          }}
-          onPointerOut={() => {
-            setHovered(false)
-            if (!isDraggingRef.current) document.body.style.cursor = 'auto'
-          }}
-          onClick={(e: ThreeEvent<MouseEvent>) => {
-            e.stopPropagation()
-            if (onDragClick(e)) return
-            selectItem(item.id)
-          }}
-          onDoubleClick={(e) => {
-            e.stopPropagation()
-            if (!locked) editItem(item.id)
-          }}
-        >
+        <mesh castShadow {...interactiveHandlers}>
           <boxGeometry
             args={[item.dimensions.width, item.dimensions.height, item.dimensions.depth]}
           />

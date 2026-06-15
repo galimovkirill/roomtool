@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { BoxIcon, MoreHorizontalIcon } from 'lucide-react'
+import { BoxIcon, MoreHorizontalIcon, Share2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiClient } from '@/api/client'
 import type { components } from '@/api/client'
@@ -12,6 +12,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
+import { ShareDialog } from '@/components/share/ShareDialog'
 
 type SceneSummary = components['schemas']['SceneSummary']
 type Scene = components['schemas']['Scene']
@@ -21,12 +22,14 @@ interface Props {
   onRename: (id: string, name: string) => void
   onDuplicate: (scene: Scene) => void
   onDelete: (id: string) => void
+  onShareTokenChange?: (id: string, token: string | null) => void
 }
 
-export function SceneCard({ scene, onRename, onDuplicate, onDelete }: Props) {
+export function SceneCard({ scene, onRename, onDuplicate, onDelete, onShareTokenChange }: Props) {
   const navigate = useNavigate()
   const [isRenaming, setIsRenaming] = useState(false)
   const [nameValue, setNameValue] = useState(scene.name)
+  const [shareOpen, setShareOpen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -124,6 +127,13 @@ export function SceneCard({ scene, onRename, onDuplicate, onDelete }: Props) {
         </p>
       </div>
 
+      <ShareDialog
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        sceneId={scene.id}
+        initialToken={scene.share_token ?? null}
+        onTokenChange={(token) => onShareTokenChange?.(scene.id, token)}
+      />
       <DropdownMenu>
         <DropdownMenuTrigger
           className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-accent transition-opacity"
@@ -147,6 +157,15 @@ export function SceneCard({ scene, onRename, onDuplicate, onDelete }: Props) {
             }}
           >
             Дублировать
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.stopPropagation()
+              setShareOpen(true)
+            }}
+          >
+            <Share2 className="mr-2 h-4 w-4" />
+            Поделиться
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem

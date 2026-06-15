@@ -27,7 +27,7 @@
 | `src/components/scene/ResizeHandles.tsx` | 6 ручек по граням для resize одиночного элемента |
 | `src/components/scene/useMeshDrag.ts` | Прямой drag по телу элемента (только XZ) |
 | `src/components/scene/SceneRibbon.tsx` | Лента над canvas: кнопки режимов + абсолютно-центрированное имя сцены из syncStore |
-| `src/components/scene/ribbon/` | Компоненты ленты: BackButton, ViewModeToggle, GizmoToggle, AlignmentPopover, RoomSettingsPopover, ItemActionsGroup, ResetSceneButton, SaveStatusIndicator |
+| `src/components/scene/ribbon/` | Компоненты ленты: BackButton, ViewModeToggle, GizmoToggle, AlignmentPopover, RoomSettingsPopover, ItemActionsGroup, ResetSceneButton, SaveStatusIndicator, ShareButton |
 | `src/components/scene/SceneOverlay.tsx` | W/H/D выделенного; при мультивыборе — bounding box |
 | `src/components/scene/ElevationSlider.tsx` | Ползунок высоты (Y); скрыт при showGizmo |
 | `src/components/panels/RightPanel.tsx` | Вкладки Каталог/Слои; при editingItemId — PropertiesPanel |
@@ -37,11 +37,14 @@
 | `src/components/ui/AppLayout.tsx` | Корневой `flex-col` layout + TooltipProvider; принимает любой `ReactNode` |
 | `src/components/ui/AppHeader.tsx` | Шапка с логотипом и дропдауном пользователя (email + Выйти) |
 | `src/components/ui/dropdown-menu.tsx` | DropdownMenu на @base-ui/react/menu (аналог context-menu.tsx) |
+| `src/components/ui/dialog.tsx` | Dialog на @base-ui/react/dialog — модальные диалоги (Backdrop + Popup + Title + Close) |
 | `src/components/ui/skeleton.tsx` | Skeleton — `animate-pulse bg-muted` div-заглушка |
 | `src/components/ui/ToolbarToggleButton.tsx` | Toggle-кнопка с тултипом для Ribbon |
 | `src/components/files/SceneCard.tsx` | Карточка сцены: thumbnail, имя, дата; двойной клик — переименование; DropdownMenu |
 | `src/pages/FilesPage.tsx` | Хаб `/files`: список сцен, создание, сортировка, состояния загрузки/ошибки/пусто |
 | `src/pages/EditorPage.tsx` | Страница `/editor/:id`: initScene → resetScene при уходе; редирект на `/files` если not_found |
+| `src/pages/ShareViewerPage.tsx` | Страница `/share/:token`: публичный просмотр сцены без авторизации; loadScene → resetScene при уходе |
+| `src/components/share/ShareDialog.tsx` | Диалог управления share-ссылкой: создать (POST /share), скопировать, отозвать (DELETE /share) |
 | `src/utils/formatDate.ts` | `formatRelativeDate(dateStr)` — относительные даты на русском (сегодня/вчера/дата) |
 | `src/utils/bounds.ts` | `computeItemsBounds(items)` → `{ min: Vec3; max: Vec3 }` — AABB по списку элементов |
 | `src/utils/collision.ts` | AABB: clampGroupDelta, clampGroupDeltaAgainstItems, totalOverlapVolume |
@@ -227,10 +230,11 @@ Single-select: `value={[active]} onValueChange={vals => vals.length > 0 && set(v
 ## Роутинг
 
 ```
-/           → redirect /files
-/files      → FilesPage (ProtectedRoute)
-/editor/:id → EditorPage (ProtectedRoute + ScreenGuard)
-*           → redirect /files
+/              → redirect /files
+/files         → FilesPage (ProtectedRoute)
+/editor/:id    → EditorPage (ProtectedRoute + ScreenGuard)
+/share/:token  → ShareViewerPage (ScreenGuard, без ProtectedRoute — публичный)
+*              → redirect /files
 ```
 
 `ProtectedRoute` — обёртка (children), не Outlet. Проверяет `authStore.status`, редиректит на `/login` если не аутентифицирован.

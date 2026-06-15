@@ -9,6 +9,7 @@ import { LoginPage } from '@/pages/LoginPage'
 import { RegisterPage } from '@/pages/RegisterPage'
 import { FilesPage } from '@/pages/FilesPage'
 import { EditorPage } from '@/pages/EditorPage'
+import { ShareViewerPage } from '@/pages/ShareViewerPage'
 import { KeyboardShortcuts } from '@/hooks/KeyboardShortcuts'
 
 createRoot(document.getElementById('root')!).render(
@@ -35,6 +36,14 @@ createRoot(document.getElementById('root')!).render(
                 <EditorPage />
               </ScreenGuard>
             </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/share/:token"
+          element={
+            <ScreenGuard>
+              <ShareViewerPage />
+            </ScreenGuard>
           }
         />
         <Route path="*" element={<Navigate to="/files" replace />} />

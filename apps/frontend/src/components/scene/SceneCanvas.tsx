@@ -44,7 +44,11 @@ function isItemVisibleInHierarchy(item: SceneItem, groups: SceneGroup[]): boolea
   return true
 }
 
-export function SceneCanvas() {
+interface SceneCanvasProps {
+  viewOnly?: boolean
+}
+
+export function SceneCanvas({ viewOnly = false }: SceneCanvasProps) {
   const sceneMode = useUIStore((s) => s.sceneMode)
   const showGizmo = useUIStore((s) => s.showGizmo)
   const showCeilingLight = useUIStore((s) => s.showCeilingLight)
@@ -100,7 +104,7 @@ export function SceneCanvas() {
           <Canvas
             shadows
             style={{ width: '100%', height: '100%' }}
-            onPointerMissed={() => selectItem(null)}
+            onPointerMissed={viewOnly ? undefined : () => selectItem(null)}
           >
             <PerspectiveCamera
               makeDefault
@@ -130,11 +134,16 @@ export function SceneCanvas() {
                   key={item.id}
                   item={item}
                   locked={isItemEffectivelyLocked(item, groups)}
+                  viewOnly={viewOnly}
                 />
               ))}
-            {showTransformProxy && showGizmo && <TransformProxy targetIds={selectedItemIds} />}
-            {showResizeHandles && singleSelectedItem && <ResizeHandles item={singleSelectedItem} />}
-            {showRotationHandle && singleSelectedItem && (
+            {!viewOnly && showTransformProxy && showGizmo && (
+              <TransformProxy targetIds={selectedItemIds} />
+            )}
+            {!viewOnly && showResizeHandles && singleSelectedItem && (
+              <ResizeHandles item={singleSelectedItem} />
+            )}
+            {!viewOnly && showRotationHandle && singleSelectedItem && (
               <RotationHandle item={singleSelectedItem} />
             )}
           </Canvas>

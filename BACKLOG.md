@@ -777,7 +777,7 @@ Snap подхватится автоматически через `useDragSessio
 | TASK-037 | Файлы | Frontend: страница /files + мультисценовая навигация | XL | ✅ |
 | TASK-038 | Сцена | Настройка размеров комнаты (Ribbon + store + валидация) | L | ✅ |
 | TASK-039 | Шаринг | Backend: share token API (migration + enable/disable/public get) | M | ✅ |
-| TASK-040 | Шаринг | Frontend: ShareViewerPage + ShareDialog + Ribbon/SceneCard UI | L | ⬜ |
+| TASK-040 | Шаринг | Frontend: ShareViewerPage + ShareDialog + Ribbon/SceneCard UI | L | ✅ |
 | TASK-041 | UX | Привязка к сетке: grid snap + object snap (край→край) + highlight | L | ⬜ |
 
 **S** = ~30–60 мин · **M** = ~1–2 ч · **L** = ~2–4 ч · **XL** = ~4–8 ч

@@ -6,6 +6,7 @@ import { RoomSettingsPopover } from './ribbon/RoomSettingsPopover'
 import { ItemActionsGroup } from './ribbon/ItemActionsGroup'
 import { ResetSceneButton } from './ribbon/ResetSceneButton'
 import { SaveStatusIndicator } from './ribbon/SaveStatusIndicator'
+import { ShareButton } from './ribbon/ShareButton'
 import { UserButton } from './ribbon/UserButton'
 import { BackButton } from './ribbon/BackButton'
 import { useSyncStore } from '@/store/syncStore'
@@ -32,6 +33,8 @@ export function SceneRibbon() {
       <div className="w-px h-5 bg-gray-200 mx-1" />
       <ItemActionsGroup />
       <div className="ml-auto" />
+      <ShareButton />
+      <div className="w-px h-5 bg-gray-200 mx-1" />
       <SaveStatusIndicator />
       <div className="w-px h-5 bg-gray-200 mx-1" />
       <ResetSceneButton />
