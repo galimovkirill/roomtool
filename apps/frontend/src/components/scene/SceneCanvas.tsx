@@ -12,6 +12,7 @@ import { SceneOverlay } from './SceneOverlay'
 import { SceneElement } from './SceneElement'
 import { TransformProxy } from './TransformProxy'
 import { ResizeHandles } from './ResizeHandles'
+import { RotationHandle } from './RotationHandle'
 import { Scene2DView } from './Scene2DView'
 import { ElevationSlider } from './ElevationSlider'
 import { getCatalogItemById } from '@/catalog/items'
@@ -86,6 +87,8 @@ export function SceneCanvas() {
     singleSelectedItem !== undefined &&
     !getCatalogItemById(singleSelectedItem.catalogId)?.render &&
     !isItemEffectivelyLocked(singleSelectedItem, groups)
+  const showRotationHandle =
+    singleSelectedItem !== undefined && !isItemEffectivelyLocked(singleSelectedItem, groups)
 
   return (
     <div className="flex-1 relative overflow-hidden bg-gray-400">
@@ -131,6 +134,9 @@ export function SceneCanvas() {
               ))}
             {showTransformProxy && showGizmo && <TransformProxy targetIds={selectedItemIds} />}
             {showResizeHandles && singleSelectedItem && <ResizeHandles item={singleSelectedItem} />}
+            {showRotationHandle && singleSelectedItem && (
+              <RotationHandle item={singleSelectedItem} />
+            )}
           </Canvas>
           <SceneOverlay />
         </>

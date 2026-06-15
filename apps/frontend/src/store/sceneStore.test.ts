@@ -1319,6 +1319,88 @@ describe('resize session', () => {
   })
 })
 
+describe('rotate session', () => {
+  function makeItem(id: string): SceneItem {
+    return {
+      id,
+      catalogId: 'side-panel',
+      name: id,
+      position: [0, 1100, 0],
+      dimensions: { width: 16, height: 2200, depth: 600 },
+      properties: {},
+      rotationY: 0,
+      groupId: null,
+    }
+  }
+
+  function seed(item: SceneItem) {
+    useSceneStore.setState({
+      items: [item],
+      groups: [],
+      groupCounter: 0,
+      history: [],
+      future: [],
+      dragSession: null,
+      resizeSession: null,
+      rotateSession: null,
+    })
+  }
+
+  it('beginRotate сохраняет снапшот и не пишет в историю', () => {
+    const item = makeItem('a')
+    seed(item)
+    useSceneStore.getState().beginRotate()
+    expect(useSceneStore.getState().rotateSession).not.toBeNull()
+    expect(useSceneStore.getState().history).toHaveLength(0)
+  })
+
+  it('rotateLive обновляет rotationY без записи в историю', () => {
+    const item = makeItem('a')
+    seed(item)
+    useSceneStore.getState().beginRotate()
+    useSceneStore.getState().rotateLive('a', Math.PI / 2)
+    const { items, history } = useSceneStore.getState()
+    expect(items[0].rotationY).toBeCloseTo(Math.PI / 2)
+    expect(history).toHaveLength(0)
+  })
+
+  it('endRotate(true) коммитит один undo-шаг и сохраняет новый угол', () => {
+    const item = makeItem('a')
+    seed(item)
+    useSceneStore.getState().beginRotate()
+    useSceneStore.getState().rotateLive('a', Math.PI / 2)
+    useSceneStore.getState().endRotate(true)
+    const s = useSceneStore.getState()
+    expect(s.rotateSession).toBeNull()
+    expect(s.history).toHaveLength(1)
+    expect(s.items[0].rotationY).toBeCloseTo(Math.PI / 2)
+    // undo возвращает исходный угол
+    useSceneStore.getState().undo()
+    expect(useSceneStore.getState().items[0].rotationY).toBe(0)
+  })
+
+  it('endRotate(false) откатывает угол без записи в историю', () => {
+    const item = makeItem('a')
+    seed(item)
+    useSceneStore.getState().beginRotate()
+    useSceneStore.getState().rotateLive('a', Math.PI / 2)
+    useSceneStore.getState().endRotate(false)
+    const s = useSceneStore.getState()
+    expect(s.rotateSession).toBeNull()
+    expect(s.history).toHaveLength(0)
+    expect(s.items[0].rotationY).toBe(0)
+  })
+
+  it('endRotate без активной сессии — no-op', () => {
+    const item = makeItem('a')
+    seed(item)
+    useSceneStore.getState().endRotate(true)
+    const s = useSceneStore.getState()
+    expect(s.rotateSession).toBeNull()
+    expect(s.history).toHaveLength(0)
+  })
+})
+
 describe('resetScene', () => {
   function makeResetItem(id: string): SceneItem {
     return {

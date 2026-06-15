@@ -43,6 +43,7 @@ function collectDescendantGroupIds(rootId: string, groups: SceneGroup[]): Set<st
 // always applied relative to where the drag began, never accumulated.
 type DragSession = { snapshot: HistorySnapshot; base: Record<string, Vec3> }
 type ResizeSession = { snapshot: HistorySnapshot }
+type RotateSession = { snapshot: HistorySnapshot }
 
 interface SceneState {
   items: SceneItem[]
@@ -53,11 +54,15 @@ interface SceneState {
   future: HistorySnapshot[]
   dragSession: DragSession | null
   resizeSession: ResizeSession | null
+  rotateSession: RotateSession | null
   addItem: (catalogItem: CatalogItem) => void
   removeItem: (id: string) => void
   removeItems: (ids: string[]) => void
   updateItem: (id: string, patch: ItemPatch) => void
   rotateItem: (id: string, direction: 'left' | 'right') => void
+  beginRotate: () => void
+  rotateLive: (id: string, rotationY: number) => void
+  endRotate: (commit: boolean) => void
   createGroup: () => void
   ungroupItems: (groupId: string) => void
   moveGroup: (groupId: string, delta: [number, number, number]) => void
@@ -108,6 +113,7 @@ export const useSceneStore = create<SceneState>((set, get) => ({
   future: [],
   dragSession: null,
   resizeSession: null,
+  rotateSession: null,
 
   addItem(catalogItem) {
     set((state) => {
@@ -422,6 +428,39 @@ export const useSceneStore = create<SceneState>((set, get) => ({
     }
   },
 
+  beginRotate() {
+    set((state) => ({
+      rotateSession: {
+        snapshot: {
+          items: [...state.items],
+          groups: state.groups.map((g) => ({ ...g, itemIds: [...g.itemIds] })),
+        },
+      },
+    }))
+  },
+
+  rotateLive(id, rotationY) {
+    set((state) => ({
+      items: state.items.map((item) => (item.id === id ? { ...item, rotationY } : item)),
+    }))
+  },
+
+  endRotate(commit) {
+    const { rotateSession, history } = get()
+    if (!rotateSession) return
+    if (commit) {
+      const nextHistory = [...history, rotateSession.snapshot]
+      if (nextHistory.length > 50) nextHistory.shift()
+      set({ history: nextHistory, future: [], rotateSession: null })
+    } else {
+      set({
+        items: rotateSession.snapshot.items,
+        groups: rotateSession.snapshot.groups,
+        rotateSession: null,
+      })
+    }
+  },
+
   removeGroup(groupId) {
     // Compute removed item IDs before mutating state so we can update editor selection precisely.
     const allGroupIds = collectDescendantGroupIds(groupId, get().groups)
@@ -574,6 +613,7 @@ export const useSceneStore = create<SceneState>((set, get) => ({
       future: [],
       dragSession: null,
       resizeSession: null,
+      rotateSession: null,
     })
     useEditorStore.getState().clearEditorState()
   },

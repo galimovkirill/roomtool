@@ -124,13 +124,22 @@ beginResize() → resizeLive(id, dimensions, position) [каждый кадр, �
 
 ---
 
+## Rotate-сессия
+
+```
+beginRotate(id) → rotateLive(id, rotationY) [каждый кадр, без историю] → endRotate(commit)
+```
+Зеркалит паттерн resize-сессии. `RotationHandle` монтируется для любого одиночного видимого незаблокированного элемента (включая GLTF). При unmount — cleanup откатывает сессию. Вращение только по оси Y (рад). Снэппинг 5° по умолчанию, Shift отключает. Угол в ribbon: input в `ItemActionsGroup` (±90° кнопки + числовое поле 0–359°).
+
+---
+
 ## Undo/Redo
 
-В `sceneStore` через два стека (`history`, `future`, лимит 50). **Сейчас ни к чему не привязаны** — нет кнопки, нет хоткея. При добавлении использовать `useSceneStore.getState().undo()`.
+В `sceneStore` через два стека (`history`, `future`, лимит 50). Хоткеи Ctrl+Z / Ctrl+Y подключены через `KeyboardShortcuts.tsx`.
 
 Что **не** попадает в историю: все методы `editorStore` (`selectItem`, `selectItems`, `editItem`, `closeEditing`), а также `renameGroup`, `toggleGroupCollapse`, `toggleItemVisibility`, `toggleGroupVisibility`, `toggleItemLocked`, `toggleGroupLocked`.
 
-Что **попадает**: все мутации items/groups (add/remove/update/rotate/group/ungroup/moveGroup/removeGroup), `endDrag(true)`, `endResize(true)`, `alignItems`.
+Что **попадает**: все мутации items/groups (add/remove/update/rotate/group/ungroup/moveGroup/removeGroup), `endDrag(true)`, `endResize(true)`, `endRotate(true)`, `alignItems`.
 
 ---
 
