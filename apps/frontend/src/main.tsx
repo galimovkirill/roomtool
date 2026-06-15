@@ -9,9 +9,11 @@ import { LoginPage } from '@/pages/LoginPage'
 import { RegisterPage } from '@/pages/RegisterPage'
 import { FilesPage } from '@/pages/FilesPage'
 import { EditorPage } from '@/pages/EditorPage'
+import { KeyboardShortcuts } from '@/hooks/KeyboardShortcuts'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
+    <KeyboardShortcuts />
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<LoginPage />} />

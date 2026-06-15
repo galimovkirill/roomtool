@@ -51,6 +51,8 @@
 | `src/utils/locked.ts` | isItemEffectivelyLocked (прямой флаг + родительские группы) |
 | `src/utils/roomCoords.ts` | worldToRoomX/Z — координаты от угла комнаты для UI |
 | `src/api/client.ts` | openapi-fetch клиент с типами из types.gen.ts |
+| `src/hooks/useKeyboard.ts` | Глобальные хоткеи: `useKeyboard(handlers)` — подписка на `keydown`, кросс-платформенный `ctrl` (ctrlKey\|metaKey), input-guard; handlers хранятся в `useRef` (стабильная подписка) |
+| `src/hooks/KeyboardShortcuts.tsx` | Компонент-синглтон в `main.tsx`: монтирует `useKeyboard` с `ctrl+z → undo`, `ctrl+y → redo` через `getState()` |
 
 ---
 
