@@ -3,6 +3,7 @@ import { v4 as uuid } from 'uuid'
 import type { CatalogItem, SceneGroup, SceneItem } from '@/types'
 import { MATERIAL_COLORS, MATERIAL_OPTIONS, type MaterialType } from '@/catalog/materials'
 import { DEFAULT_SCENE_GROUPS, DEFAULT_SCENE_ITEMS } from './defaultScene'
+import { useEditorStore } from './editorStore'
 
 type ItemPatch = Partial<Pick<SceneItem, 'position' | 'rotationY' | 'dimensions' | 'properties'>>
 
@@ -17,7 +18,7 @@ export type AlignmentType =
   | 'back'
   | 'centerZ'
 
-type Vec3 = [number, number, number]
+export type Vec3 = [number, number, number]
 
 type HistorySnapshot = { items: SceneItem[]; groups: SceneGroup[] }
 
@@ -47,9 +48,6 @@ type ResizeSession = { snapshot: HistorySnapshot }
 interface SceneState {
   items: SceneItem[]
   groups: SceneGroup[]
-  selectedItemId: string | null
-  selectedItemIds: string[]
-  editingItemId: string | null
   groupCounter: number
   history: HistorySnapshot[]
   future: HistorySnapshot[]
@@ -59,11 +57,6 @@ interface SceneState {
   removeItem: (id: string) => void
   removeItems: (ids: string[]) => void
   updateItem: (id: string, patch: ItemPatch) => void
-  selectItem: (id: string | null) => void
-  selectItems: (ids: string[]) => void
-  toggleItemSelection: (id: string, addToSelection: boolean) => void
-  editItem: (id: string) => void
-  closeEditing: () => void
   rotateItem: (id: string, direction: 'left' | 'right') => void
   createGroup: () => void
   ungroupItems: (groupId: string) => void
@@ -104,9 +97,6 @@ function pushHistory(state: Pick<SceneState, 'items' | 'groups' | 'history' | 'f
 export const useSceneStore = create<SceneState>((set, get) => ({
   items: [],
   groups: [],
-  selectedItemId: null,
-  selectedItemIds: [],
-  editingItemId: null,
   groupCounter: 0,
   history: [],
   future: [],
@@ -159,7 +149,6 @@ export const useSceneStore = create<SceneState>((set, get) => ({
           const remaining = group.itemIds.filter((iid) => iid !== id)
           const hasChildGroups = groups.some((g) => g.parentGroupId === groupId)
           if (remaining.length <= 1 && !hasChildGroups) {
-            // ungroup: clear groupId on surviving member, remove group
             groups = groups.filter((g) => g.id !== groupId)
             const survivors = new Set(remaining)
             return {
@@ -168,9 +157,6 @@ export const useSceneStore = create<SceneState>((set, get) => ({
                 .filter((i) => i.id !== id)
                 .map((i) => (survivors.has(i.id) ? { ...i, groupId: null } : i)),
               groups,
-              selectedItemId: state.selectedItemId === id ? null : state.selectedItemId,
-              selectedItemIds: state.selectedItemIds.filter((sid) => sid !== id),
-              editingItemId: state.editingItemId === id ? null : state.editingItemId,
             }
           } else {
             groups = groups.map((g) => (g.id === groupId ? { ...g, itemIds: remaining } : g))
@@ -182,11 +168,9 @@ export const useSceneStore = create<SceneState>((set, get) => ({
         ...pushHistory(state),
         items: state.items.filter((i) => i.id !== id),
         groups,
-        selectedItemId: state.selectedItemId === id ? null : state.selectedItemId,
-        selectedItemIds: state.selectedItemIds.filter((sid) => sid !== id),
-        editingItemId: state.editingItemId === id ? null : state.editingItemId,
       }
     })
+    useEditorStore.getState().removeFromSelection(id)
   },
 
   removeItems(ids) {
@@ -217,17 +201,9 @@ export const useSceneStore = create<SceneState>((set, get) => ({
         .filter((i) => !idSet.has(i.id))
         .map((i) => (i.groupId && dissolvedGroupIds.has(i.groupId) ? { ...i, groupId: null } : i))
 
-      return {
-        ...pushHistory(state),
-        items,
-        groups,
-        selectedItemId:
-          state.selectedItemId && idSet.has(state.selectedItemId) ? null : state.selectedItemId,
-        selectedItemIds: state.selectedItemIds.filter((sid) => !idSet.has(sid)),
-        editingItemId:
-          state.editingItemId && idSet.has(state.editingItemId) ? null : state.editingItemId,
-      }
+      return { ...pushHistory(state), items, groups }
     })
+    useEditorStore.getState().removeItemsFromSelection(new Set(ids))
   },
 
   updateItem(id, patch) {
@@ -235,59 +211,6 @@ export const useSceneStore = create<SceneState>((set, get) => ({
       ...pushHistory(state),
       items: state.items.map((item) => (item.id === id ? { ...item, ...patch } : item)),
     }))
-  },
-
-  selectItem(id) {
-    // Plain selection never opens PropertiesPanel; if it's open for another item,
-    // moving the selection away dismisses it so panel and gizmo stay in sync.
-    set((state) => ({
-      selectedItemId: id,
-      selectedItemIds: id ? [id] : [],
-      editingItemId: state.editingItemId === id ? state.editingItemId : null,
-    }))
-  },
-
-  selectItems(ids) {
-    // Only updates multi-selection — does NOT open PropertiesPanel, and closes
-    // it if it was open (multi-selection has no single subject to edit).
-    set({
-      selectedItemIds: ids,
-      selectedItemId: null,
-      editingItemId: null,
-    })
-  },
-
-  toggleItemSelection(id, addToSelection) {
-    const { selectedItemIds } = get()
-    let next: string[]
-    if (addToSelection) {
-      next = selectedItemIds.includes(id)
-        ? selectedItemIds.filter((sid) => sid !== id)
-        : [...selectedItemIds, id]
-    } else {
-      next = [id]
-    }
-    // Only updates multi-selection — does NOT open PropertiesPanel.
-    set({
-      selectedItemIds: next,
-      selectedItemId: null,
-      editingItemId: null,
-    })
-  },
-
-  editItem(id) {
-    // Opens PropertiesPanel for a single item. Selecting it too keeps the gizmo
-    // and highlight in sync. Triggered only by an explicit gesture (scene
-    // double-click or Layers context-menu) — never by plain selection.
-    set({
-      editingItemId: id,
-      selectedItemId: id,
-      selectedItemIds: [id],
-    })
-  },
-
-  closeEditing() {
-    set({ editingItemId: null })
   },
 
   rotateItem(id, direction) {
@@ -305,15 +228,13 @@ export const useSceneStore = create<SceneState>((set, get) => ({
   },
 
   createGroup() {
+    const { selectedItemIds } = useEditorStore.getState()
     set((state) => {
-      if (state.selectedItemIds.length < 2) return {}
+      if (selectedItemIds.length < 2) return {}
 
-      const selectedSet = new Set(state.selectedItemIds)
+      const selectedSet = new Set(selectedItemIds)
 
-      // Nest inside the common parent only when ALL selected items share the same non-null groupId.
-      // Nulls must be included in the uniqueness check — mixing ungrouped with grouped items
-      // would otherwise yield a false size-1 set and incorrectly nest the new group.
-      const directGroupIds = state.selectedItemIds.map(
+      const directGroupIds = selectedItemIds.map(
         (id) => state.items.find((i) => i.id === id)?.groupId ?? null
       )
       const uniqueGroupIds = new Set(directGroupIds)
@@ -326,13 +247,11 @@ export const useSceneStore = create<SceneState>((set, get) => ({
       const group: SceneGroup = {
         id: uuid(),
         name: `Группа ${newCounter}`,
-        itemIds: [...state.selectedItemIds],
+        itemIds: [...selectedItemIds],
         collapsed: false,
         parentGroupId: parentGroupId ?? null,
       }
 
-      // Remove selected items from their existing groups;
-      // auto-ungroup only if ≤1 direct member remains AND no child groups exist/will exist
       const soloMembers = new Set<string>()
       const updatedGroups = state.groups
         .map((g) => ({ ...g, itemIds: g.itemIds.filter((id) => !selectedSet.has(id)) }))
@@ -357,10 +276,9 @@ export const useSceneStore = create<SceneState>((set, get) => ({
           if (soloMembers.has(item.id)) return { ...item, groupId: null }
           return item
         }),
-        selectedItemIds: [],
-        selectedItemId: null,
       }
     })
+    useEditorStore.getState().clearEditorState()
   },
 
   ungroupItems(groupId) {
@@ -369,12 +287,10 @@ export const useSceneStore = create<SceneState>((set, get) => ({
       if (!group) return {}
       const newParentId = group.parentGroupId ?? null
 
-      // Move child groups up one level
       let groups = state.groups
         .filter((g) => g.id !== groupId)
         .map((g) => (g.parentGroupId === groupId ? { ...g, parentGroupId: newParentId } : g))
 
-      // If ungrouping into a parent, add items to parent's itemIds
       if (newParentId) {
         groups = groups.map((g) =>
           g.id === newParentId ? { ...g, itemIds: [...g.itemIds, ...group.itemIds] } : g
@@ -407,7 +323,7 @@ export const useSceneStore = create<SceneState>((set, get) => ({
               item.position[0] + delta[0],
               Math.max(item.dimensions.height / 2, item.position[1] + delta[1]),
               item.position[2] + delta[2],
-            ] as [number, number, number],
+            ] as Vec3,
           }
         }),
       }
@@ -415,9 +331,6 @@ export const useSceneStore = create<SceneState>((set, get) => ({
   },
 
   // ── Interactive drag (gizmo) ──────────────────────────────────────────────
-  // Single source of truth: positions live only in the store. The gizmo reports
-  // a delta which is written here; elements re-render from the store. There is no
-  // separate "visual" position to drift out of sync, and no per-frame history.
 
   beginDrag(ids) {
     set((state) => {
@@ -458,12 +371,10 @@ export const useSceneStore = create<SceneState>((set, get) => ({
     const { dragSession, history } = get()
     if (!dragSession) return
     if (commit) {
-      // Whole gesture becomes one undo step: push the pre-drag snapshot.
       const nextHistory = [...history, dragSession.snapshot]
       if (nextHistory.length > 50) nextHistory.shift()
       set({ history: nextHistory, future: [], dragSession: null })
     } else {
-      // Rollback (collision / no-op): restore the pre-drag state untouched.
       set({
         items: dragSession.snapshot.items,
         groups: dragSession.snapshot.groups,
@@ -506,25 +417,20 @@ export const useSceneStore = create<SceneState>((set, get) => ({
   },
 
   removeGroup(groupId) {
-    set((state) => {
-      const allGroupIds = collectDescendantGroupIds(groupId, state.groups)
+    // Compute removed item IDs before mutating state so we can update editor selection precisely.
+    const allGroupIds = collectDescendantGroupIds(groupId, get().groups)
+    const removedIds = new Set(
+      get()
+        .items.filter((item) => item.groupId && allGroupIds.has(item.groupId))
+        .map((item) => item.id)
+    )
 
-      const removedIds = new Set(
-        state.items
-          .filter((item) => item.groupId && allGroupIds.has(item.groupId))
-          .map((item) => item.id)
-      )
-
-      return {
-        ...pushHistory(state),
-        items: state.items.filter((item) => !removedIds.has(item.id)),
-        groups: state.groups.filter((g) => !allGroupIds.has(g.id)),
-        selectedItemId: null,
-        selectedItemIds: [],
-        editingItemId:
-          state.editingItemId && removedIds.has(state.editingItemId) ? null : state.editingItemId,
-      }
-    })
+    set((state) => ({
+      ...pushHistory(state),
+      items: state.items.filter((item) => !removedIds.has(item.id)),
+      groups: state.groups.filter((g) => !allGroupIds.has(g.id)),
+    }))
+    useEditorStore.getState().removeItemsFromSelection(removedIds)
   },
 
   renameGroup(groupId, name) {
@@ -564,8 +470,9 @@ export const useSceneStore = create<SceneState>((set, get) => ({
   },
 
   alignItems(alignment) {
+    const { selectedItemIds } = useEditorStore.getState()
     set((state) => {
-      const selected = state.selectedItemIds.flatMap((id) => {
+      const selected = selectedItemIds.flatMap((id) => {
         const item = state.items.find((i) => i.id === id)
         return item ? [item] : []
       })
@@ -603,7 +510,7 @@ export const useSceneStore = create<SceneState>((set, get) => ({
           break
       }
 
-      const selectedSet = new Set(state.selectedItemIds)
+      const selectedSet = new Set(selectedItemIds)
       const items = state.items.map((item) => {
         if (!selectedSet.has(item.id)) return item
         let pos: Vec3
@@ -644,29 +551,20 @@ export const useSceneStore = create<SceneState>((set, get) => ({
   },
 
   loadScene(items, groups) {
-    set({
-      items,
-      groups,
-      selectedItemId: null,
-      selectedItemIds: [],
-      editingItemId: null,
-      dragSession: null,
-      resizeSession: null,
-    })
+    set({ items, groups })
+    useEditorStore.getState().clearEditorState()
   },
 
   resetScene() {
     set({
       items: DEFAULT_SCENE_ITEMS,
       groups: DEFAULT_SCENE_GROUPS,
-      selectedItemId: null,
-      selectedItemIds: [],
-      editingItemId: null,
-      dragSession: null,
-      resizeSession: null,
       history: [],
       future: [],
+      dragSession: null,
+      resizeSession: null,
     })
+    useEditorStore.getState().clearEditorState()
   },
 
   undo() {
@@ -678,10 +576,8 @@ export const useSceneStore = create<SceneState>((set, get) => ({
       groups: prev.groups,
       history: history.slice(0, -1),
       future: [{ items, groups }, ...future],
-      selectedItemId: null,
-      selectedItemIds: [],
-      editingItemId: null,
     })
+    useEditorStore.getState().clearEditorState()
   },
 
   redo() {
@@ -693,9 +589,7 @@ export const useSceneStore = create<SceneState>((set, get) => ({
       groups: next.groups,
       history: [...history, { items, groups }],
       future: future.slice(1),
-      selectedItemId: null,
-      selectedItemIds: [],
-      editingItemId: null,
     })
+    useEditorStore.getState().clearEditorState()
   },
 }))

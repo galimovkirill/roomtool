@@ -1,12 +1,12 @@
 import { Separator } from '@/components/ui/separator'
-import { useSceneStore } from '@/store'
+import { useEditorStore } from '@/store'
 import { useUIStore } from '@/store/uiStore'
 import { CatalogPanel } from './CatalogPanel'
 import { PropertiesPanel } from './PropertiesPanel'
 import { LayersPanel } from './LayersPanel'
 
 export function RightPanel() {
-  const editingItemId = useSceneStore((s) => s.editingItemId)
+  const editingItemId = useEditorStore((s) => s.editingItemId)
   const activeTab = useUIStore((s) => s.activeRightPanelTab)
   const setActiveTab = useUIStore((s) => s.setActiveRightPanelTab)
 

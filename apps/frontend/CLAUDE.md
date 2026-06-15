@@ -12,7 +12,8 @@
 |------|-----------|
 | `src/config/scene.ts` | Размеры комнаты и камеры — **менять только здесь** |
 | `src/types/index.ts` | CatalogItem, SceneItem, SceneGroup, PropertyDef |
-| `src/store/sceneStore.ts` | items, groups, выделение, drag/resize сессии, undo/redo, все мутации |
+| `src/store/sceneStore.ts` | items, groups, drag/resize сессии, undo/redo, все мутации сцены |
+| `src/store/editorStore.ts` | selectedItemId, selectedItemIds, editingItemId, selectItem/selectItems/editItem/closeEditing |
 | `src/store/uiStore.ts` | sceneMode, activeRightPanelTab, showGizmo, showCeilingLight |
 | `src/store/defaultScene.ts` | Стартовая сцена (DEFAULT_SCENE_ITEMS / DEFAULT_SCENE_GROUPS) |
 | `src/store/syncStore.ts` | SyncStatus ('idle'/'syncing'/'error'), sceneId, sceneName |
@@ -117,7 +118,7 @@ beginResize() → resizeLive(id, dimensions, position) [каждый кадр, �
 
 В `sceneStore` через два стека (`history`, `future`, лимит 50). **Сейчас ни к чему не привязаны** — нет кнопки, нет хоткея. При добавлении использовать `useSceneStore.getState().undo()`.
 
-Что **не** попадает в историю: `selectItem`, `selectItems`, `editItem`, `closeEditing`, `renameGroup`, `toggleGroupCollapse`, `toggleItemVisibility`, `toggleGroupVisibility`, `toggleItemLocked`, `toggleGroupLocked`.
+Что **не** попадает в историю: все методы `editorStore` (`selectItem`, `selectItems`, `editItem`, `closeEditing`), а также `renameGroup`, `toggleGroupCollapse`, `toggleItemVisibility`, `toggleGroupVisibility`, `toggleItemLocked`, `toggleGroupLocked`.
 
 Что **попадает**: все мутации items/groups (add/remove/update/rotate/group/ungroup/moveGroup/removeGroup), `endDrag(true)`, `endResize(true)`, `alignItems`.
 
@@ -125,7 +126,7 @@ beginResize() → resizeLive(id, dimensions, position) [каждый кадр, �
 
 ## Выделение и редактирование
 
-Три независимых поля состояния:
+Три независимых поля состояния — живут в **`editorStore`** (не в `sceneStore`):
 - `selectedItemId` — одиночное выделение (= gizmo)
 - `selectedItemIds` — мультивыбор
 - `editingItemId` — кто открыт в PropertiesPanel

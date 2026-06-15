@@ -20,6 +20,9 @@ vi.mock('@/store', () => ({
     selector({
       items: [mockItem],
       updateItem: mockUpdateItem,
+    }),
+  useEditorStore: (selector: (s: object) => unknown) =>
+    selector({
       closeEditing: mockCloseEditing,
     }),
 }))

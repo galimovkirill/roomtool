@@ -1,6 +1,6 @@
 import { useRef } from 'react'
 import { useShallow } from 'zustand/shallow'
-import { useSceneStore, useUIStore } from '@/store'
+import { useSceneStore, useEditorStore, useUIStore } from '@/store'
 import { SCENE_CONFIG } from '@/config/scene'
 import { isItemEffectivelyLocked } from '@/utils/locked'
 import { computeGroupCenter, groupDragDelta } from '@/utils/groupTransform'
@@ -13,9 +13,9 @@ const TRACK_PX = 200
 export function ElevationSlider() {
   const showGizmo = useUIStore((s) => s.showGizmo)
 
-  const { selectedIds, items, groups } = useSceneStore(
+  const selectedIds = useEditorStore((s) => s.selectedItemIds)
+  const { items, groups } = useSceneStore(
     useShallow((s) => ({
-      selectedIds: s.selectedItemIds,
       items: s.items,
       groups: s.groups,
     }))

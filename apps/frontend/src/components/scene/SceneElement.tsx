@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import { Edges, useGLTF } from '@react-three/drei'
 import type { ThreeEvent } from '@react-three/fiber'
 import type { SceneItem } from '@/types'
-import { useSceneStore } from '@/store'
+import { useEditorStore } from '@/store'
 import { getCatalogItemById } from '@/catalog/items'
 import { useMeshDrag } from './useMeshDrag'
 
@@ -45,9 +45,9 @@ interface Props {
 // of truth to drift out of sync.
 export function SceneElement({ item, locked }: Props) {
   const [hovered, setHovered] = useState(false)
-  const selectedItemIds = useSceneStore((s) => s.selectedItemIds)
-  const selectItem = useSceneStore((s) => s.selectItem)
-  const editItem = useSceneStore((s) => s.editItem)
+  const selectedItemIds = useEditorStore((s) => s.selectedItemIds)
+  const selectItem = useEditorStore((s) => s.selectItem)
+  const editItem = useEditorStore((s) => s.editItem)
 
   const isSelected = selectedItemIds.includes(item.id)
 

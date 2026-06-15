@@ -7,7 +7,7 @@ import {
   ContextMenuTrigger,
 } from '@/components/ui/context-menu'
 import { toast } from 'sonner'
-import { useSceneStore } from '@/store'
+import { useSceneStore, useEditorStore } from '@/store'
 import {
   buildLayerTree,
   flattenLayerTree,
@@ -96,10 +96,6 @@ function EyeOffIcon() {
 export function LayersPanel() {
   const items = useSceneStore((s) => s.items)
   const groups = useSceneStore((s) => s.groups)
-  const selectedItemIds = useSceneStore((s) => s.selectedItemIds)
-  const selectItems = useSceneStore((s) => s.selectItems)
-  const toggleItemSelection = useSceneStore((s) => s.toggleItemSelection)
-  const editItem = useSceneStore((s) => s.editItem)
   const createGroup = useSceneStore((s) => s.createGroup)
   const ungroupItems = useSceneStore((s) => s.ungroupItems)
   const removeItems = useSceneStore((s) => s.removeItems)
@@ -110,6 +106,11 @@ export function LayersPanel() {
   const toggleGroupVisibility = useSceneStore((s) => s.toggleGroupVisibility)
   const toggleItemLocked = useSceneStore((s) => s.toggleItemLocked)
   const toggleGroupLocked = useSceneStore((s) => s.toggleGroupLocked)
+
+  const selectedItemIds = useEditorStore((s) => s.selectedItemIds)
+  const selectItems = useEditorStore((s) => s.selectItems)
+  const toggleItemSelection = useEditorStore((s) => s.toggleItemSelection)
+  const editItem = useEditorStore((s) => s.editItem)
 
   const [ctxTarget, setCtxTarget] = useState<CtxTarget>(null)
   const [renamingGroupId, setRenamingGroupId] = useState<string | null>(null)

@@ -38,8 +38,10 @@ vi.mock('@/store', () => ({
     selector({
       items: fixture.item ? [fixture.item] : [],
       updateItem: mockUpdateItem,
-      selectItem: vi.fn(),
-      selectItems: vi.fn(),
+    }),
+  useEditorStore: (selector: (s: object) => unknown) =>
+    selector({
+      closeEditing: vi.fn(),
     }),
 }))
 

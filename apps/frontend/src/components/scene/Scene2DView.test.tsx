@@ -20,14 +20,18 @@ const makeItem = (id: string, overrides?: Partial<SceneItem>): SceneItem => ({
 // Mutable store state shared by all tests
 const storeState = {
   items: [] as SceneItem[],
+  groups: [],
+}
+
+const editorState = {
   selectedItemId: null as string | null,
   selectedItemIds: [] as string[],
   selectItem: selectItemMock,
-  groups: [],
 }
 
 vi.mock('@/store', () => ({
   useSceneStore: (selector: (s: unknown) => unknown) => selector(storeState),
+  useEditorStore: (selector: (s: unknown) => unknown) => selector(editorState),
 }))
 
 beforeEach(() => {
@@ -41,8 +45,8 @@ beforeEach(() => {
   } as DOMRect)
   // Reset to empty state before each test
   storeState.items = []
-  storeState.selectedItemId = null
-  storeState.selectedItemIds = []
+  editorState.selectedItemId = null
+  editorState.selectedItemIds = []
   selectItemMock.mockReset()
 })
 
@@ -73,7 +77,7 @@ describe('Scene2DView', () => {
   it('renders dimension lines when one item is selected', () => {
     const item = makeItem('sel', { position: [0, 1100, 0] })
     storeState.items = [item]
-    storeState.selectedItemIds = ['sel']
+    editorState.selectedItemIds = ['sel']
     const { container } = render(<Scene2DView />)
     // DimensionLines renders <line> elements with strokeDasharray
     const dashedLines = container.querySelectorAll('line[stroke-dasharray]')
@@ -82,7 +86,7 @@ describe('Scene2DView', () => {
 
   it('does not render dimension lines when no item is selected', () => {
     storeState.items = [makeItem('x')]
-    storeState.selectedItemIds = []
+    editorState.selectedItemIds = []
     const { container } = render(<Scene2DView />)
     const dashedLines = container.querySelectorAll('line[stroke-dasharray]')
     expect(dashedLines.length).toBe(0)

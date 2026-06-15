@@ -98,6 +98,9 @@ export async function syncNow(): Promise<void> {
 
 // Subscribe to store changes and debounce-sync to backend.
 // Separated from sceneStore.ts to avoid circular dependency.
-useSceneStore.subscribe((state) => {
+// Only fires when items or groups references change — ignores UI-only updates
+// (selection, drag sessions, etc.) that don't need to be persisted.
+useSceneStore.subscribe((state, prevState) => {
+  if (state.items === prevState.items && state.groups === prevState.groups) return
   scheduleSync(state.items, state.groups)
 })

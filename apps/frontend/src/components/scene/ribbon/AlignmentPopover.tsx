@@ -1,6 +1,6 @@
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { useSceneStore } from '@/store/sceneStore'
+import { useSceneStore, useEditorStore } from '@/store'
 import type { AlignmentType } from '@/store/sceneStore'
 
 function AlignTriggerIcon() {
@@ -208,7 +208,7 @@ const ALIGN_GROUPS: { label: string; buttons: AlignButton[] }[] = [
 ]
 
 export function AlignmentPopover() {
-  const selectedCount = useSceneStore((s) => s.selectedItemIds.length)
+  const selectedCount = useEditorStore((s) => s.selectedItemIds.length)
   const alignItems = useSceneStore((s) => s.alignItems)
   const disabled = selectedCount < 2
 

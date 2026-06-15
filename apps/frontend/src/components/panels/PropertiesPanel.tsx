@@ -1,4 +1,4 @@
-import { useSceneStore } from '@/store'
+import { useSceneStore, useEditorStore } from '@/store'
 import { getCatalogItemById } from '@/catalog/items'
 import { MATERIAL_COLORS, type MaterialType } from '@/catalog/materials'
 import { SCENE_CONFIG } from '@/config/scene'
@@ -40,7 +40,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 export function PropertiesPanel({ itemId }: PropertiesPanelProps) {
   const item = useSceneStore((s) => s.items.find((i) => i.id === itemId))
   const updateItem = useSceneStore((s) => s.updateItem)
-  const closeEditing = useSceneStore((s) => s.closeEditing)
+  const closeEditing = useEditorStore((s) => s.closeEditing)
 
   const catalogItem = getCatalogItemById(item?.catalogId ?? '')
 

@@ -3,7 +3,7 @@ import type { MutableRefObject } from 'react'
 import * as THREE from 'three'
 import { useThree } from '@react-three/fiber'
 import type { ThreeEvent } from '@react-three/fiber'
-import { useSceneStore } from '@/store'
+import { useSceneStore, useEditorStore } from '@/store'
 import { groupDragDelta } from '@/utils/groupTransform'
 import { isItemEffectivelyLocked } from '@/utils/locked'
 import type { SceneItem } from '@/types'
@@ -65,8 +65,8 @@ export function useMeshDrag(itemId: string): MeshDragHandlers {
 
   const onPointerDown = useCallback(
     (e: ThreeEvent<PointerEvent>) => {
-      const state = useSceneStore.getState()
-      if (!state.selectedItemIds.includes(itemId)) return
+      const editorState = useEditorStore.getState()
+      if (!editorState.selectedItemIds.includes(itemId)) return
 
       e.stopPropagation()
 
@@ -77,8 +77,9 @@ export function useMeshDrag(itemId: string): MeshDragHandlers {
       dragPlaneRef.current.set(UP, -e.point.y)
       startIntersectRef.current.copy(e.point)
 
-      startItemsRef.current = state.items
-      targetIdsRef.current = state.selectedItemIds
+      const sceneState = useSceneStore.getState()
+      startItemsRef.current = sceneState.items
+      targetIdsRef.current = editorState.selectedItemIds
       lastDeltaRef.current = [0, 0, 0]
       pointerDownClientRef.current = { x: e.clientX, y: e.clientY }
       isDraggingRef.current = false

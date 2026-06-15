@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { PerspectiveCamera } from '@react-three/drei'
 import { SCENE_CONFIG } from '@/config/scene'
-import { useSceneStore, useUIStore } from '@/store'
+import { useSceneStore, useEditorStore, useUIStore } from '@/store'
 import { getAllItemIdsInGroup } from '@/utils/layerTree'
 import type { SceneGroup, SceneItem } from '@/types'
 import { Room } from './Room'
@@ -55,8 +55,8 @@ export function SceneCanvas() {
   const showCeilingLight = useUIStore((s) => s.showCeilingLight)
   const items = useSceneStore((s) => s.items)
   const groups = useSceneStore((s) => s.groups)
-  const selectedItemIds = useSceneStore((s) => s.selectedItemIds)
-  const selectItem = useSceneStore((s) => s.selectItem)
+  const selectedItemIds = useEditorStore((s) => s.selectedItemIds)
+  const selectItem = useEditorStore((s) => s.selectItem)
 
   const activeGroupId = useMemo(() => {
     if (selectedItemIds.length < 2) return null

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useSceneStore } from './sceneStore'
+import { useEditorStore } from './editorStore'
 import { MATERIAL_COLORS, MATERIAL_OPTIONS, type MaterialType } from '@/catalog/materials'
 import type { CatalogItem, SceneGroup, SceneItem } from '@/types'
 
@@ -15,15 +16,13 @@ beforeEach(() => {
   useSceneStore.setState({
     items: [],
     groups: [],
-    selectedItemId: null,
-    selectedItemIds: [],
-    editingItemId: null,
     groupCounter: 0,
     history: [],
     future: [],
     dragSession: null,
     resizeSession: null,
   })
+  useEditorStore.setState({ selectedItemId: null, selectedItemIds: [], editingItemId: null })
 })
 
 describe('addItem', () => {
@@ -217,16 +216,16 @@ describe('removeItem', () => {
   it('resets selectedItemId when selected item is removed', () => {
     useSceneStore.getState().addItem(TEST_ITEM)
     const id = useSceneStore.getState().items[0].id
-    useSceneStore.getState().selectItem(id)
+    useEditorStore.getState().selectItem(id)
     useSceneStore.getState().removeItem(id)
-    expect(useSceneStore.getState().selectedItemId).toBeNull()
+    expect(useEditorStore.getState().selectedItemId).toBeNull()
   })
 
   it('auto-ungroups when removing item leaves group with 1 member', () => {
     useSceneStore.getState().addItem(TEST_ITEM)
     useSceneStore.getState().addItem(TEST_ITEM)
     const [a, b] = useSceneStore.getState().items
-    useSceneStore.getState().selectItems([a.id, b.id])
+    useEditorStore.getState().selectItems([a.id, b.id])
     useSceneStore.getState().createGroup()
     useSceneStore.getState().removeItem(a.id)
     const { groups, items } = useSceneStore.getState()
@@ -238,9 +237,9 @@ describe('removeItem', () => {
     useSceneStore.getState().addItem(TEST_ITEM)
     useSceneStore.getState().addItem(TEST_ITEM)
     const [first, second] = useSceneStore.getState().items
-    useSceneStore.getState().selectItem(first.id)
+    useEditorStore.getState().selectItem(first.id)
     useSceneStore.getState().removeItem(second.id)
-    expect(useSceneStore.getState().selectedItemId).toBe(first.id)
+    expect(useEditorStore.getState().selectedItemId).toBe(first.id)
   })
 })
 
@@ -262,7 +261,7 @@ describe('removeItems', () => {
     useSceneStore.getState().addItem(TEST_ITEM)
     useSceneStore.getState().addItem(TEST_ITEM)
     const [a, b, c] = useSceneStore.getState().items
-    useSceneStore.getState().selectItems([a.id, b.id])
+    useEditorStore.getState().selectItems([a.id, b.id])
     useSceneStore.getState().createGroup()
     // remove a — group dissolves (b survives ungrouped), c untouched
     useSceneStore.getState().removeItems([a.id])
@@ -277,7 +276,7 @@ describe('removeItems', () => {
     useSceneStore.getState().addItem(TEST_ITEM)
     useSceneStore.getState().addItem(TEST_ITEM)
     const [a, b, c] = useSceneStore.getState().items
-    useSceneStore.getState().selectItems([a.id, b.id, c.id])
+    useEditorStore.getState().selectItems([a.id, b.id, c.id])
     useSceneStore.getState().createGroup()
     const groupId = useSceneStore.getState().groups[0].id
     useSceneStore.getState().removeItems([a.id])
@@ -291,9 +290,9 @@ describe('removeItems', () => {
     useSceneStore.getState().addItem(TEST_ITEM)
     useSceneStore.getState().addItem(TEST_ITEM)
     const [a, b] = useSceneStore.getState().items
-    useSceneStore.getState().editItem(a.id)
+    useEditorStore.getState().editItem(a.id)
     useSceneStore.getState().removeItems([a.id, b.id])
-    expect(useSceneStore.getState().editingItemId).toBeNull()
+    expect(useEditorStore.getState().editingItemId).toBeNull()
   })
 
   it('does not push history for empty ids array', () => {
@@ -351,7 +350,7 @@ describe('groups', () => {
     useSceneStore.getState().addItem(TEST_ITEM)
     useSceneStore.getState().addItem(TEST_ITEM)
     const [a, b] = useSceneStore.getState().items
-    useSceneStore.getState().selectItems([a.id, b.id])
+    useEditorStore.getState().selectItems([a.id, b.id])
     useSceneStore.getState().createGroup()
     const { groups, items } = useSceneStore.getState()
     expect(groups).toHaveLength(1)
@@ -364,7 +363,7 @@ describe('groups', () => {
   it('createGroup does nothing when fewer than 2 items selected', () => {
     useSceneStore.getState().addItem(TEST_ITEM)
     const [a] = useSceneStore.getState().items
-    useSceneStore.getState().selectItems([a.id])
+    useEditorStore.getState().selectItems([a.id])
     useSceneStore.getState().createGroup()
     expect(useSceneStore.getState().groups).toHaveLength(0)
   })
@@ -373,7 +372,7 @@ describe('groups', () => {
     useSceneStore.getState().addItem(TEST_ITEM)
     useSceneStore.getState().addItem(TEST_ITEM)
     const [a, b] = useSceneStore.getState().items
-    useSceneStore.getState().selectItems([a.id, b.id])
+    useEditorStore.getState().selectItems([a.id, b.id])
     useSceneStore.getState().createGroup()
     const groupId = useSceneStore.getState().groups[0].id
     useSceneStore.getState().ungroupItems(groupId)
@@ -387,7 +386,7 @@ describe('groups', () => {
     useSceneStore.getState().addItem(TEST_ITEM)
     useSceneStore.getState().addItem(TEST_ITEM)
     const [a, b] = useSceneStore.getState().items
-    useSceneStore.getState().selectItems([a.id, b.id])
+    useEditorStore.getState().selectItems([a.id, b.id])
     useSceneStore.getState().createGroup()
     const groupId = useSceneStore.getState().groups[0].id
     const posA = useSceneStore.getState().items.find((i) => i.id === a.id)!.position
@@ -401,7 +400,7 @@ describe('groups', () => {
     useSceneStore.getState().addItem(TEST_ITEM)
     useSceneStore.getState().addItem(TEST_ITEM)
     const [a, b] = useSceneStore.getState().items
-    useSceneStore.getState().selectItems([a.id, b.id])
+    useEditorStore.getState().selectItems([a.id, b.id])
     useSceneStore.getState().createGroup()
     const groupId = useSceneStore.getState().groups[0].id
     // large downward delta — members must stop at floor, not sink below
@@ -423,7 +422,7 @@ describe('groups', () => {
     useSceneStore.getState().addItem(TEST_ITEM)
     useSceneStore.getState().addItem(TEST_ITEM)
     const [a, b] = useSceneStore.getState().items
-    useSceneStore.getState().selectItems([a.id, b.id])
+    useEditorStore.getState().selectItems([a.id, b.id])
     useSceneStore.getState().createGroup()
     const groupId = useSceneStore.getState().groups[0].id
     useSceneStore.getState().renameGroup(groupId, 'Шкаф слева')
@@ -434,7 +433,7 @@ describe('groups', () => {
     useSceneStore.getState().addItem(TEST_ITEM)
     useSceneStore.getState().addItem(TEST_ITEM)
     const [a, b] = useSceneStore.getState().items
-    useSceneStore.getState().selectItems([a.id, b.id])
+    useEditorStore.getState().selectItems([a.id, b.id])
     useSceneStore.getState().createGroup()
     const groupId = useSceneStore.getState().groups[0].id
     expect(useSceneStore.getState().groups[0].collapsed).toBe(false)
@@ -449,7 +448,7 @@ describe('groups', () => {
     useSceneStore.getState().addItem(TEST_ITEM)
     useSceneStore.getState().addItem(TEST_ITEM) // third item, not in group
     const [a, b] = useSceneStore.getState().items
-    useSceneStore.getState().selectItems([a.id, b.id])
+    useEditorStore.getState().selectItems([a.id, b.id])
     useSceneStore.getState().createGroup()
     const groupId = useSceneStore.getState().groups[0].id
     useSceneStore.getState().removeGroup(groupId)
@@ -466,11 +465,11 @@ describe('groups', () => {
     useSceneStore.getState().addItem(TEST_ITEM)
     const [a, b, c] = useSceneStore.getState().items
     // Put a, b, c into first group
-    useSceneStore.getState().selectItems([a.id, b.id, c.id])
+    useEditorStore.getState().selectItems([a.id, b.id, c.id])
     useSceneStore.getState().createGroup()
     const g1Id = useSceneStore.getState().groups[0].id
     // Now re-select a and b — both share g1 as direct parent → new group nests inside g1
-    useSceneStore.getState().selectItems([a.id, b.id])
+    useEditorStore.getState().selectItems([a.id, b.id])
     useSceneStore.getState().createGroup()
     const { groups, items } = useSceneStore.getState()
     const g1 = groups.find((g) => g.id === g1Id)
@@ -494,9 +493,9 @@ describe('groups', () => {
     useSceneStore.getState().addItem(TEST_ITEM)
     useSceneStore.getState().addItem(TEST_ITEM)
     const [a, b, c, d] = useSceneStore.getState().items
-    useSceneStore.getState().selectItems([a.id, b.id])
+    useEditorStore.getState().selectItems([a.id, b.id])
     useSceneStore.getState().createGroup()
-    useSceneStore.getState().selectItems([c.id, d.id])
+    useEditorStore.getState().selectItems([c.id, d.id])
     useSceneStore.getState().createGroup()
     const { groups } = useSceneStore.getState()
     expect(groups[0].name).toBe('Группа 1')
@@ -507,7 +506,7 @@ describe('groups', () => {
     useSceneStore.getState().addItem(TEST_ITEM)
     useSceneStore.getState().addItem(TEST_ITEM)
     const [a, b] = useSceneStore.getState().items
-    useSceneStore.getState().selectItems([a.id, b.id])
+    useEditorStore.getState().selectItems([a.id, b.id])
     useSceneStore.getState().createGroup()
     useSceneStore.getState().undo()
     const { groups, items } = useSceneStore.getState()
@@ -521,11 +520,11 @@ describe('groups', () => {
     useSceneStore.getState().addItem(TEST_ITEM)
     const [a, b, c] = useSceneStore.getState().items
     // Put a and b into g1
-    useSceneStore.getState().selectItems([a.id, b.id])
+    useEditorStore.getState().selectItems([a.id, b.id])
     useSceneStore.getState().createGroup()
     const g1Id = useSceneStore.getState().groups[0].id
     // Select b (in g1) and c (ungrouped) → mixed selection → root-level group
-    useSceneStore.getState().selectItems([b.id, c.id])
+    useEditorStore.getState().selectItems([b.id, c.id])
     useSceneStore.getState().createGroup()
     const { groups } = useSceneStore.getState()
     const g2 = groups.find((g) => g.id !== g1Id)
@@ -538,10 +537,10 @@ describe('groups', () => {
     useSceneStore.getState().addItem(TEST_ITEM)
     const [a, b, c] = useSceneStore.getState().items
     // g1 = [a, b, c]; then g2 (nested in g1) = [a, b]
-    useSceneStore.getState().selectItems([a.id, b.id, c.id])
+    useEditorStore.getState().selectItems([a.id, b.id, c.id])
     useSceneStore.getState().createGroup()
     const g1Id = useSceneStore.getState().groups[0].id
-    useSceneStore.getState().selectItems([a.id, b.id])
+    useEditorStore.getState().selectItems([a.id, b.id])
     useSceneStore.getState().createGroup()
     const g2Id = useSceneStore.getState().groups.find((g) => g.id !== g1Id)!.id
     // Ungroup g2 → a and b should return to g1
@@ -560,10 +559,10 @@ describe('groups', () => {
     useSceneStore.getState().addItem(TEST_ITEM) // d: standalone
     const [a, b, c, d] = useSceneStore.getState().items
     // g1 = [a, b, c]; g2 (nested) = [a, b]
-    useSceneStore.getState().selectItems([a.id, b.id, c.id])
+    useEditorStore.getState().selectItems([a.id, b.id, c.id])
     useSceneStore.getState().createGroup()
     const g1Id = useSceneStore.getState().groups[0].id
-    useSceneStore.getState().selectItems([a.id, b.id])
+    useEditorStore.getState().selectItems([a.id, b.id])
     useSceneStore.getState().createGroup()
     // Remove g1 — should also remove g2 and items a, b, c; d survives
     useSceneStore.getState().removeGroup(g1Id)
@@ -581,10 +580,10 @@ describe('groups', () => {
     useSceneStore.getState().addItem(TEST_ITEM)
     const [a, b, c] = useSceneStore.getState().items
     // g1 = [a, b, c]; g2 (nested) = [a, b]; g1 has 1 direct member c + child g2
-    useSceneStore.getState().selectItems([a.id, b.id, c.id])
+    useEditorStore.getState().selectItems([a.id, b.id, c.id])
     useSceneStore.getState().createGroup()
     const g1Id = useSceneStore.getState().groups[0].id
-    useSceneStore.getState().selectItems([a.id, b.id])
+    useEditorStore.getState().selectItems([a.id, b.id])
     useSceneStore.getState().createGroup()
     // Remove c — g1 now has 0 direct items but still has child group g2 → must survive
     useSceneStore.getState().removeItem(c.id)
@@ -597,7 +596,7 @@ describe('groups', () => {
     useSceneStore.getState().addItem(TEST_ITEM)
     const [a] = useSceneStore.getState().items
     const origPos = [...useSceneStore.getState().items.find((i) => i.id === a.id)!.position]
-    useSceneStore.getState().selectItems(useSceneStore.getState().items.map((i) => i.id))
+    useEditorStore.getState().selectItems(useSceneStore.getState().items.map((i) => i.id))
     useSceneStore.getState().createGroup()
     const groupId = useSceneStore.getState().groups[0].id
     useSceneStore.getState().moveGroup(groupId, [500, 0, 0])
@@ -646,36 +645,36 @@ describe('toggleItemSelection', () => {
     useSceneStore.getState().addItem(TEST_ITEM)
     useSceneStore.getState().addItem(TEST_ITEM)
     const [a, b] = useSceneStore.getState().items
-    useSceneStore.getState().selectItems([a.id])
-    useSceneStore.getState().toggleItemSelection(b.id, true)
-    expect(useSceneStore.getState().selectedItemIds).toContain(a.id)
-    expect(useSceneStore.getState().selectedItemIds).toContain(b.id)
+    useEditorStore.getState().selectItems([a.id])
+    useEditorStore.getState().toggleItemSelection(b.id, true)
+    expect(useEditorStore.getState().selectedItemIds).toContain(a.id)
+    expect(useEditorStore.getState().selectedItemIds).toContain(b.id)
   })
 
   it('removes an item from selection when already selected (toggle-off)', () => {
     useSceneStore.getState().addItem(TEST_ITEM)
     useSceneStore.getState().addItem(TEST_ITEM)
     const [a, b] = useSceneStore.getState().items
-    useSceneStore.getState().selectItems([a.id, b.id])
-    useSceneStore.getState().toggleItemSelection(a.id, true)
-    expect(useSceneStore.getState().selectedItemIds).not.toContain(a.id)
-    expect(useSceneStore.getState().selectedItemIds).toContain(b.id)
+    useEditorStore.getState().selectItems([a.id, b.id])
+    useEditorStore.getState().toggleItemSelection(a.id, true)
+    expect(useEditorStore.getState().selectedItemIds).not.toContain(a.id)
+    expect(useEditorStore.getState().selectedItemIds).toContain(b.id)
   })
 
   it('replaces selection when addToSelection is false', () => {
     useSceneStore.getState().addItem(TEST_ITEM)
     useSceneStore.getState().addItem(TEST_ITEM)
     const [a, b] = useSceneStore.getState().items
-    useSceneStore.getState().selectItems([a.id])
-    useSceneStore.getState().toggleItemSelection(b.id, false)
-    expect(useSceneStore.getState().selectedItemIds).toEqual([b.id])
+    useEditorStore.getState().selectItems([a.id])
+    useEditorStore.getState().toggleItemSelection(b.id, false)
+    expect(useEditorStore.getState().selectedItemIds).toEqual([b.id])
   })
 
   it('does not set selectedItemId (PropertiesPanel stays closed)', () => {
     useSceneStore.getState().addItem(TEST_ITEM)
     const [a] = useSceneStore.getState().items
-    useSceneStore.getState().toggleItemSelection(a.id, false)
-    expect(useSceneStore.getState().selectedItemId).toBeNull()
+    useEditorStore.getState().toggleItemSelection(a.id, false)
+    expect(useEditorStore.getState().selectedItemId).toBeNull()
   })
 })
 
@@ -697,8 +696,6 @@ describe('drag session', () => {
     useSceneStore.setState({
       items,
       groups,
-      selectedItemId: null,
-      selectedItemIds: [],
       groupCounter: 0,
       history: [],
       future: [],
@@ -789,8 +786,8 @@ describe('editItem / closeEditing', () => {
   it('editItem sets editingItemId and selects the item single', () => {
     useSceneStore.getState().addItem(TEST_ITEM)
     const id = useSceneStore.getState().items[0].id
-    useSceneStore.getState().editItem(id)
-    const s = useSceneStore.getState()
+    useEditorStore.getState().editItem(id)
+    const s = useEditorStore.getState()
     expect(s.editingItemId).toBe(id)
     expect(s.selectedItemId).toBe(id)
     expect(s.selectedItemIds).toEqual([id])
@@ -799,9 +796,9 @@ describe('editItem / closeEditing', () => {
   it('closeEditing clears editingItemId but keeps selection', () => {
     useSceneStore.getState().addItem(TEST_ITEM)
     const id = useSceneStore.getState().items[0].id
-    useSceneStore.getState().editItem(id)
-    useSceneStore.getState().closeEditing()
-    const s = useSceneStore.getState()
+    useEditorStore.getState().editItem(id)
+    useEditorStore.getState().closeEditing()
+    const s = useEditorStore.getState()
     expect(s.editingItemId).toBeNull()
     expect(s.selectedItemId).toBe(id)
   })
@@ -809,71 +806,71 @@ describe('editItem / closeEditing', () => {
   it('selectItem does NOT open editing', () => {
     useSceneStore.getState().addItem(TEST_ITEM)
     const id = useSceneStore.getState().items[0].id
-    useSceneStore.getState().selectItem(id)
-    expect(useSceneStore.getState().editingItemId).toBeNull()
+    useEditorStore.getState().selectItem(id)
+    expect(useEditorStore.getState().editingItemId).toBeNull()
   })
 
   it('selectItems does NOT open editing', () => {
     useSceneStore.getState().addItem(TEST_ITEM)
     useSceneStore.getState().addItem(TEST_ITEM)
     const [a, b] = useSceneStore.getState().items
-    useSceneStore.getState().selectItems([a.id, b.id])
-    expect(useSceneStore.getState().editingItemId).toBeNull()
+    useEditorStore.getState().selectItems([a.id, b.id])
+    expect(useEditorStore.getState().editingItemId).toBeNull()
   })
 
   it('selectItem on a different item closes editing', () => {
     useSceneStore.getState().addItem(TEST_ITEM)
     useSceneStore.getState().addItem(TEST_ITEM)
     const [a, b] = useSceneStore.getState().items
-    useSceneStore.getState().editItem(a.id)
-    useSceneStore.getState().selectItem(b.id)
-    expect(useSceneStore.getState().editingItemId).toBeNull()
+    useEditorStore.getState().editItem(a.id)
+    useEditorStore.getState().selectItem(b.id)
+    expect(useEditorStore.getState().editingItemId).toBeNull()
   })
 
   it('selectItem on the same edited item keeps editing open', () => {
     useSceneStore.getState().addItem(TEST_ITEM)
     const id = useSceneStore.getState().items[0].id
-    useSceneStore.getState().editItem(id)
-    useSceneStore.getState().selectItem(id)
-    expect(useSceneStore.getState().editingItemId).toBe(id)
+    useEditorStore.getState().editItem(id)
+    useEditorStore.getState().selectItem(id)
+    expect(useEditorStore.getState().editingItemId).toBe(id)
   })
 
   it('selectItems closes an open editing panel', () => {
     useSceneStore.getState().addItem(TEST_ITEM)
     useSceneStore.getState().addItem(TEST_ITEM)
     const [a, b] = useSceneStore.getState().items
-    useSceneStore.getState().editItem(a.id)
-    useSceneStore.getState().selectItems([a.id, b.id])
-    expect(useSceneStore.getState().editingItemId).toBeNull()
+    useEditorStore.getState().editItem(a.id)
+    useEditorStore.getState().selectItems([a.id, b.id])
+    expect(useEditorStore.getState().editingItemId).toBeNull()
   })
 
   it('removeItem clears editingItemId when the edited item is removed', () => {
     useSceneStore.getState().addItem(TEST_ITEM)
     const id = useSceneStore.getState().items[0].id
-    useSceneStore.getState().editItem(id)
+    useEditorStore.getState().editItem(id)
     useSceneStore.getState().removeItem(id)
-    expect(useSceneStore.getState().editingItemId).toBeNull()
+    expect(useEditorStore.getState().editingItemId).toBeNull()
   })
 
   it('removeItem keeps editingItemId when a different item is removed', () => {
     useSceneStore.getState().addItem(TEST_ITEM)
     useSceneStore.getState().addItem(TEST_ITEM)
     const [a, b] = useSceneStore.getState().items
-    useSceneStore.getState().editItem(a.id)
+    useEditorStore.getState().editItem(a.id)
     useSceneStore.getState().removeItem(b.id)
-    expect(useSceneStore.getState().editingItemId).toBe(a.id)
+    expect(useEditorStore.getState().editingItemId).toBe(a.id)
   })
 
   it('removeGroup clears editingItemId when the edited item is in the group', () => {
     useSceneStore.getState().addItem(TEST_ITEM)
     useSceneStore.getState().addItem(TEST_ITEM)
     const [a, b] = useSceneStore.getState().items
-    useSceneStore.getState().selectItems([a.id, b.id])
+    useEditorStore.getState().selectItems([a.id, b.id])
     useSceneStore.getState().createGroup()
     const groupId = useSceneStore.getState().groups[0].id
-    useSceneStore.getState().editItem(a.id)
+    useEditorStore.getState().editItem(a.id)
     useSceneStore.getState().removeGroup(groupId)
-    expect(useSceneStore.getState().editingItemId).toBeNull()
+    expect(useEditorStore.getState().editingItemId).toBeNull()
   })
 })
 
@@ -897,7 +894,7 @@ describe('alignItems', () => {
     useSceneStore.getState().updateItem(b.id, { position: [200, 100, 0] })
     useSceneStore.getState().updateItem(c.id, { position: [-150, 100, 0] })
 
-    useSceneStore.getState().selectItems([a.id, b.id, c.id])
+    useEditorStore.getState().selectItems([a.id, b.id, c.id])
     useSceneStore.getState().alignItems('left')
 
     const updated = useSceneStore.getState().items
@@ -916,12 +913,12 @@ describe('alignItems', () => {
     const positionBefore = [...a.position]
 
     // 1 selected
-    useSceneStore.getState().selectItems([a.id])
+    useEditorStore.getState().selectItems([a.id])
     useSceneStore.getState().alignItems('left')
     expect(useSceneStore.getState().items[0].position).toEqual(positionBefore)
 
     // 0 selected
-    useSceneStore.getState().selectItems([])
+    useEditorStore.getState().selectItems([])
     useSceneStore.getState().alignItems('left')
     expect(useSceneStore.getState().items[0].position).toEqual(positionBefore)
   })
@@ -937,7 +934,7 @@ describe('alignItems', () => {
     const posA = [...useSceneStore.getState().items.find((i) => i.id === a.id)!.position]
     const posB = [...useSceneStore.getState().items.find((i) => i.id === b.id)!.position]
 
-    useSceneStore.getState().selectItems([a.id, b.id])
+    useEditorStore.getState().selectItems([a.id, b.id])
     useSceneStore.getState().alignItems('left')
 
     // After alignment positions changed
@@ -963,7 +960,7 @@ describe('alignItems', () => {
     useSceneStore.getState().updateItem(a.id, { position: [0, 100, 0] })
     useSceneStore.getState().updateItem(b.id, { position: [0, 100, 200] })
 
-    useSceneStore.getState().selectItems([a.id, b.id])
+    useEditorStore.getState().selectItems([a.id, b.id])
     useSceneStore.getState().alignItems('back')
 
     const updated = useSceneStore.getState().items
@@ -981,7 +978,7 @@ describe('alignItems', () => {
     const [a, b] = useSceneStore.getState().items
     useSceneStore.getState().updateItem(a.id, { position: [0, 100, 0] })
     useSceneStore.getState().updateItem(b.id, { position: [200, 100, 0] })
-    useSceneStore.getState().selectItems([a.id, b.id])
+    useEditorStore.getState().selectItems([a.id, b.id])
     useSceneStore.getState().alignItems('right')
     const items = useSceneStore.getState().items
     const ga = items.find((i) => i.id === a.id)!
@@ -997,7 +994,7 @@ describe('alignItems', () => {
     const [a, b] = useSceneStore.getState().items
     useSceneStore.getState().updateItem(a.id, { position: [0, 100, 0] })
     useSceneStore.getState().updateItem(b.id, { position: [200, 100, 0] })
-    useSceneStore.getState().selectItems([a.id, b.id])
+    useEditorStore.getState().selectItems([a.id, b.id])
     useSceneStore.getState().alignItems('centerX')
     const items = useSceneStore.getState().items
     const ga = items.find((i) => i.id === a.id)!
@@ -1021,7 +1018,7 @@ describe('alignItems', () => {
     // A at x=0 (w=100), B at x=300 (w=40)
     useSceneStore.getState().updateItem(a.id, { position: [0, 100, 0] })
     useSceneStore.getState().updateItem(b.id, { position: [300, 100, 0] })
-    useSceneStore.getState().selectItems([a.id, b.id])
+    useEditorStore.getState().selectItems([a.id, b.id])
     useSceneStore.getState().alignItems('centerX')
     const items = useSceneStore.getState().items
     const ga = items.find((i) => i.id === a.id)!
@@ -1037,7 +1034,7 @@ describe('alignItems', () => {
     const [a, b] = useSceneStore.getState().items
     useSceneStore.getState().updateItem(a.id, { position: [0, 100, 0] })
     useSceneStore.getState().updateItem(b.id, { position: [0, 300, 0] })
-    useSceneStore.getState().selectItems([a.id, b.id])
+    useEditorStore.getState().selectItems([a.id, b.id])
     useSceneStore.getState().alignItems('top')
     const items = useSceneStore.getState().items
     const ga = items.find((i) => i.id === a.id)!
@@ -1053,7 +1050,7 @@ describe('alignItems', () => {
     const [a, b] = useSceneStore.getState().items
     useSceneStore.getState().updateItem(a.id, { position: [0, 100, 0] })
     useSceneStore.getState().updateItem(b.id, { position: [0, 300, 0] })
-    useSceneStore.getState().selectItems([a.id, b.id])
+    useEditorStore.getState().selectItems([a.id, b.id])
     useSceneStore.getState().alignItems('bottom')
     const items = useSceneStore.getState().items
     const ga = items.find((i) => i.id === a.id)!
@@ -1069,7 +1066,7 @@ describe('alignItems', () => {
     const [a, b] = useSceneStore.getState().items
     useSceneStore.getState().updateItem(a.id, { position: [0, 100, 0] })
     useSceneStore.getState().updateItem(b.id, { position: [0, 300, 0] })
-    useSceneStore.getState().selectItems([a.id, b.id])
+    useEditorStore.getState().selectItems([a.id, b.id])
     useSceneStore.getState().alignItems('centerY')
     const items = useSceneStore.getState().items
     const ga = items.find((i) => i.id === a.id)!
@@ -1085,7 +1082,7 @@ describe('alignItems', () => {
     const [a, b] = useSceneStore.getState().items
     useSceneStore.getState().updateItem(a.id, { position: [0, 100, 0] })
     useSceneStore.getState().updateItem(b.id, { position: [0, 100, 200] })
-    useSceneStore.getState().selectItems([a.id, b.id])
+    useEditorStore.getState().selectItems([a.id, b.id])
     useSceneStore.getState().alignItems('front')
     const items = useSceneStore.getState().items
     const ga = items.find((i) => i.id === a.id)!
@@ -1101,7 +1098,7 @@ describe('alignItems', () => {
     const [a, b] = useSceneStore.getState().items
     useSceneStore.getState().updateItem(a.id, { position: [0, 100, 0] })
     useSceneStore.getState().updateItem(b.id, { position: [0, 100, 200] })
-    useSceneStore.getState().selectItems([a.id, b.id])
+    useEditorStore.getState().selectItems([a.id, b.id])
     useSceneStore.getState().alignItems('centerZ')
     const items = useSceneStore.getState().items
     const ga = items.find((i) => i.id === a.id)!
@@ -1134,7 +1131,7 @@ describe('toggleItemVisibility / toggleGroupVisibility', () => {
     useSceneStore.getState().addItem(TEST_ITEM)
     useSceneStore.getState().addItem(TEST_ITEM)
     const [a, b] = useSceneStore.getState().items
-    useSceneStore.getState().selectItems([a.id, b.id])
+    useEditorStore.getState().selectItems([a.id, b.id])
     useSceneStore.getState().createGroup()
     const groupId = useSceneStore.getState().groups[0].id
     expect(useSceneStore.getState().groups[0].hidden).toBeFalsy()
@@ -1148,7 +1145,7 @@ describe('toggleItemVisibility / toggleGroupVisibility', () => {
     useSceneStore.getState().addItem(TEST_ITEM)
     useSceneStore.getState().addItem(TEST_ITEM)
     const [a, b] = useSceneStore.getState().items
-    useSceneStore.getState().selectItems([a.id, b.id])
+    useEditorStore.getState().selectItems([a.id, b.id])
     useSceneStore.getState().createGroup()
     const groupId = useSceneStore.getState().groups[0].id
     useSceneStore.getState().toggleGroupVisibility(groupId)
@@ -1161,7 +1158,7 @@ describe('toggleItemVisibility / toggleGroupVisibility', () => {
     useSceneStore.getState().addItem(TEST_ITEM)
     useSceneStore.getState().addItem(TEST_ITEM)
     const [a, b] = useSceneStore.getState().items
-    useSceneStore.getState().selectItems([a.id, b.id])
+    useEditorStore.getState().selectItems([a.id, b.id])
     useSceneStore.getState().createGroup()
     const historyBefore = useSceneStore.getState().history.length
     const groupId = useSceneStore.getState().groups[0].id
@@ -1192,7 +1189,7 @@ describe('toggleItemLocked / toggleGroupLocked', () => {
     useSceneStore.getState().addItem(TEST_ITEM)
     useSceneStore.getState().addItem(TEST_ITEM)
     const [a, b] = useSceneStore.getState().items
-    useSceneStore.getState().selectItems([a.id, b.id])
+    useEditorStore.getState().selectItems([a.id, b.id])
     useSceneStore.getState().createGroup()
     const groupId = useSceneStore.getState().groups[0].id
     expect(useSceneStore.getState().groups[0].locked).toBeFalsy()
@@ -1206,7 +1203,7 @@ describe('toggleItemLocked / toggleGroupLocked', () => {
     useSceneStore.getState().addItem(TEST_ITEM)
     useSceneStore.getState().addItem(TEST_ITEM)
     const [a, b] = useSceneStore.getState().items
-    useSceneStore.getState().selectItems([a.id, b.id])
+    useEditorStore.getState().selectItems([a.id, b.id])
     useSceneStore.getState().createGroup()
     const groupId = useSceneStore.getState().groups[0].id
     useSceneStore.getState().toggleGroupLocked(groupId)
@@ -1219,7 +1216,7 @@ describe('toggleItemLocked / toggleGroupLocked', () => {
     useSceneStore.getState().addItem(TEST_ITEM)
     useSceneStore.getState().addItem(TEST_ITEM)
     const [a, b] = useSceneStore.getState().items
-    useSceneStore.getState().selectItems([a.id, b.id])
+    useEditorStore.getState().selectItems([a.id, b.id])
     useSceneStore.getState().createGroup()
     const historyBefore = useSceneStore.getState().history.length
     const groupId = useSceneStore.getState().groups[0].id
@@ -1246,8 +1243,6 @@ describe('resize session', () => {
     useSceneStore.setState({
       items: [item],
       groups: [],
-      selectedItemId: null,
-      selectedItemIds: [],
       groupCounter: 0,
       history: [],
       future: [],
@@ -1348,12 +1343,10 @@ describe('resetScene', () => {
     useSceneStore.setState({
       items: [makeResetItem('a')],
       groups: [],
-      selectedItemId: 'a',
-      selectedItemIds: ['a'],
-      editingItemId: 'a',
     })
+    useEditorStore.setState({ selectedItemId: 'a', selectedItemIds: ['a'], editingItemId: 'a' })
     useSceneStore.getState().resetScene()
-    const s = useSceneStore.getState()
+    const s = useEditorStore.getState()
     expect(s.selectedItemId).toBeNull()
     expect(s.selectedItemIds).toHaveLength(0)
     expect(s.editingItemId).toBeNull()

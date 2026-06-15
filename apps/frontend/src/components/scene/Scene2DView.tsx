@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { SceneItem } from '@/types'
-import { useSceneStore } from '@/store'
+import { useSceneStore, useEditorStore } from '@/store'
 import { SCENE_CONFIG } from '@/config/scene'
 import { worldToRoomX, worldToRoomZ } from '@/utils/roomCoords'
 
@@ -377,8 +377,8 @@ function VerticalRuler({
 export function Scene2DView() {
   const items = useSceneStore((s) => s.items)
   const groups = useSceneStore((s) => s.groups)
-  const selectedItemIds = useSceneStore((s) => s.selectedItemIds)
-  const selectItem = useSceneStore((s) => s.selectItem)
+  const selectedItemIds = useEditorStore((s) => s.selectedItemIds)
+  const selectItem = useEditorStore((s) => s.selectItem)
 
   const [scale, setScale] = useState(0)
   const [offset, setOffset] = useState({ x: 0, y: 0 })

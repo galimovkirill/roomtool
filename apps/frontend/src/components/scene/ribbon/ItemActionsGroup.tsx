@@ -1,11 +1,11 @@
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { useSceneStore } from '@/store'
+import { useSceneStore, useEditorStore } from '@/store'
 
 const btnCls =
   'p-1.5 rounded transition-colors text-gray-600 disabled:opacity-40 disabled:cursor-not-allowed enabled:hover:bg-gray-100'
 
 export function ItemActionsGroup() {
-  const selectedItemIds = useSceneStore((s) => s.selectedItemIds)
+  const selectedItemIds = useEditorStore((s) => s.selectedItemIds)
   const rotateItem = useSceneStore((s) => s.rotateItem)
   const removeItem = useSceneStore((s) => s.removeItem)
 
