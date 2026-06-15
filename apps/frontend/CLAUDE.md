@@ -19,7 +19,7 @@
 | `src/store/syncStore.ts` | SyncStatus ('idle'/'syncing'/'error'), sceneId, sceneName |
 | `src/api/syncService.ts` | initScene(sceneId) → 'ok'/'not_found', scheduleSync (debounce 1500ms), syncNow (немедленно); подписывается на sceneStore |
 | `src/catalog/items.ts` | Каталог (~19 деталей, 6 категорий) |
-| `src/catalog/materials.ts` | MATERIAL_OPTIONS, MATERIAL_COLORS (материал → цвета) |
+| `src/catalog/materials.ts` | MATERIAL_OPTIONS, MATERIAL_COLORS (материал → цвета), MATERIAL_PBR (roughness/metalness per type) |
 | `src/components/scene/SceneCanvas.tsx` | R3F Canvas (3D) + монтирует Scene2DView в 2D |
 | `src/components/scene/Scene2DView.tsx` | SVG-план (2D): pan/zoom, сетка, линейки, размерные выноски |
 | `src/components/scene/SceneElement.tsx` | Один элемент: mesh/GLTF + drag через useMeshDrag |

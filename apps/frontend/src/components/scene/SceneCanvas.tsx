@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { Canvas } from '@react-three/fiber'
-import { PerspectiveCamera } from '@react-three/drei'
+import { Environment, PerspectiveCamera } from '@react-three/drei'
 import { SCENE_CONFIG } from '@/config/scene'
 import { useSceneStore, useEditorStore, useUIStore } from '@/store'
 import { getAllItemIdsInGroup } from '@/utils/layerTree'
@@ -111,13 +111,14 @@ export function SceneCanvas() {
               near={near}
               far={far}
             />
+            <Environment preset="apartment" background={false} environmentIntensity={0.45} />
             <ambientLight intensity={showCeilingLight ? 0.8 : 1} />
             {showCeilingLight && (
               <pointLight
                 position={[0, SCENE_CONFIG.room.height, 0]}
                 intensity={CEILING_LIGHT_LUMENS}
                 castShadow
-                shadow-mapSize={[1024, 1024]}
+                shadow-mapSize={[2048, 2048]}
                 shadow-camera-near={SHADOW_NEAR_DISTANCE}
                 shadow-camera-far={SHADOW_MAX_DISTANCE}
               />

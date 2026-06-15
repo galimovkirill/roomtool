@@ -9,19 +9,19 @@ export function Room() {
       {/* Пол */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
         <planeGeometry args={[width, depth]} />
-        <meshStandardMaterial color="#c8b89a" side={THREE.DoubleSide} />
+        <meshStandardMaterial color="#d4c4a8" roughness={0.65} side={THREE.DoubleSide} />
       </mesh>
 
       {/* Задняя стена */}
       <mesh position={[0, height / 2, -depth / 2]} receiveShadow>
         <planeGeometry args={[width, height]} />
-        <meshStandardMaterial color="#8a8a8a" />
+        <meshStandardMaterial color="#f0eee8" roughness={0.9} />
       </mesh>
 
       {/* Левая стена */}
       <mesh rotation={[0, Math.PI / 2, 0]} position={[-width / 2, height / 2, 0]} receiveShadow>
         <planeGeometry args={[depth, height]} />
-        <meshStandardMaterial color="#767676" />
+        <meshStandardMaterial color="#ebe9e3" roughness={0.9} />
       </mesh>
     </>
   )

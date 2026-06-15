@@ -1,6 +1,15 @@
 export const MATERIAL_OPTIONS = ['ЛДСП', 'МДФ', 'Массив', 'ДВП', 'Стекло', 'Металл'] as const
 export type MaterialType = (typeof MATERIAL_OPTIONS)[number]
 
+export const MATERIAL_PBR: Record<MaterialType, { roughness: number; metalness: number }> = {
+  ЛДСП: { roughness: 0.7, metalness: 0.0 },
+  МДФ: { roughness: 0.65, metalness: 0.0 },
+  Массив: { roughness: 0.8, metalness: 0.0 },
+  ДВП: { roughness: 0.85, metalness: 0.0 },
+  Стекло: { roughness: 0.05, metalness: 0.1 },
+  Металл: { roughness: 0.15, metalness: 0.9 },
+}
+
 export function getDefaultColorForMaterial(material: string): string {
   return MATERIAL_COLORS[material as MaterialType]?.[0]?.value ?? '#F5F5F0'
 }

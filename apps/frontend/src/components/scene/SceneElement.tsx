@@ -5,6 +5,7 @@ import type { ThreeEvent } from '@react-three/fiber'
 import type { SceneItem } from '@/types'
 import { useEditorStore } from '@/store'
 import { getCatalogItemById } from '@/catalog/items'
+import { MATERIAL_PBR, type MaterialType } from '@/catalog/materials'
 import { useMeshDrag } from './useMeshDrag'
 
 const DEFAULT_COLOR = '#cccccc'
@@ -55,7 +56,12 @@ export function SceneElement({ item, locked }: Props) {
 
   const propColor = item.properties?.color as string | undefined
   const color = propColor?.startsWith('#') ? propColor : DEFAULT_COLOR
-  const isGlass = item.properties?.material === 'Стекло'
+  const materialType = item.properties?.material as string | undefined
+  const isGlass = materialType === 'Стекло'
+  const pbr =
+    (materialType && materialType in MATERIAL_PBR
+      ? MATERIAL_PBR[materialType as MaterialType]
+      : undefined) ?? MATERIAL_PBR['ЛДСП']
   const catalogItem = getCatalogItemById(item.catalogId)
 
   useEffect(
@@ -117,6 +123,8 @@ export function SceneElement({ item, locked }: Props) {
           />
           <meshStandardMaterial
             color={color}
+            roughness={pbr.roughness}
+            metalness={pbr.metalness}
             opacity={isGlass ? (hovered ? 0.3 : 0.4) : hovered ? 0.85 : 1}
             transparent={isGlass || hovered}
           />
