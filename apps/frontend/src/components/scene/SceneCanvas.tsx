@@ -58,6 +58,12 @@ export function SceneCanvas() {
   const selectedItemIds = useEditorStore((s) => s.selectedItemIds)
   const selectItem = useEditorStore((s) => s.selectItem)
 
+  const selectedItems = useMemo(() => {
+    if (selectedItemIds.length === 0) return []
+    const idSet = new Set(selectedItemIds)
+    return items.filter((i) => idSet.has(i.id))
+  }, [items, selectedItemIds])
+
   const activeGroupId = useMemo(() => {
     if (selectedItemIds.length < 2) return null
     const selectedSet = new Set(selectedItemIds)
@@ -68,15 +74,8 @@ export function SceneCanvas() {
     return group?.id ?? null
   }, [selectedItemIds, groups, items])
 
-  const allSelectedVisible = selectedItemIds.every((id) => {
-    const item = items.find((i) => i.id === id)
-    return item ? isItemVisibleInHierarchy(item, groups) : false
-  })
-
-  const allSelectedNotLocked = selectedItemIds.every((id) => {
-    const item = items.find((i) => i.id === id)
-    return item ? !isItemEffectivelyLocked(item, groups) : true
-  })
+  const allSelectedVisible = selectedItems.every((item) => isItemVisibleInHierarchy(item, groups))
+  const allSelectedNotLocked = selectedItems.every((item) => !isItemEffectivelyLocked(item, groups))
 
   // Show the gizmo for a single element or a fully-selected group. An arbitrary
   // multi-selection that is not a saved group cannot be moved (no gizmo).
@@ -87,9 +86,7 @@ export function SceneCanvas() {
 
   // Show resize handles for a single visible non-GLTF unlocked selection only
   const singleSelectedItem =
-    selectedItemIds.length === 1 && allSelectedVisible
-      ? items.find((i) => i.id === selectedItemIds[0])
-      : undefined
+    selectedItemIds.length === 1 && allSelectedVisible ? selectedItems[0] : undefined
   const showResizeHandles =
     singleSelectedItem !== undefined &&
     !getCatalogItemById(singleSelectedItem.catalogId)?.render &&
