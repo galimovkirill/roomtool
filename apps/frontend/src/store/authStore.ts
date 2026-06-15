@@ -2,8 +2,6 @@ import { create } from 'zustand'
 import { apiClient } from '@/api/client'
 import type { components } from '@/api/client'
 import { cancelSync } from '@/api/syncService'
-import { useSceneStore } from './sceneStore'
-import { useSyncStore } from './syncStore'
 
 type User = components['schemas']['User']
 
@@ -72,8 +70,6 @@ export const useAuthStore = create<AuthState>((set) => ({
     } catch {
       // ignore network errors on logout
     }
-    useSceneStore.getState().resetScene()
-    useSyncStore.getState().clearSceneId()
     set({ user: null, status: 'unauthenticated' })
   },
 }))
