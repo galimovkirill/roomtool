@@ -76,7 +76,7 @@ export function RotationHandle({ item }: { item: SceneItem }) {
   // Handle sphere in the rotated local +Z direction of the element
   const handleX = cx + Math.sin(item.rotationY) * handleRadius
   const handleZ = cz + Math.cos(item.rotationY) * handleRadius
-  const handleY = item.position[1] + 60
+  const handleY = cy + 30
 
   const onPointerDown = useCallback(
     (e: ThreeEvent<PointerEvent>) => {
